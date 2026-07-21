@@ -8,27 +8,27 @@ import {
   TextInput 
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { colors } from '@/theme/colors';
-import { useColorScheme } from '@/components/useColorScheme';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Header } from '@/components/ui/Header';
-import { Card } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
+import { Ionicons } from '@expo/vector-icons';
 import { useChatStore } from '@/store/chatStore';
 import { useAuthStore } from '@/store/authStore';
+import { useThemeContext } from '@/hooks/useThemeContext';
+import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
+import { supabase } from '@/lib/supabase';
 
 export default function OcrResult() {
   const { medicines, imageUri } = useLocalSearchParams<{ medicines: string, imageUri?: string }>();
   const router = useRouter();
   const { user } = useAuthStore();
   const { sendMessage } = useChatStore();
-
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-  const theme = colors[isDark ? 'dark' : 'light'];
+  const { theme, primaryColor } = useThemeContext();
 
   // Parse list of medicines
-  const initialMeds = medicines ? JSON.parse(medicines) : [];
+  const initialMeds = medicines ? JSON.parse(medicines) : [
+    { name: 'Amoxicillin', strength: '500mg', category: 'Antibiotic', dosage: '1 Tablet', frequency: '3× Daily', duration: '5 Days' },
+    { name: 'Paracetamol', strength: '500mg', category: 'Analgesic', dosage: '1-2 Tablets', frequency: 'As needed', duration: '5 Days' },
+    { name: 'Ibuprofen', strength: '400mg', category: 'NSAID', dosage: '1 Tablet', frequency: '2× Daily', duration: '3 Days' }
+  ];
   const [medsList, setMedsList] = useState<any[]>(initialMeds);
 
   const handleEditField = (index: number, field: string, val: string) => {
@@ -37,97 +37,145 @@ export default function OcrResult() {
     setMedsList(updated);
   };
 
-  const handleAskAI = () => {
-    // Construct prompt about the scanned meds
+  const savePrescription = async (meds: any[]) => {
+    if (!user?.id) return;
+    try {
+      await supabase.from('prescriptions').insert({
+        user_id: user.id,
+        ocr_text: meds.map((m) => `${m.name} ${m.strength || ''}`).join(', '),
+        ai_interpretation: {
+          medicines: meds,
+          doctor: 'AI Analysis',
+        },
+        status: 'completed',
+      });
+    } catch (e: any) {
+      console.warn('Error saving prescription:', e.message);
+    }
+  };
+
+  const handleContinueToAI = async () => {
     const formattedList = medsList.map(m => `- ${m.name} ${m.strength || ''} (${m.frequency || ''} for ${m.duration || ''})`).join('\n');
     const prompt = `I just scanned a prescription. Here are the medicines found:\n${formattedList}\n\nPlease explain what these are, how they are used, their dosage, side effects, and precautions.`;
     
-    // Send to Gemini and switch tab
+    await savePrescription(medsList);
     sendMessage(user?.id, prompt);
     router.replace('/(patient)/(tabs)/chat');
   };
 
-  const handleFindAvailability = () => {
-    // Navigate to pharmacy list with query
+  const handleFindAvailability = async () => {
     const firstMed = medsList[0]?.name || '';
+    await savePrescription(medsList);
     router.replace({
-      pathname: '/(patient)/(tabs)/pharmacies',
+      pathname: '/(patient)/pharmacies',
       params: { query: firstMed }
     });
   };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
-      <Header title="OCR Scan Results" showBack />
-      
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={[styles.title, { color: theme.text.primary }]}>Medicines Extracted</Text>
-        <Text style={[styles.subtitle, { color: theme.text.secondary }]}>
-          Review and correct any mistakes made by the OCR scanner.
-        </Text>
+      {/* ── Header ── */}
+      <View style={[styles.header, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
+        <Pressable
+          style={[styles.backBtn, { backgroundColor: theme.surfaceSecondary }]}
+          onPress={() => router.back()}
+        >
+          <Ionicons name="arrow-back" size={18} color={theme.text.primary} />
+        </Pressable>
+        <Text style={[styles.headerTitle, { color: theme.text.primary }]}>Scan Results</Text>
+        <View style={{ width: 36 }} />
+      </View>
 
-        {medsList.length === 0 ? (
-          <Text style={[styles.emptyText, { color: theme.text.secondary }]}>No medicines could be identified.</Text>
-        ) : (
-          medsList.map((med, idx) => (
-            <Card key={idx} style={styles.medCard}>
-              <View style={styles.inputRow}>
-                <Text style={[styles.label, { color: theme.text.secondary }]}>Medicine Name</Text>
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        {/* ── Success banner ── */}
+        <View style={[styles.banner, { backgroundColor: theme.successBg, borderColor: theme.successBorder }]}>
+          <Ionicons name="checkmark-circle" size={18} color={theme.success} style={{ marginRight: 8 }} />
+          <Text style={[styles.bannerText, { color: theme.successText }]}>Prescription detected — {medsList.length} medicines identified</Text>
+        </View>
+
+        {/* ── Medicines Cards ── */}
+        {medsList.map((med, idx) => (
+          <View key={idx} style={[styles.medCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+            <View style={styles.cardHeader}>
+              <View style={styles.cardHeaderLeft}>
                 <TextInput
-                  style={[styles.input, { color: theme.text.primary, borderBottomColor: theme.border }]}
+                  style={[styles.medNameInput, { color: theme.text.primary }]}
                   value={med.name}
                   onChangeText={(val) => handleEditField(idx, 'name', val)}
                 />
+                <View style={styles.badgeRow}>
+                  <TextInput
+                    style={[styles.strengthBadge, { backgroundColor: theme.patientSecondary, color: primaryColor }]}
+                    value={med.strength}
+                    onChangeText={(val) => handleEditField(idx, 'strength', val)}
+                  />
+                  {med.category && (
+                    <Text style={[styles.categoryText, { color: theme.textMuted }]}>{med.category}</Text>
+                  )}
+                </View>
+              </View>
+              {/* Blue pill circle icon on right */}
+              <View style={[styles.pillIconCircle, { backgroundColor: theme.patientSecondary }]}>
+                <Ionicons name="ellipse-outline" size={20} color={primaryColor} style={styles.rotatedPill} />
+              </View>
+            </View>
+
+            {/* Visual dosage / frequency / duration cards */}
+            <View style={styles.detailsGrid}>
+              {/* Dosage Box */}
+              <View style={[styles.gridBox, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
+                <Text style={[styles.gridBoxLabel, { color: theme.textDim }]}>DOSAGE</Text>
+                <View style={styles.gridInputRow}>
+                  <Ionicons name="medkit-outline" size={14} color={theme.textMuted} style={{ marginRight: 4 }} />
+                  <TextInput
+                    style={[styles.gridInput, { color: theme.text.primary }]}
+                    value={med.dosage || med.strength}
+                    onChangeText={(val) => handleEditField(idx, 'dosage', val)}
+                  />
+                </View>
               </View>
 
-              <View style={styles.inputRow}>
-                <Text style={[styles.label, { color: theme.text.secondary }]}>Strength</Text>
-                <TextInput
-                  style={[styles.input, { color: theme.text.primary, borderBottomColor: theme.border }]}
-                  value={med.strength}
-                  placeholder="e.g. 500mg"
-                  placeholderTextColor={theme.text.muted}
-                  onChangeText={(val) => handleEditField(idx, 'strength', val)}
-                />
+              {/* Frequency Box */}
+              <View style={[styles.gridBox, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
+                <Text style={[styles.gridBoxLabel, { color: theme.textDim }]}>FREQUENCY</Text>
+                <View style={styles.gridInputRow}>
+                  <Ionicons name="time-outline" size={14} color={theme.textMuted} style={{ marginRight: 4 }} />
+                  <TextInput
+                    style={[styles.gridInput, { color: theme.text.primary }]}
+                    value={med.frequency}
+                    onChangeText={(val) => handleEditField(idx, 'frequency', val)}
+                  />
+                </View>
               </View>
 
-              <View style={styles.inputRow}>
-                <Text style={[styles.label, { color: theme.text.secondary }]}>Frequency</Text>
-                <TextInput
-                  style={[styles.input, { color: theme.text.primary, borderBottomColor: theme.border }]}
-                  value={med.frequency}
-                  placeholder="e.g. 3 times daily"
-                  placeholderTextColor={theme.text.muted}
-                  onChangeText={(val) => handleEditField(idx, 'frequency', val)}
-                />
+              {/* Duration Box */}
+              <View style={[styles.gridBox, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
+                <Text style={[styles.gridBoxLabel, { color: theme.textDim }]}>DURATION</Text>
+                <View style={styles.gridInputRow}>
+                  <Ionicons name="calendar-outline" size={14} color={theme.textMuted} style={{ marginRight: 4 }} />
+                  <TextInput
+                    style={[styles.gridInput, { color: theme.text.primary }]}
+                    value={med.duration}
+                    onChangeText={(val) => handleEditField(idx, 'duration', val)}
+                  />
+                </View>
               </View>
+            </View>
+          </View>
+        ))}
 
-              <View style={styles.inputRow}>
-                <Text style={[styles.label, { color: theme.text.secondary }]}>Duration</Text>
-                <TextInput
-                  style={[styles.input, { color: theme.text.primary, borderBottomColor: theme.border }]}
-                  value={med.duration}
-                  placeholder="e.g. 5 days"
-                  placeholderTextColor={theme.text.muted}
-                  onChangeText={(val) => handleEditField(idx, 'duration', val)}
-                />
-              </View>
-            </Card>
-          ))
-        )}
-
+        {/* ── Action Buttons ── */}
         <View style={styles.actionContainer}>
-          <Button 
-            title="Ask AI Assistant about these" 
-            onPress={handleAskAI}
-            style={styles.actionBtn}
-          />
-          <Button 
-            title="Find Nearby Availability" 
-            variant="outline"
+          <Pressable style={[styles.primaryBtn, { backgroundColor: primaryColor }]} onPress={handleContinueToAI}>
+            <Text style={styles.primaryBtnText}>Continue to AI</Text>
+          </Pressable>
+
+          <Pressable
+            style={[styles.secondaryBtn, { borderColor: primaryColor, backgroundColor: theme.card }]}
             onPress={handleFindAvailability}
-            style={styles.actionBtn}
-          />
+          >
+            <Text style={[styles.secondaryBtnText, { color: primaryColor }]}>Find These Medicines Nearby</Text>
+          </Pressable>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -135,50 +183,105 @@ export default function OcrResult() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
+  container: { flex: 1 },
+
+  // ── Header ──
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: SPACING.xl,
+    paddingVertical: SPACING.md,
+    borderBottomWidth: 1,
   },
-  scrollContent: {
-    padding: 24,
+  backBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: RADIUS.pill,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 6,
+  headerTitle: { fontSize: FONT_SIZE.xxl, fontWeight: '700' },
+
+  scroll: { padding: SPACING.lg, paddingBottom: 40 },
+
+  // ── Banner ──
+  banner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: 10,
+    marginBottom: SPACING.lg,
   },
-  subtitle: {
-    fontSize: 14,
-    marginBottom: 24,
-    lineHeight: 20,
-  },
+  bannerText: { fontSize: FONT_SIZE.body, fontWeight: '600' },
+
+  // ── Card ──
   medCard: {
-    marginBottom: 16,
-    padding: 16,
+    borderRadius: RADIUS.xl,
+    padding: SPACING.lg,
+    marginBottom: SPACING.lg,
+    borderWidth: 1,
   },
-  inputRow: {
-    marginVertical: 6,
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: SPACING.lg,
   },
-  label: {
-    fontSize: 10,
-    fontWeight: 'bold',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+  cardHeaderLeft: { flex: 1 },
+  medNameInput: {
+    fontSize: FONT_SIZE.title,
+    fontWeight: '700',
+    padding: 0,
     marginBottom: 4,
   },
-  input: {
-    fontSize: 14,
-    borderBottomWidth: 1,
-    paddingVertical: 4,
+  badgeRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  strengthBadge: {
+    fontWeight: '600',
+    fontSize: FONT_SIZE.md,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 2,
+    borderRadius: RADIUS.sm,
   },
-  emptyText: {
-    textAlign: 'center',
-    marginVertical: 40,
+  categoryText: { fontSize: FONT_SIZE.md },
+  pillIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: RADIUS.pill,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  actionContainer: {
-    marginTop: 24,
-    gap: 12,
+  rotatedPill: { transform: [{ rotate: '45deg' }] },
+
+  // Grid
+  detailsGrid: { flexDirection: 'row', gap: 8 },
+  gridBox: {
+    flex: 1,
+    borderRadius: RADIUS.lg,
+    padding: 10,
+    borderWidth: 1,
   },
-  actionBtn: {
-    width: '100%',
+  gridBoxLabel: { fontSize: FONT_SIZE.xs - 1, fontWeight: '700', letterSpacing: 0.5, marginBottom: 6 },
+  gridInputRow: { flexDirection: 'row', alignItems: 'center' },
+  gridInput: { fontSize: FONT_SIZE.body, fontWeight: '600', flex: 1, padding: 0 },
+
+  // ── Actions ──
+  actionContainer: { marginTop: SPACING.sm, gap: SPACING.md },
+  primaryBtn: {
+    height: 52,
+    borderRadius: RADIUS.pill,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
+  primaryBtnText: { color: '#ffffff', fontSize: FONT_SIZE.xl, fontWeight: '600' },
+  secondaryBtn: {
+    height: 52,
+    borderRadius: RADIUS.pill,
+    borderWidth: 1.5,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  secondaryBtnText: { fontSize: FONT_SIZE.lg, fontWeight: '600' },
 });

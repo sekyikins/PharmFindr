@@ -10,7 +10,6 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { colors } from '@/theme/colors';
-import { useColorScheme } from '@/components/useColorScheme';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Header } from '@/components/ui/Header';
 import { Card } from '@/components/ui/Card';
@@ -21,9 +20,7 @@ import { supabase } from '@/lib/supabase';
 export default function PharmacyReservationDetails() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-  const theme = colors[isDark ? 'dark' : 'light'];
+  const theme = colors.light;
 
   const [reservation, setReservation] = useState<any>(null);
   const [patient, setPatient] = useState<any>(null);
@@ -101,7 +98,9 @@ export default function PharmacyReservationDetails() {
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
       <Header title="Reservation Request" showBack />
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        showsHorizontalScrollIndicator={false}>
         {/* Status Card */}
         <Card style={styles.card}>
           <Text style={[styles.label, { color: theme.text.secondary }]}>Current Status</Text>

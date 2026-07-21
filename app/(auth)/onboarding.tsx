@@ -34,9 +34,7 @@ const slides = [
 export default function Onboarding() {
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const router = useRouter();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-  const theme = colors[isDark ? 'dark' : 'light'];
+  const theme = colors.light;
 
   const handleNext = () => {
     if (currentSlideIndex < slides.length - 1) {
@@ -53,7 +51,7 @@ export default function Onboarding() {
   const currentSlide = slides[currentSlideIndex];
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: isDark ? theme.background : currentSlide.bgColorLight }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: currentSlide.bgColorLight }]}>
       {/* Header */}
       <View style={styles.header}>
         <View />
@@ -65,7 +63,7 @@ export default function Onboarding() {
       {/* Slide Content */}
       <View style={styles.slideContent}>
         {/* Mock Graphic Container matching Figma */}
-        <View style={[styles.graphicContainer, { backgroundColor: isDark ? theme.surface : '#ffffff' }]}>
+        <View style={[styles.graphicContainer, { backgroundColor: '#ffffff' }]}>
           <Text style={styles.graphicEmoji}>{currentSlide.icon}</Text>
         </View>
 
@@ -90,7 +88,7 @@ export default function Onboarding() {
                 {
                   backgroundColor: index === currentSlideIndex 
                     ? theme.patient.primary 
-                    : (isDark ? theme.surfaceSecondary : '#cad5e2'),
+                    : '#cad5e2',
                   width: index === currentSlideIndex ? 24 : 8,
                 }
               ]}

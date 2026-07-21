@@ -5,13 +5,10 @@ import {
   View, 
   ScrollView, 
   Pressable, 
-  ActivityIndicator,
-  FlatList
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '@/store/authStore';
-import { colors } from '@/theme/colors';
-import { useColorScheme } from '@/components/useColorScheme';
+import { useThemeContext } from '@/hooks/useThemeContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Header } from '@/components/ui/Header';
@@ -21,14 +18,12 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import * as XLSX from 'xlsx';
 import { supabase } from '@/lib/supabase';
+import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
 
 export default function UploadInventory() {
   const router = useRouter();
   const { user } = useAuthStore();
-  
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-  const theme = colors[isDark ? 'dark' : 'light'];
+  const { theme, primaryColor } = useThemeContext();
 
   const [loading, setLoading] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
@@ -143,9 +138,11 @@ export default function UploadInventory() {
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
       <Header title="CSV / Excel Import" showBack />
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Card style={styles.pickerCard}>
-          <Ionicons name="cloud-upload-outline" size={48} color={theme.pharmacy.primary} />
+      <ScrollView contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        showsHorizontalScrollIndicator={false}>
+        <Card style={[styles.pickerCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+          <Ionicons name="cloud-upload-outline" size={48} color={primaryColor} />
           <Text style={[styles.pickerTitle, { color: theme.text.primary }]}>Upload Inventory File</Text>
           <Text style={[styles.pickerDesc, { color: theme.text.secondary }]}>
             Supports CSV, XLS, and XLSX files. The file should have columns matching Name, Price, and Quantity.
@@ -159,14 +156,14 @@ export default function UploadInventory() {
           />
 
           {fileName && (
-            <Text style={[styles.fileName, { color: theme.pharmacy.primary }]}>
+            <Text style={[styles.fileName, { color: primaryColor }]}>
               Selected: {fileName}
             </Text>
           )}
         </Card>
 
         {errorMsg && (
-          <View style={[styles.errorBox, { backgroundColor: theme.error + '15', borderColor: theme.error }]}>
+          <View style={[styles.errorBox, { backgroundColor: theme.errorBg, borderColor: theme.error }]}>
             <Text style={[styles.errorText, { color: theme.error }]}>{errorMsg}</Text>
           </View>
         )}
@@ -178,12 +175,12 @@ export default function UploadInventory() {
             </Text>
             
             {parsedItems.slice(0, 5).map((item, idx) => (
-              <Card key={idx} style={styles.previewItem}>
+              <Card key={idx} style={[styles.previewItem, { backgroundColor: theme.card, borderColor: theme.border }]}>
                 <View style={styles.previewHeader}>
                   <Text style={[styles.medName, { color: theme.text.primary }]}>
                     {item.medicine_name} {item.strength || ''}
                   </Text>
-                  <Text style={[styles.medPrice, { color: theme.pharmacy.primary }]}>
+                  <Text style={[styles.medPrice, { color: primaryColor }]}>
                     GH₵ {item.price.toFixed(2)}
                   </Text>
                 </View>
@@ -217,56 +214,60 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: 24,
+    padding: SPACING.xxl,
   },
   pickerCard: {
     alignItems: 'center',
-    paddingVertical: 32,
-    paddingHorizontal: 20,
-    marginBottom: 24,
+    paddingVertical: SPACING.xxxl,
+    paddingHorizontal: SPACING.xl,
+    marginBottom: SPACING.xxl,
+    borderWidth: 1,
+    borderRadius: RADIUS.xl,
   },
   pickerTitle: {
-    fontSize: 16,
+    fontSize: FONT_SIZE.xl,
     fontWeight: 'bold',
-    marginTop: 16,
-    marginBottom: 8,
+    marginTop: SPACING.lg,
+    marginBottom: SPACING.sm,
   },
   pickerDesc: {
-    fontSize: 12,
+    fontSize: FONT_SIZE.md,
     textAlign: 'center',
     lineHeight: 18,
-    marginBottom: 20,
+    marginBottom: SPACING.xl,
   },
   pickBtn: {
-    width: '80%',
+    width: '100%',
   },
   fileName: {
-    fontSize: 12,
+    fontSize: FONT_SIZE.md,
     fontWeight: '600',
-    marginTop: 12,
+    marginTop: SPACING.md,
   },
   errorBox: {
     borderWidth: 1,
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 20,
+    padding: SPACING.md,
+    borderRadius: RADIUS.lg,
+    marginBottom: SPACING.xl,
   },
   errorText: {
-    fontSize: 13,
+    fontSize: FONT_SIZE.body,
     fontWeight: '500',
     textAlign: 'center',
   },
   previewContainer: {
-    marginTop: 8,
+    marginTop: SPACING.sm,
   },
   previewTitle: {
-    fontSize: 15,
+    fontSize: FONT_SIZE.xl,
     fontWeight: 'bold',
-    marginBottom: 12,
+    marginBottom: SPACING.md,
   },
   previewItem: {
-    marginBottom: 8,
-    padding: 12,
+    marginBottom: SPACING.sm,
+    padding: SPACING.md,
+    borderWidth: 1,
+    borderRadius: RADIUS.lg,
   },
   previewHeader: {
     flexDirection: 'row',
@@ -275,23 +276,23 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   medName: {
-    fontSize: 14,
+    fontSize: FONT_SIZE.lg,
     fontWeight: 'bold',
   },
   medPrice: {
-    fontSize: 13,
+    fontSize: FONT_SIZE.body,
     fontWeight: '600',
   },
   medQty: {
-    fontSize: 11,
+    fontSize: FONT_SIZE.sm,
   },
   moreText: {
-    fontSize: 12,
+    fontSize: FONT_SIZE.md,
     textAlign: 'center',
-    marginVertical: 12,
+    marginVertical: SPACING.md,
   },
   importBtn: {
-    marginTop: 16,
+    marginTop: SPACING.lg,
     marginBottom: 40,
   },
 });

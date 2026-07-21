@@ -1,161 +1,223 @@
-import React from 'react';
-import { StyleSheet, Text, View, Pressable, ScrollView } from 'react-native';
-import { useRouter } from 'expo-router';
-import { useAuthStore } from '@/store/authStore';
-import { colors } from '@/theme/colors';
-import { useColorScheme } from '@/components/useColorScheme';
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  StyleSheet,
+  Text,
+  View,
+  ScrollView,
+  Pressable,
+  useWindowDimensions,
+  Alert,
+  RefreshControl,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { Header } from '@/components/ui/Header';
-import { Card } from '@/components/ui/Card';
+import { useRouter } from 'expo-router';
+import { useAuthStore } from '@/store/authStore';
+import { useThemeContext } from '@/hooks/useThemeContext';
+import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
+import { supabase } from '@/lib/supabase';
+import Svg, { Path } from 'react-native-svg';
+
+const MENU_ITEMS = [
+  { id: 'health', icon: 'fitness-outline', label: 'Personal Health Profile', route: '/(patient)/edit-profile' },
+  { id: 'reservations', icon: 'receipt-outline', label: 'My Reservations', route: '/(patient)/reservations-history' },
+  { id: 'history', icon: 'time-outline', label: 'Prescription History', route: '/(patient)/prescription-history' },
+  { id: 'saved', icon: 'heart-outline', label: 'Saved Medicines', route: '/(patient)/medicines' },
+  { id: 'notifs', icon: 'notifications-outline', label: 'Notifications', route: '/(patient)/notifications' },
+];
 
 export default function Profile() {
-  const { user, profile, signOut } = useAuthStore();
   const router = useRouter();
-  
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-  const theme = colors[isDark ? 'dark' : 'light'];
+  const { profile, user, signOut } = useAuthStore();
+  const { theme, primaryColor } = useThemeContext();
+  const { width } = useWindowDimensions();
 
-  const handleSignOut = async () => {
-    await signOut();
-    router.replace('/(auth)/login');
+  const [stats, setStats] = useState({ prescriptions: 0, reservations: 0 });
+
+  const displayName = profile?.full_name ?? 'User';
+  const initials = displayName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2);
+
+  const fetchStats = useCallback(async () => {
+    if (!user?.id) return;
+    try {
+      const [{ count: rxCount }, { count: resCount }] = await Promise.all([
+        supabase.from('prescriptions').select('*', { count: 'exact', head: true }).eq('user_id', user.id),
+        supabase.from('reservations').select('*', { count: 'exact', head: true }).eq('user_id', user.id),
+      ]);
+      setStats({ prescriptions: rxCount ?? 0, reservations: resCount ?? 0 });
+    } catch (e: any) {
+      console.warn('Error fetching profile stats:', e.message);
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
+
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchStats();
+    setRefreshing(false);
+  };
+
+  const handleSignOut = () => {
+    Alert.alert(
+      'Sign Out',
+      'Are you sure you want to sign out of your account?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Sign Out',
+          style: 'destructive',
+          onPress: async () => {
+            await signOut();
+            router.replace('/(auth)/login');
+          },
+        },
+      ]
+    );
   };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
-      <Header title="My Profile" />
-
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* User Card */}
-        <Card style={styles.profileCard}>
-          <View style={[styles.avatarCircle, { backgroundColor: theme.patient.secondary }]}>
-            <Text style={[styles.avatarText, { color: theme.patient.primary }]}>
-              {profile?.full_name ? profile.full_name[0].toUpperCase() : 'U'}
-            </Text>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={primaryColor} colors={[primaryColor]} />
+        }
+      >
+        {/* ── Blue Hero ── */}
+        <View style={[styles.hero, { backgroundColor: primaryColor }]}>
+          <View style={styles.avatarCircle}>
+            <Text style={[styles.avatarText, { color: primaryColor }]}>{initials}</Text>
           </View>
-          <Text style={[styles.name, { color: theme.text.primary }]}>
-            {profile?.full_name || 'User'}
+          <Text style={styles.heroName}>{displayName}</Text>
+          <Text style={styles.heroSub}>
+            {profile?.phone ?? 'N/A'}
           </Text>
-          <Text style={[styles.info, { color: theme.text.secondary }]}>
-            ✉️ {user?.email || 'N/A'}
-          </Text>
-          <Text style={[styles.info, { color: theme.text.secondary }]}>
-            📞 {profile?.phone || 'No phone registered'}
-          </Text>
-        </Card>
+        </View>
 
-        {/* Options */}
-        <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Settings</Text>
+        
 
-        <Pressable 
-          style={({ pressed }) => [
-            styles.optionRow, 
-            { borderBottomColor: theme.border, opacity: pressed ? 0.7 : 1 }
-          ]}
-          onPress={() => router.push('/(patient)/scan')}
-        >
-          <View style={styles.optionLeft}>
-            <Ionicons name="camera-outline" size={20} color={theme.text.secondary} />
-            <Text style={[styles.optionText, { color: theme.text.primary }]}>Scan Prescription</Text>
+          {/* ── SVG Wave Curve (exact Figma shape) ── */}
+            <View style={{ backgroundColor: primaryColor }}>
+              <Svg 
+                width={width} 
+                height={20} 
+                viewBox={`0 0 ${width} 20`}
+                style={{ display: 'flex' }}
+              >
+                <Path
+                  d={`M0,20 Q${width / 2},0 ${width},20 L${width},20 L0,20 Z`}
+                  fill={theme.background}
+                />
+              </Svg>
+            </View>
+
+        <View style={{padding:SPACING.lg}}>
+          {/* ── Stats Row ── */}
+          <View style={[styles.statsCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+            <StatItem value={stats.prescriptions} label="Prescriptions" theme={theme} valueColor={primaryColor} />
+            <View style={[styles.statDivider, { backgroundColor: theme.border }]} />
+            <StatItem value={stats.reservations} label="Reservations" theme={theme} valueColor={primaryColor} />
           </View>
-          <Ionicons name="chevron-forward" size={16} color={theme.text.muted} />
-        </Pressable>
 
-        <Pressable 
-          style={({ pressed }) => [
-            styles.optionRow, 
-            { borderBottomColor: theme.border, opacity: pressed ? 0.7 : 1 }
-          ]}
-          onPress={() => router.replace('/(patient)/(tabs)/chat')}
-        >
-          <View style={styles.optionLeft}>
-            <Ionicons name="chatbubble-outline" size={20} color={theme.text.secondary} />
-            <Text style={[styles.optionText, { color: theme.text.primary }]}>AI Chat History</Text>
+          {/* ── Menu ── */}
+          <View style={[styles.menuCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+            {MENU_ITEMS.map((item) => (
+              <Pressable
+                key={item.id}
+                style={[styles.menuRow, { borderBottomColor: theme.background }]}
+                onPress={() => item.route && router.push(item.route as any)}
+              >
+                <View style={[styles.menuIconCircle, { backgroundColor: theme.surfaceSecondary }]}>
+                  <Ionicons name={item.icon as any} size={18} color={theme.textMuted} />
+                </View>
+                <Text style={[styles.menuLabel, { color: theme.text.primary }]}>{item.label}</Text>
+                <Ionicons name="chevron-forward" size={16} color={theme.textDim} />
+              </Pressable>
+            ))}
+
+            {/* Logout */}
+            <Pressable style={[styles.menuRow, { borderWidth: 1, backgroundColor: theme.errorBg, borderColor: theme.error, borderRadius: RADIUS.xl }]} onPress={handleSignOut}>
+              <View style={[styles.menuIconCircle, { backgroundColor: theme.errorBg }]}>
+                <Ionicons name="log-out-outline" size={18} color={theme.error} />
+              </View>
+              <Text style={[styles.menuLabel, { color: theme.error }]}>Logout</Text>
+            </Pressable>
           </View>
-          <Ionicons name="chevron-forward" size={16} color={theme.text.muted} />
-        </Pressable>
-
-        {/* Sign Out Button */}
-        <Pressable 
-          style={[styles.signOutBtn, { backgroundColor: theme.error + '15' }]} 
-          onPress={handleSignOut}
-        >
-          <Ionicons name="log-out-outline" size={20} color={theme.error} />
-          <Text style={[styles.signOutText, { color: theme.error }]}>Sign Out</Text>
-        </Pressable>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
+function StatItem({ value, label, theme, valueColor }: { value: number; label: string; theme: any; valueColor: string }) {
+  return (
+    <View style={styles.statItem}>
+      <Text style={[styles.statValue, { color: valueColor }]}>{value}</Text>
+      <Text style={[styles.statLabel, { color: theme.textMuted }]}>{label}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 24,
-  },
-  profileCard: {
+  container: { flex: 1 },
+
+  // ── Hero ──
+  hero: {
     alignItems: 'center',
-    paddingVertical: 24,
-    marginBottom: 24,
+    paddingTop: 32,
+    paddingBottom: 0,
+    paddingHorizontal: SPACING.xl,
   },
   avatarCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#ffffff',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
-  },
-  avatarText: {
-    fontSize: 28,
-    fontWeight: 'bold',
-  },
-  name: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 8,
-  },
-  info: {
-    fontSize: 13,
-    marginVertical: 2,
-  },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
     marginBottom: 12,
   },
-  optionRow: {
+  avatarText: { fontSize: 28, fontWeight: '700' },
+  heroName: { fontSize: FONT_SIZE.hero, fontWeight: '700', color: '#ffffff', marginBottom: 4 },
+  heroSub: { fontSize: FONT_SIZE.body, color: 'rgba(255,255,255,0.8)', marginBottom: SPACING.md },
+
+  // ── Stats ──
+  statsCard: {
+    marginBottom: SPACING.md,
+    flexDirection: 'row',
+    borderRadius: RADIUS.xl,
+    padding: SPACING.lg,
+    borderWidth: 1,
+  },
+  statItem: { flex: 1, alignItems: 'center' },
+  statValue: { fontSize: FONT_SIZE.hero, fontWeight: '700', marginBottom: 2 },
+  statLabel: { fontSize: FONT_SIZE.sm },
+  statDivider: { width: 1, marginVertical: 4 },
+
+  // ── Menu ──
+  menuCard: {
+    borderRadius: RADIUS.xl,
+    overflow: 'hidden',
+    borderWidth: 1,
+  },
+  menuRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingVertical: 16,
-    borderBottomWidth: 1,
+    paddingHorizontal: 16,
   },
-  optionLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  optionText: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  signOutBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  menuIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: RADIUS.md,
     justifyContent: 'center',
-    height: 48,
-    borderRadius: 16,
-    marginTop: 40,
-    gap: 8,
+    alignItems: 'center',
+    marginRight: 14,
   },
-  signOutText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
+  menuLabel: { flex: 1, fontSize: FONT_SIZE.xl, fontWeight: '500' },
 });

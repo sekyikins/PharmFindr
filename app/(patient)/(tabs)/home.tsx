@@ -1,304 +1,399 @@
-import React, { useEffect, useState } from 'react';
-import { 
-  StyleSheet, 
-  Text, 
-  View, 
-  ScrollView, 
-  Pressable, 
-  TextInput, 
-  FlatList 
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  StyleSheet,
+  Text,
+  View,
+  ScrollView,
+  Pressable,
+  RefreshControl,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '@/store/authStore';
-import { useLocationStore } from '@/store/locationStore';
-import { colors } from '@/theme/colors';
-import { useColorScheme } from '@/components/useColorScheme';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { Card } from '@/components/ui/Card';
+import { useThemeContext } from '@/hooks/useThemeContext';
+import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
+import { getCurrentLocation } from '@/lib/location';
+import { searchNearbyPharmacies, type OsmPharmacy } from '@/lib/osm';
 import { supabase } from '@/lib/supabase';
+import Skeleton from '@/components/ui/Skeleton';
 
 export default function Home() {
   const router = useRouter();
-  const { profile } = useAuthStore();
-  const { coords, requestLocationPermission } = useLocationStore();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-  const theme = colors[isDark ? 'dark' : 'light'];
+  const { profile, user } = useAuthStore();
+  const { theme, primaryColor } = useThemeContext();
+  const firstName = profile?.full_name?.split(' ')[0] ?? 'there';
 
-  const [searchQuery, setSearchQuery] = useState('');
-  const [nearbyPharmacies, setNearbyPharmacies] = useState<any[]>([]);
-  const [loadingPharmacies, setLoadingPharmacies] = useState(false);
+  const [prescriptions, setPrescriptions] = useState<any[]>([]);
+  const [pharmacies, setPharmacies] = useState<OsmPharmacy[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchHomeData = useCallback(async () => {
+    if (!user) return;
+    setLoading(true);
+    try {
+      // 1. Fetch user's prescriptions from Supabase
+      const { data: rxData, error: rxError } = await supabase
+        .from('prescriptions')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(2);
+
+      if (rxError) throw rxError;
+
+      setPrescriptions(
+        (rxData ?? []).map((rx) => {
+          const date = new Date(rx.created_at);
+          const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+          let meds: string[] = [];
+          try {
+            // Parse medicines if it is stored as JSON or string
+            if (typeof rx.ai_interpretation === 'object' && rx.ai_interpretation?.medicines) {
+              meds = rx.ai_interpretation.medicines.map((m: any) => m.name || String(m));
+            } else if (typeof rx.ocr_text === 'string') {
+              meds = [rx.ocr_text.substring(0, 30) + '...'];
+            }
+          } catch (err) {
+            console.warn('Error parsing medicines from prescription:', err);
+          }
+
+          if (meds.length === 0) meds = ['Prescription Scan'];
+
+          return {
+            id: rx.id,
+            date: dateStr,
+            medicines: meds,
+          };
+        })
+      );
+
+      // 2. Fetch nearby pharmacies using GPS + OSM
+      const coords = await getCurrentLocation();
+      const results = await searchNearbyPharmacies(coords, 5000);
+      setPharmacies(results.slice(0, 2)); // show top 2 nearby
+    } catch (e: any) {
+      console.warn('Error loading home screen data:', e.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
 
   useEffect(() => {
-    // Request location immediately on home mount
-    requestLocationPermission().then((userCoords) => {
-      if (userCoords) {
-        fetchNearbyPharmacies(userCoords.latitude, userCoords.longitude);
-      } else {
-        // Fallback or fetch all pharmacies
-        fetchNearbyPharmacies(5.6037, -0.1870); // Default to Accra coordinates
-      }
-    });
-  }, []);
+    fetchHomeData();
+  }, [fetchHomeData]);
 
-  const fetchNearbyPharmacies = async (lat: number, lng: number) => {
-    setLoadingPharmacies(true);
-    try {
-      const { data, error } = await supabase
-        .from('pharmacies')
-        .select('*')
-        .limit(3);
-
-      if (error || !data || data.length === 0) {
-        // Fallback to dummy data
-        setNearbyPharmacies([
-          { id: 'p1', name: 'MediPlus Pharmacy', phone: '+1 555 101 2020', address: '45 Wellness Blvd, Midtown', latitude: 5.6037, longitude: -0.1870 },
-          { id: 'p2', name: 'City Care Pharmacy', phone: '+1 555 202 3030', address: '12 Health Plaza, Downtown', latitude: 5.6100, longitude: -0.1800 },
-          { id: 'p3', name: 'St. Jude Pharmacare', phone: '+1 555 303 4040', address: '88 Cure Avenue, Northside', latitude: 5.5950, longitude: -0.1920 }
-        ]);
-      } else {
-        setNearbyPharmacies(data);
-      }
-    } catch (e) {
-      console.error('Error fetching pharmacies:', e);
-      setNearbyPharmacies([
-        { id: 'p1', name: 'MediPlus Pharmacy', phone: '+1 555 101 2020', address: '45 Wellness Blvd, Midtown', latitude: 5.6037, longitude: -0.1870 },
-        { id: 'p2', name: 'City Care Pharmacy', phone: '+1 555 202 3030', address: '12 Health Plaza, Downtown', latitude: 5.6100, longitude: -0.1800 },
-        { id: 'p3', name: 'St. Jude Pharmacare', phone: '+1 555 303 4040', address: '88 Cure Avenue, Northside', latitude: 5.5950, longitude: -0.1920 }
-      ]);
-    } finally {
-      setLoadingPharmacies(false);
-    }
+  const getGreeting = () => {
+    const h = new Date().getHours();
+    if (h < 12) return 'Good Morning 👋';
+    if (h < 18) return 'Good Afternoon 👋';
+    return 'Good Evening 👋';
   };
 
-  const handleSearch = () => {
-    if (!searchQuery.trim()) return;
-    router.push({
-      pathname: '/(patient)/medicines',
-      params: { query: searchQuery }
-    });
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchHomeData();
+    setRefreshing(false);
   };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Header Greeting */}
-        <View style={styles.header}>
-          <View>
-            <Text style={[styles.greeting, { color: theme.text.secondary }]}>Hello,</Text>
-            <Text style={[styles.name, { color: theme.text.primary }]}>
-              {profile?.full_name || 'Valued Patient'}
-            </Text>
-          </View>
-          <Pressable 
-            style={[styles.profileButton, { backgroundColor: theme.surfaceSecondary }]}
-            onPress={() => router.push('/(patient)/(tabs)/profile')}
-          >
-            <Ionicons name="person" size={20} color={theme.patient.primary} />
-          </Pressable>
-        </View>
-
-        {/* Search Bar */}
-        <View style={[styles.searchContainer, { backgroundColor: theme.surface }]}>
-          <Ionicons name="search" size={20} color={theme.text.muted} style={styles.searchIcon} />
-          <TextInput
-            style={[styles.searchInput, { color: theme.text.primary }]}
-            placeholder="Search medicine name..."
-            placeholderTextColor={theme.text.muted}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            onSubmitEditing={handleSearch}
-          />
-        </View>
-
-        {/* Quick Actions Grid */}
-        <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Quick Actions</Text>
-        <View style={styles.grid}>
-          {/* Action 1: Scan Prescription */}
-          <Pressable 
-            style={[styles.gridItem, { backgroundColor: theme.patient.secondary }]}
-            onPress={() => router.push('/(patient)/scan')}
-          >
-            <View style={[styles.iconCircle, { backgroundColor: '#ffffff20' }]}>
-              <Ionicons name="camera" size={32} color={theme.patient.primary} />
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scroll}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={primaryColor} colors={[primaryColor]} />
+        }
+      >
+          {/* Header */}
+          <View style={[styles.header, { backgroundColor: theme.card }]}>
+            <View>
+              <Text style={[styles.greeting, { color: theme.textMuted }]}>{getGreeting()}</Text>
+              <Text style={[styles.name, { color: theme.text }]}>{firstName}</Text>
             </View>
-            <Text style={[styles.gridTitle, { color: theme.text.primary }]}>Scan Prescription</Text>
-            <Text style={[styles.gridDesc, { color: theme.text.secondary }]}>Identify meds instantly</Text>
-          </Pressable>
-
-          {/* Action 2: Chat with AI */}
-          <Pressable 
-            style={[styles.gridItem, { backgroundColor: theme.surfaceSecondary }]}
-            onPress={() => router.replace('/(patient)/(tabs)/chat')}
-          >
-            <View style={[styles.iconCircle, { backgroundColor: '#ffffff20' }]}>
-              <Ionicons name="chatbubbles" size={32} color={theme.patient.primary} />
-            </View>
-            <Text style={[styles.gridTitle, { color: theme.text.primary }]}>Ask AI Assistant</Text>
-            <Text style={[styles.gridDesc, { color: theme.text.secondary }]}>dosage, usage details</Text>
-          </Pressable>
-        </View>
-
-        {/* Nearby Pharmacies Section */}
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Nearby Pharmacies</Text>
-          <Pressable onPress={() => router.replace('/(patient)/(tabs)/pharmacies')}>
-            <Text style={[styles.seeAll, { color: theme.patient.primary }]}>See All</Text>
-          </Pressable>
-        </View>
-
-        {loadingPharmacies ? (
-          <Text style={{ color: theme.text.secondary, textAlign: 'center', marginTop: 12 }}>Loading...</Text>
-        ) : nearbyPharmacies.length === 0 ? (
-          <Card style={styles.emptyCard}>
-            <Text style={[styles.emptyText, { color: theme.text.secondary }]}>
-              No pharmacies registered near you yet.
-            </Text>
-          </Card>
-        ) : (
-          nearbyPharmacies.map((item) => (
-            <Pressable 
-              key={item.id} 
-              onPress={() => router.push(`/(patient)/pharmacy/${item.id}`)}
+            <Pressable
+              style={[styles.notifBtn, { backgroundColor: theme.surfaceSecondary }]}
+              onPress={() => router.push('/(patient)/notifications')}
             >
-              <Card style={styles.pharmacyCard}>
-                <View style={styles.pharmacyHeader}>
-                  <Text style={[styles.pharmacyName, { color: theme.text.primary }]}>
-                    {item.name}
-                  </Text>
-                  <View style={[styles.badge, { backgroundColor: theme.patient.secondary }]}>
-                    <Text style={[styles.badgeText, { color: theme.patient.primary }]}>Active</Text>
-                  </View>
-                </View>
-                <Text style={[styles.pharmacyInfo, { color: theme.text.secondary }]}>
-                  📞 {item.phone || 'No phone'} | 📍 {item.address || 'Address pending'}
-                </Text>
-              </Card>
+              <Ionicons name="notifications-outline" size={20} color={theme.textMuted} />
             </Pressable>
-          ))
-        )}
-      </ScrollView>
+          </View>
+
+          {/* Quick Actions */}
+          <View style={styles.section}>
+            <Text style={[styles.sectionLabel, { color: theme.textDim }]}>QUICK ACTIONS</Text>
+            <View style={styles.actionsRow}>
+              <QuickAction
+                icon="scan-outline"
+                label="Scan Prescription"
+                color={theme.patientPrimary}
+                bg={theme.patientSecondary}
+                cardBg={theme.card}
+                labelColor={theme.text}
+                onPress={() => router.push('/(patient)/scan')}
+              />
+              <QuickAction
+                icon="chatbubble-outline"
+                label="AI Chat"
+                color={primaryColor}
+                bg={theme.patientSecondary}
+                cardBg={theme.card}
+                labelColor={theme.text}
+                onPress={() => router.replace('/(patient)/(tabs)/chat')}
+              />
+            </View>
+          </View>
+
+          {/* Recent Prescriptions */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionLabel, { color: theme.textDim }]}>RECENT PRESCRIPTIONS</Text>
+              <Pressable onPress={() => router.push('/(patient)/prescription-history')}>
+                <Text style={[styles.viewAll, { color: primaryColor }]}>View All</Text>
+              </Pressable>
+            </View>
+            {loading ? (
+              <View style={{ gap: 10 }}>
+                {[1, 2].map((i) => (
+                  <View key={i} style={[styles.card, { backgroundColor: theme.card }]}>
+                    <Skeleton width={40} height={40} borderRadius={RADIUS.pill} style={{ marginRight: 12 }} />
+                    <View style={{ flex: 1, gap: 6 }}>
+                      <Skeleton width="60%" height={16} />
+                      <Skeleton width="80%" height={14} />
+                    </View>
+                  </View>
+                ))}
+              </View>
+            ) : prescriptions.length === 0 ? (
+              <View style={[styles.emptyCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+                <Ionicons name="document-text-outline" size={28} color={theme.textDim} />
+                <Text style={[styles.emptyText, { color: theme.textMuted }]}>No prescriptions scanned yet.</Text>
+                <Pressable style={[styles.scanLinkBtn, { backgroundColor: primaryColor }]} onPress={() => router.push('/(patient)/scan')}>
+                  <Text style={styles.scanLinkText}>Scan Now</Text>
+                </Pressable>
+              </View>
+            ) : (
+              prescriptions.map((rx) => (
+                <Pressable
+                  key={rx.id}
+                  style={[styles.card, { backgroundColor: theme.card }]}
+                  onPress={() => router.push('/(patient)/prescription-history')}
+                >
+                  <View style={[styles.cardIcon, { backgroundColor: theme.patientSecondary }]}>
+                    <Ionicons name="document-text-outline" size={20} color={theme.patientPrimary} />
+                  </View>
+                  <View style={styles.cardBody}>
+                    <Text style={[styles.cardTitle, { color: theme.text }]}>{rx.date}</Text>
+                    <Text style={[styles.cardSub, { color: theme.textMuted }]} numberOfLines={1}>
+                      {rx.medicines[0]}{rx.medicines.length > 1 ? ` +${rx.medicines.length - 1} more` : ''}
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={16} color={theme.textDim} />
+                </Pressable>
+              ))
+            )}
+          </View>
+
+          {/* Nearby Pharmacies */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionLabel, { color: theme.textDim }]}>NEARBY PHARMACIES</Text>
+              <Pressable onPress={() => router.push('/(patient)/pharmacies')}>
+                <Text style={[styles.viewAll, { color: primaryColor }]}>See All</Text>
+              </Pressable>
+            </View>
+            {loading ? (
+              <View style={{ gap: 10 }}>
+                {[1, 2].map((i) => (
+                  <View key={i} style={[styles.pharmacyCard, { backgroundColor: theme.card }]}>
+                    <Skeleton width={38} height={38} borderRadius={RADIUS.pill} style={{ marginRight: 12 }} />
+                    <View style={{ flex: 1, gap: 6 }}>
+                      <Skeleton width="70%" height={16} />
+                      <Skeleton width="40%" height={14} />
+                    </View>
+                  </View>
+                ))}
+              </View>
+            ) : pharmacies.length === 0 ? (
+              <Text style={[styles.emptyText, { color: theme.textDim, paddingVertical: 10 }]}>No pharmacies found nearby.</Text>
+            ) : (
+              pharmacies.map((p) => (
+                <Pressable
+                  key={p.id}
+                  style={[styles.pharmacyCard, { backgroundColor: theme.card }]}
+                  onPress={() =>
+                    router.push({
+                      pathname: '/(patient)/pharmacy/[id]',
+                      params: {
+                        id: encodeURIComponent(p.id),
+                        name: p.name,
+                        address: p.address,
+                        phone: p.phone ?? '',
+                        hours: p.hours ?? '',
+                        lat: String(p.latitude),
+                        lon: String(p.longitude),
+                        distanceKm: String(p.distanceKm),
+                        walkMinutes: String(p.walkMinutes),
+                      },
+                    })
+                  }
+                >
+                  <View style={[styles.pharmacyIcon, { backgroundColor: theme.pharmacySecondary }]}>
+                    <Ionicons name="location-outline" size={18} color={theme.pharmacyPrimary} />
+                  </View>
+                  <View style={styles.cardBody}>
+                    <Text style={[styles.pharmacyName, { color: theme.text }]} numberOfLines={1}>{p.name}</Text>
+                    <View style={styles.pharmacyMeta}>
+                      <Text style={[styles.distance, { color: theme.textMuted }]}>{p.distanceKm} km</Text>
+                      <Text style={[styles.distance, { color: theme.textDim }]}>·</Text>
+                      <Text style={[styles.distance, { color: theme.textMuted }]}>{p.walkMinutes} min walk</Text>
+                    </View>
+                  </View>
+                  <Ionicons name="chevron-forward" size={16} color={theme.textDim} />
+                </Pressable>
+              ))
+            )}
+          </View>
+        </ScrollView>
     </SafeAreaView>
   );
 }
 
+function QuickAction({
+  icon, label, color, bg, cardBg, labelColor, onPress,
+}: {
+  icon: any; label: string; color: string; bg: string; cardBg: string; labelColor: string; onPress: () => void;
+}) {
+  return (
+    <Pressable style={[styles.actionBtn, { backgroundColor: cardBg }]} onPress={onPress}>
+      <View style={[styles.actionIcon, { backgroundColor: bg }]}>
+        <Ionicons name={icon} size={22} color={color} />
+      </View>
+      <Text style={[styles.actionLabel, { color: labelColor }]}>{label}</Text>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 24,
-  },
+  container: { flex: 1 },
+  scroll: { paddingBottom: 32 },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+
+  // Header
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 24,
+    paddingHorizontal: SPACING.xl,
+    paddingTop: SPACING.md,
+    paddingBottom: SPACING.sm,
   },
-  greeting: {
-    fontSize: 14,
-  },
-  name: {
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  profileButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+  greeting: { fontSize: FONT_SIZE.body },
+  name: { fontSize: FONT_SIZE.hero, fontWeight: '700' },
+  notifBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: RADIUS.pill,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 16,
-    height: 52,
-    paddingHorizontal: 16,
-    marginBottom: 24,
-  },
-  searchIcon: {
-    marginRight: 12,
-  },
-  searchInput: {
+
+  // Sections
+  section: { paddingHorizontal: SPACING.xl, paddingTop: SPACING.xl },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.md },
+  sectionLabel: { fontSize: FONT_SIZE.sm, fontWeight: '700', letterSpacing: 0.8, textTransform: 'uppercase' },
+  viewAll: { fontSize: FONT_SIZE.body, fontWeight: '600' },
+
+  // Quick Actions
+  actionsRow: { flexDirection: 'row', gap: SPACING.md },
+  actionBtn: {
     flex: 1,
-    fontSize: 14,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 16,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    borderRadius: RADIUS.xl,
+    padding: SPACING.lg,
     alignItems: 'center',
-    marginTop: 24,
-    marginBottom: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  seeAll: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  grid: {
-    flexDirection: 'row',
-    gap: 16,
-  },
-  gridItem: {
-    flex: 1,
-    padding: 20,
-    borderRadius: 20,
-    alignItems: 'flex-start',
-  },
-  iconCircle: {
+  actionIcon: {
     width: 48,
     height: 48,
-    borderRadius: 24,
+    borderRadius: RADIUS.lg,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: SPACING.sm,
   },
-  gridTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  gridDesc: {
-    fontSize: 11,
-  },
-  pharmacyCard: {
-    marginVertical: 6,
-  },
-  pharmacyHeader: {
+  actionLabel: { fontSize: FONT_SIZE.body, fontWeight: '600' },
+
+  // Prescription Cards
+  card: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 6,
+    borderRadius: RADIUS.lg,
+    padding: 14,
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
   },
-  pharmacyName: {
-    fontSize: 15,
-    fontWeight: 'bold',
-  },
-  pharmacyInfo: {
-    fontSize: 12,
-  },
-  badge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  badgeText: {
-    fontSize: 10,
-    fontWeight: 'bold',
-  },
-  emptyCard: {
-    alignItems: 'center',
+  cardIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: RADIUS.md,
     justifyContent: 'center',
-    padding: 32,
+    alignItems: 'center',
+    marginRight: SPACING.md,
   },
-  emptyText: {
-    fontSize: 13,
-    textAlign: 'center',
+  cardBody: { flex: 1 },
+  cardTitle: { fontSize: FONT_SIZE.xl, fontWeight: '700', marginBottom: 2 },
+  cardSub: { fontSize: FONT_SIZE.body },
+
+  emptyCard: {
+    borderRadius: RADIUS.xl,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    padding: 24,
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 4,
   },
+  emptyText: { fontSize: FONT_SIZE.body, textAlign: 'center' },
+  scanLinkBtn: {
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    borderRadius: RADIUS.pill,
+    marginTop: 6,
+  },
+  scanLinkText: { color: '#fff', fontWeight: '600', fontSize: FONT_SIZE.sm },
+
+  // Pharmacy Cards
+  pharmacyCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: RADIUS.lg,
+    padding: 14,
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  pharmacyIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: RADIUS.pill,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: SPACING.md,
+  },
+  pharmacyName: { fontSize: FONT_SIZE.xl, fontWeight: '700', marginBottom: 4 },
+  pharmacyMeta: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
+  distance: { fontSize: FONT_SIZE.md },
 });

@@ -1,0 +1,60 @@
+Due to response size limits, I can't faithfully reconstruct your entire 400+ line file from the chat history alone.
+
+Apply these four changes to your existing file:
+
+1. Add:
+const MIN_HEIGHT = 44;
+const MAX_HEIGHT = 120;
+
+2. Replace:
+const [inputHeight, setInputHeight] = useState(44);
+
+with:
+const [inputHeight, setInputHeight] = useState(MIN_HEIGHT);
+
+3. Replace your entire <TextInput /> with:
+
+<TextInput
+  style={[
+    styles.input,
+    {
+      height: inputHeight,
+    },
+  ]}
+  placeholder={
+    hasUserMessages
+      ? 'Hi'
+      : 'Ask me anything...'
+  }
+  placeholderTextColor="#94a3b8"
+  value={inputText}
+  multiline
+  blurOnSubmit={false}
+  textAlignVertical="top"
+  onChangeText={(text) => {
+    setInputText(text);
+
+    if (text === '') {
+      setInputHeight(MIN_HEIGHT);
+    }
+  }}
+  onContentSizeChange={(event) => {
+    const height = event.nativeEvent.contentSize.height;
+
+    setInputHeight(
+      Math.min(
+        MAX_HEIGHT,
+        Math.max(MIN_HEIGHT, height)
+      )
+    );
+  }}
+/>
+
+4. In handleSend(), replace:
+setInputHeight(44);
+
+with:
+setInputHeight(MIN_HEIGHT);
+
+Note:
+Even with these changes, React Native's TextInput may still not shrink line-by-line on Android because of a long-standing framework issue. If that happens, a different implementation is required.

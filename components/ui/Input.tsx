@@ -1,14 +1,7 @@
 import React from 'react';
-import { 
-  StyleSheet, 
-  Text, 
-  View, 
-  TextInput, 
-  TextInputProps, 
-  StyleProp, 
-  ViewStyle 
-} from 'react-native';
+import { StyleSheet, Text, View, TextInput, TextInputProps, StyleProp, ViewStyle } from 'react-native';
 import { useThemeContext } from '@/hooks/useThemeContext';
+import { RADIUS, SPACING, FONT_SIZE } from '@/styles/theme';
 
 interface InputProps extends TextInputProps {
   label?: string;
@@ -16,13 +9,7 @@ interface InputProps extends TextInputProps {
   containerStyle?: StyleProp<ViewStyle>;
 }
 
-export function Input({ 
-  label, 
-  error, 
-  containerStyle, 
-  style, 
-  ...props 
-}: InputProps) {
+export function Input({ label, error, containerStyle, style, ...props }: InputProps) {
   const { theme } = useThemeContext();
 
   return (
@@ -32,10 +19,15 @@ export function Input({
           {label}
         </Text>
       )}
-      <View style={[
-        styles.inputContainer, 
-        { backgroundColor: theme.surface, borderColor: error ? theme.error : 'transparent' }
-      ]}>
+      <View
+        style={[
+          styles.inputContainer,
+          {
+            backgroundColor: theme.surfaceSecondary,
+            borderColor: error ? theme.error : theme.border,
+          },
+        ]}
+      >
         <TextInput
           style={[styles.input, { color: theme.text.primary }, style]}
           placeholderTextColor={theme.text.muted}
@@ -43,9 +35,7 @@ export function Input({
         />
       </View>
       {error && (
-        <Text style={[styles.errorText, { color: theme.error }]}>
-          {error}
-        </Text>
+        <Text style={[styles.errorText, { color: theme.error }]}>{error}</Text>
       )}
     </View>
   );
@@ -54,29 +44,29 @@ export function Input({
 const styles = StyleSheet.create({
   wrapper: {
     width: '100%',
-    marginVertical: 8,
+    marginVertical: SPACING.sm,
   },
   label: {
-    fontSize: 10,
+    fontSize: FONT_SIZE.xs,
     fontWeight: 'bold',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    marginBottom: 8,
+    marginBottom: SPACING.sm,
   },
   inputContainer: {
     height: 52,
-    borderRadius: 16,
+    borderRadius: RADIUS.lg,
     borderWidth: 1.2,
-    paddingHorizontal: 16,
+    paddingHorizontal: SPACING.lg,
     justifyContent: 'center',
   },
   input: {
-    fontSize: 14,
+    fontSize: FONT_SIZE.lg,
     width: '100%',
   },
   errorText: {
-    fontSize: 11,
-    marginTop: 4,
+    fontSize: FONT_SIZE.sm,
+    marginTop: SPACING.xs,
     fontWeight: '500',
   },
 });

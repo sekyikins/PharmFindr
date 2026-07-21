@@ -1,11 +1,9 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
-import { View, ActivityIndicator, Platform } from 'react-native';
-
-import { useColorScheme } from '@/components/useColorScheme';
+import { View, ActivityIndicator, Platform, StatusBar } from 'react-native';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -47,10 +45,10 @@ export default function RootLayout() {
 }
 
 function RootLayoutNav() {
-  const colorScheme = useColorScheme();
-
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+    <ThemeProvider value={DefaultTheme}>
+      {/* Default to dark status bar text (visible on white/light backgrounds) */}
+      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="index" />
         <Stack.Screen name="(auth)" />

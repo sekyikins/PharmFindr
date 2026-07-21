@@ -1,125 +1,171 @@
-import React, { useState } from 'react';
-import {
-  StyleSheet,
-  Text,
-  View,
-  FlatList,
-  Pressable,
-} from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { StyleSheet, Text, View, FlatList, Pressable, Alert, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-
-const GREEN = '#10b981';
-
-type ResStatus = 'pending' | 'accepted' | 'declined';
-
-interface Reservation {
-  id: string;
-  ref: string;
-  patientId: string;
-  timeAgo: string;
-  medicines: string[];
-  status: ResStatus;
-}
-
-// Dummy reservation data matching the Figma design
-const INITIAL_RESERVATIONS: Reservation[] = [
-  {
-    id: '1',
-    ref: 'REF-001',
-    patientId: '#4821',
-    timeAgo: '10 min ago',
-    medicines: ['Amoxicillin 500mg', 'Paracetamol 500mg'],
-    status: 'pending',
-  },
-  {
-    id: '2',
-    ref: 'REF-002',
-    patientId: '#3319',
-    timeAgo: '25 min ago',
-    medicines: ['Metformin 850mg'],
-    status: 'pending',
-  },
-  {
-    id: '3',
-    ref: 'REF-003',
-    patientId: '#7755',
-    timeAgo: '1 hr ago',
-    medicines: ['Lisinopril 10mg', 'Atorvastatin 20mg'],
-    status: 'pending',
-  },
-];
+import { useThemeContext } from '@/hooks/useThemeContext';
+import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
+import { supabase } from '@/lib/supabase';
+import { useAuthStore } from '@/store/authStore';
+import Skeleton from '@/components/ui/Skeleton';
 
 export default function Reservations() {
   const router = useRouter();
-  const [reservations, setReservations] = useState<Reservation[]>(INITIAL_RESERVATIONS);
+  const { theme, primaryColor } = useThemeContext();
+  const { user } = useAuthStore();
 
-  const handleAccept = (id: string) => {
-    setReservations((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, status: 'accepted' } : r))
-    );
+  const [reservations, setReservations] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchReservations = useCallback(async () => {
+    if (!user) return;
+    try {
+      // 1. Get pharmacy owned by current user
+      const { data: pharm, error: pharmErr } = await supabase
+        .from('pharmacies')
+        .select('id')
+        .eq('owner_id', user.id)
+        .single();
+
+      if (pharmErr) throw pharmErr;
+
+      // 2. Get reservations with profile details
+      const { data: resData, error: resErr } = await supabase
+        .from('reservations')
+        .select('*, profiles(full_name, phone)')
+        .eq('pharmacy_id', pharm.id)
+        .order('created_at', { ascending: false });
+
+      if (resErr) throw resErr;
+
+      setReservations(
+        resData.map((item: any) => {
+          // Parse medicines JSONB (it could be an array of objects or strings)
+          let medicines: string[] = [];
+          if (Array.isArray(item.medicines)) {
+            medicines = item.medicines.map((m: any) =>
+              typeof m === 'object' && m ? `${m.name} ${m.strength || ''}`.trim() : String(m)
+            );
+          }
+
+          // Format date/time
+          const date = new Date(item.created_at);
+          const timeAgo = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+          return {
+            id: item.id,
+            ref: 'REF-' + item.id.substring(0, 5).toUpperCase(),
+            patientName: item.profiles?.full_name || 'Patient',
+            patientPhone: item.profiles?.phone || 'N/A',
+            timeAgo: timeAgo,
+            medicines: medicines,
+            status: item.status,
+            totalCost: item.total_cost || 0.0,
+          };
+        })
+      );
+    } catch (e: any) {
+      console.warn('Error fetching reservations:', e.message);
+      Alert.alert('Error', 'Failed to load reservations.');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    fetchReservations();
+  }, [fetchReservations]);
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    fetchReservations();
   };
 
-  const handleDecline = (id: string) => {
-    setReservations((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, status: 'declined' } : r))
-    );
+  const handleAccept = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('reservations')
+        .update({ status: 'accepted' })
+        .eq('id', id);
+
+      if (error) throw error;
+      setReservations((prev) =>
+        prev.map((r) => (r.id === id ? { ...r, status: 'accepted' } : r))
+      );
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'Failed to accept reservation.');
+    }
   };
 
-  const renderItem = ({ item }: { item: Reservation }) => {
+  const handleDecline = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('reservations')
+        .update({ status: 'declined' })
+        .eq('id', id);
+
+      if (error) throw error;
+      setReservations((prev) =>
+        prev.map((r) => (r.id === id ? { ...r, status: 'declined' } : r))
+      );
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'Failed to decline reservation.');
+    }
+  };
+
+  const renderItem = ({ item }: { item: any }) => {
     const isPending = item.status === 'pending';
     const isAccepted = item.status === 'accepted';
-    const isDeclined = item.status === 'declined';
 
     return (
-      <View style={styles.card}>
-        {/* Card Header */}
+      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
+        {/* Header */}
         <View style={styles.cardHeader}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.patientId}>Patient {item.patientId}</Text>
-            <Text style={styles.refText}>
-              {item.ref} · {item.timeAgo}
-            </Text>
+            <Text style={[styles.patientId, { color: theme.text.primary }]}>{item.patientName}</Text>
+            <Text style={[styles.refText, { color: theme.textDim }]}>{item.ref} · {item.timeAgo}</Text>
+            {item.patientPhone !== 'N/A' && (
+              <Text style={[styles.phoneText, { color: theme.textMuted }]}>{item.patientPhone}</Text>
+            )}
           </View>
-          {/* Status badge (only when not pending) */}
           {isAccepted && (
-            <View style={styles.badgeAccepted}>
-              <Text style={styles.badgeAcceptedText}>Accepted</Text>
+            <View style={[styles.badge, { backgroundColor: theme.successBg }]}>
+              <Text style={[styles.badgeText, { color: theme.successText }]}>Accepted</Text>
             </View>
           )}
-          {isDeclined && (
-            <View style={styles.badgeDeclined}>
-              <Text style={styles.badgeDeclinedText}>Declined</Text>
+          {item.status === 'declined' && (
+            <View style={[styles.badge, { backgroundColor: theme.errorBg }]}>
+              <Text style={[styles.badgeText, { color: theme.errorText }]}>Declined</Text>
+            </View>
+          )}
+          {item.status === 'collected' && (
+            <View style={[styles.badge, { backgroundColor: theme.patientSecondary }]}>
+              <Text style={[styles.badgeText, { color: primaryColor }]}>Collected</Text>
             </View>
           )}
         </View>
 
         {/* Medicine chips */}
         <View style={styles.chipsRow}>
-          {item.medicines.map((med, idx) => (
-            <View key={idx} style={styles.chip}>
-              <Text style={styles.chipText}>{med}</Text>
+          {item.medicines.map((med: string, idx: number) => (
+            <View key={idx} style={[styles.chip, { backgroundColor: theme.patientSecondary }]}>
+              <Text style={[styles.chipText, { color: theme.patientPrimary }]}>{med}</Text>
             </View>
           ))}
         </View>
 
-        {/* Action Buttons (pending only) */}
+        {/* Action buttons (pending only) */}
         {isPending && (
           <View style={styles.actionRow}>
-            <Pressable
-              style={styles.acceptBtn}
-              onPress={() => handleAccept(item.id)}
-            >
+            <Pressable style={[styles.acceptBtn, { backgroundColor: primaryColor }]} onPress={() => handleAccept(item.id)}>
               <Ionicons name="checkmark" size={15} color="#fff" />
-              <Text style={styles.acceptBtnText}>Accept</Text>
+              <Text style={styles.actionBtnText}>Accept</Text>
             </Pressable>
-            <Pressable
-              style={styles.declineBtn}
-              onPress={() => handleDecline(item.id)}
-            >
-              <Ionicons name="close" size={15} color="#ef4444" />
-              <Text style={styles.declineBtnText}>Decline</Text>
+            <Pressable style={[styles.declineBtn, { backgroundColor: theme.errorBg, borderColor: theme.errorBorder }]} onPress={() => handleDecline(item.id)}>
+              <Ionicons name="close" size={15} color={theme.error} />
+              <Text style={[styles.actionBtnText, { color: theme.error }]}>Decline</Text>
             </Pressable>
           </View>
         )}
@@ -128,140 +174,113 @@ export default function Reservations() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      {/* ── Header ── */}
-      <View style={styles.header}>
-        <Pressable
-          style={styles.backBtn}
-          onPress={() => router.push('/(pharmacy)/(tabs)/dashboard')}
-        >
-          <Ionicons name="arrow-back" size={18} color="#1e293b" />
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
+      {/* Header */}
+      <View style={[styles.header, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
+        <Pressable style={[styles.backBtn, { backgroundColor: theme.surfaceSecondary }]} onPress={() => router.push('/(pharmacy)/(tabs)/dashboard')}>
+          <Ionicons name="arrow-back" size={18} color={theme.text.primary} />
         </Pressable>
-        <Text style={styles.headerTitle}>Reservations</Text>
+        <Text style={[styles.headerTitle, { color: theme.text.primary }]}>Reservations</Text>
         <View style={{ width: 36 }} />
       </View>
 
-      <FlatList
-        data={reservations}
-        keyExtractor={(item) => item.id}
-        renderItem={renderItem}
-        contentContainerStyle={styles.listContent}
-        ListEmptyComponent={
-          <Text style={styles.emptyText}>No reservation requests.</Text>
-        }
-      />
+      {loading ? (
+        <View style={styles.listContent}>
+          {[1, 2, 3].map((i) => (
+            <View key={i} style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 }}>
+                <View style={{ gap: 4 }}>
+                  <Skeleton width={120} height={16} />
+                  <Skeleton width={80} height={12} />
+                </View>
+                <Skeleton width={70} height={22} borderRadius={RADIUS.pill} />
+              </View>
+              <Skeleton width="90%" height={14} style={{ marginBottom: 12 }} />
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                <Skeleton width={90} height={32} borderRadius={RADIUS.pill} />
+                <Skeleton width={90} height={32} borderRadius={RADIUS.pill} />
+              </View>
+            </View>
+          ))}
+        </View>
+      ) : (
+        <FlatList
+          data={reservations}
+          keyExtractor={(item) => item.id}
+          showsVerticalScrollIndicator={false}
+          renderItem={renderItem}
+          contentContainerStyle={styles.listContent}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={primaryColor} colors={[primaryColor]} />
+          }
+          ListEmptyComponent={
+            <Text style={[styles.emptyText, { color: theme.textDim }]}>No reservation requests found.</Text>
+          }
+        />
+      )}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc' },
-
-  // ── Header ──
+  container: { flex: 1 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    backgroundColor: '#ffffff',
+    paddingHorizontal: SPACING.xl,
+    paddingVertical: SPACING.md,
     borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
   },
   backBtn: {
     width: 36,
     height: 36,
-    borderRadius: 18,
-    backgroundColor: '#f1f5f9',
+    borderRadius: RADIUS.pill,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: '#1e293b' },
+  headerTitle: { fontSize: FONT_SIZE.xxl, fontWeight: '700' },
 
-  listContent: { padding: 20, gap: 12 },
+  listContent: { padding: SPACING.lg, gap: 12 },
+  emptyText: { textAlign: 'center', marginTop: 40, fontSize: FONT_SIZE.body },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 
-  // ── Card ──
   card: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    borderRadius: RADIUS.xl,
+    padding: SPACING.lg,
+    borderWidth: 1,
+    gap: 12,
   },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 10,
-  },
-  patientId: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1e293b',
-    marginBottom: 2,
-  },
-  refText: { fontSize: 12, color: '#94a3b8' },
+  cardHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
+  patientId: { fontSize: FONT_SIZE.xl, fontWeight: '700' },
+  refText: { fontSize: FONT_SIZE.sm, marginTop: 2 },
+  phoneText: { fontSize: FONT_SIZE.sm, marginTop: 2 },
+  badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: RADIUS.pill },
+  badgeText: { fontSize: FONT_SIZE.sm, fontWeight: '600' },
 
-  // ── Status Badges ──
-  badgeAccepted: {
-    backgroundColor: '#d1fae5',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 20,
-  },
-  badgeAcceptedText: { fontSize: 11, fontWeight: '600', color: GREEN },
-  badgeDeclined: {
-    backgroundColor: '#fee2e2',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 20,
-  },
-  badgeDeclinedText: { fontSize: 11, fontWeight: '600', color: '#ef4444' },
+  chipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  chip: { borderRadius: RADIUS.pill, paddingHorizontal: 10, paddingVertical: 4 },
+  chipText: { fontSize: FONT_SIZE.sm, fontWeight: '500' },
 
-  // ── Medicine Chips ──
-  chipsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginBottom: 14,
-  },
-  chip: {
-    backgroundColor: '#eff6ff',
-    borderRadius: 20,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  chipText: { fontSize: 12, color: '#3b82f6', fontWeight: '500' },
-
-  // ── Action Buttons ──
-  actionRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
+  actionRow: { flexDirection: 'row', gap: 10, marginTop: 4 },
   acceptBtn: {
     flex: 1,
+    height: 38,
+    borderRadius: RADIUS.md,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 5,
-    height: 42,
-    borderRadius: 24,
-    backgroundColor: GREEN,
+    gap: 6,
   },
-  acceptBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
   declineBtn: {
     flex: 1,
+    height: 38,
+    borderRadius: RADIUS.md,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 5,
-    height: 42,
-    borderRadius: 24,
-    backgroundColor: '#fee2e2',
+    borderWidth: 1,
+    gap: 6,
   },
-  declineBtnText: { color: '#ef4444', fontSize: 14, fontWeight: '600' },
-
-  emptyText: { textAlign: 'center', marginTop: 40, color: '#94a3b8', fontSize: 13 },
+  actionBtnText: { color: '#fff', fontSize: FONT_SIZE.md, fontWeight: '600' },
 });

@@ -4,14 +4,12 @@ import {
   Text, 
   View, 
   ScrollView, 
-  KeyboardAvoidingView, 
   Platform,
   ActivityIndicator
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '@/store/authStore';
 import { colors } from '@/theme/colors';
-import { useColorScheme } from '@/components/useColorScheme';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Header } from '@/components/ui/Header';
 import { Input } from '@/components/ui/Input';
@@ -21,10 +19,7 @@ import { supabase } from '@/lib/supabase';
 export default function AddMedicine() {
   const router = useRouter();
   const { user } = useAuthStore();
-  
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-  const theme = colors[isDark ? 'dark' : 'light'];
+  const theme = colors.light;
 
   const [name, setName] = useState('');
   const [genericName, setGenericName] = useState('');
@@ -79,11 +74,10 @@ export default function AddMedicine() {
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
       <Header title="Add Medicine" showBack />
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1 }}
-      >
-        <ScrollView contentContainerStyle={styles.scrollContent}>
+      <View style={{ flex: 1 }}>
+        <ScrollView contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        showsHorizontalScrollIndicator={false}>
           {errorMsg && (
             <View style={[styles.errorBox, { backgroundColor: theme.error + '15', borderColor: theme.error }]}>
               <Text style={[styles.errorText, { color: theme.error }]}>{errorMsg}</Text>
@@ -134,7 +128,7 @@ export default function AddMedicine() {
             style={styles.saveBtn}
           />
         </ScrollView>
-      </KeyboardAvoidingView>
+      </View>
     </SafeAreaView>
   );
 }

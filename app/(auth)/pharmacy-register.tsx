@@ -5,19 +5,18 @@
  * Step 3: Pharmacy details (email + name)
  * Step 4: Location (map pin)
  */
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   StyleSheet, Text, View, TextInput, Pressable,
-  ActivityIndicator, ScrollView, KeyboardAvoidingView,
-  Platform, Dimensions, Animated,
-} from 'react-native';
+  ActivityIndicator, ScrollView, Platform, Dimensions, Animated} from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Path } from 'react-native-svg';
-import MapView, { Marker } from 'react-native-maps';
+import MapComponent from '@/components/MapComponent';
 import { useAuthStore } from '@/store/authStore';
 import { supabase } from '@/lib/supabase';
+import { getCurrentLocation } from '@/lib/location';
 
 const GREEN = '#10b981';
 const INPUT_BG = '#f8fafc';
@@ -79,7 +78,7 @@ function Hero({ step, onBack }: { step: 1|2|3|4; onBack: () => void }) {
       <View style={{ backgroundColor: GREEN }}>
         <SafeAreaView edges={['top']} style={hero.safe}>
           <Pressable onPress={onBack} style={hero.back}>
-            <Ionicons name="arrow-back" size={20} color="#fff" />
+            <Ionicons name='arrow-back' size={20} color="#fff" />
           </Pressable>
           <Text style={hero.title}>Register Pharmacy</Text>
           <Text style={hero.sub}>Join the PharmFindr network</Text>
@@ -87,8 +86,8 @@ function Hero({ step, onBack }: { step: 1|2|3|4; onBack: () => void }) {
         </SafeAreaView>
       </View>
       <View style={{ backgroundColor: GREEN }}>
-        <Svg width={width} height={36} viewBox={`0 0 ${width} 36`}>
-          <Path d={`M0,0 Q${width/2},45 ${width},0 L${width},36 L0,36 Z`} fill="#ffffff" />
+        <Svg width={width} height={20} viewBox={`0 0 ${width} 20`}>
+          <Path d={`M0,20 Q${width / 2},0 ${width},20 L${width},20 L0,20 Z`} fill="#ffffff" />
         </Svg>
       </View>
     </>
@@ -96,7 +95,7 @@ function Hero({ step, onBack }: { step: 1|2|3|4; onBack: () => void }) {
 }
 const hero = StyleSheet.create({
   safe: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 28 },
-  back: { width: 32, height: 32, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center', marginBottom: 14 },
+  back: { width: 42, height: 42, borderRadius: 9999, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center', marginBottom:8 },
   title: { fontSize: 22, fontWeight: '700', color: '#fff', marginBottom: 2 },
   sub: { fontSize: 13, color: 'rgba(255,255,255,0.85)', marginBottom: 8 },
 });
@@ -161,7 +160,9 @@ function Step1Phone({ onNext, onBack }: { onNext: (phone: string) => void; onBac
   };
 
   return (
-    <ScrollView contentContainerStyle={s.scroll}>
+    <ScrollView contentContainerStyle={s.scroll}
+        showsVerticalScrollIndicator={false}
+        showsHorizontalScrollIndicator={false}>
       <Hero step={1} onBack={onBack} />
       <View style={s.form}>
         <Text style={s.secTitle}>Enter your phone number</Text>
@@ -199,7 +200,9 @@ function Step2Verify({ phone, onNext, onBack }: { phone: string; onNext: () => v
   };
 
   return (
-    <ScrollView contentContainerStyle={s.scroll}>
+    <ScrollView contentContainerStyle={s.scroll}
+        showsVerticalScrollIndicator={false}
+        showsHorizontalScrollIndicator={false}>
       <Hero step={2} onBack={onBack} />
       <View style={s.form}>
         <Text style={s.secTitle}>Verify your number</Text>
@@ -226,8 +229,9 @@ function Step2Verify({ phone, onNext, onBack }: { phone: string; onNext: () => v
 
         <PrimaryBtn label="Verify & Continue" onPress={handleVerify} loading={loading} />
 
-        <Pressable style={{ alignItems: 'center', marginTop: 20 }} onPress={onBack}>
-          <Text style={{ color: LABEL_COLOR, fontSize: 14, fontWeight: '500' }}>← Change Number</Text>
+        <Pressable style={{ alignItems: 'center', marginTop: 20, flexDirection: 'row', justifyContent: 'center' }} onPress={onBack}>
+          <Ionicons name='chevron-back' size={20} color={LABEL_COLOR} />
+          <Text style={{ color: LABEL_COLOR, fontSize: 14, fontWeight: '500' }}>Change Number</Text>
         </Pressable>
       </View>
     </ScrollView>
@@ -236,7 +240,7 @@ function Step2Verify({ phone, onNext, onBack }: { phone: string; onNext: () => v
 const otp = StyleSheet.create({
   row: { flexDirection: 'row', gap: 10, justifyContent: 'center', marginTop: 12 },
   box: { width: 46, height: 58, borderRadius: 14, borderWidth: 1.5, borderColor: '#e2e8f0', backgroundColor: INPUT_BG, fontSize: 22, fontWeight: '700', color: TEXT_PRIMARY },
-  boxFilled: { borderColor: GREEN },
+  boxFilled: { borderColor: GREEN, backgroundColor: GREEN + '20' },
 });
 
 // ══ STEP 3: Pharmacy Details ══════════════════════════════════════════════
@@ -253,7 +257,9 @@ function Step3Details({ onNext, onBack }: { onNext: (email: string, name: string
   };
 
   return (
-    <ScrollView contentContainerStyle={s.scroll}>
+    <ScrollView contentContainerStyle={s.scroll}
+        showsVerticalScrollIndicator={false}
+        showsHorizontalScrollIndicator={false}>
       <Hero step={3} onBack={onBack} />
       <View style={s.form}>
         <Text style={s.secTitle}>Pharmacy details</Text>
@@ -276,28 +282,61 @@ function Step4Location({ phone, email, pharmName, onDone, onBack }: {
   onDone: () => void; onBack: () => void;
 }) {
   const [pin, setPin] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [initialCoords, setInitialCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  const { loginMock } = useAuthStore();
+  const { signUp } = useAuthStore();
+
+  useEffect(() => {
+    async function getInitialLocation() {
+      try {
+        const coords = await getCurrentLocation();
+        setInitialCoords(coords);
+        setPin(coords); // drop pin at current location initially
+      } catch (e: any) {
+        console.warn('Could not get device location on mount:', e);
+      }
+    }
+    getInitialLocation();
+  }, []);
+
+  const [scrollEnabled, setScrollEnabled] = useState(true);
 
   const handleConfirm = async () => {
     setLoading(true);
     setErr(null);
     try {
-      // Mock successful registration and login
-      loginMock(phone, 'pharmacy', pharmName);
+      const user = await signUp(phone, email, 'PharmacyPass123!', 'pharmacy', pharmName);
+      if (!user) throw new Error('Registration failed.');
+
+      const { error } = await supabase.from('pharmacies').insert({
+        owner_id: user.id,
+        name: pharmName,
+        phone: phone,
+        address: search.trim() || 'Custom dropped pin on map',
+        latitude: pin?.latitude ?? 5.6037,
+        longitude: pin?.longitude ?? -0.187,
+        verified: false
+      });
+
+      if (error) throw error;
       onDone();
     } catch (e: any) {
-      setErr('Failed to register pharmacy.');
+      setErr(e.message || 'Failed to register pharmacy.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <View style={{ flex: 1 }}>
+    <ScrollView 
+      contentContainerStyle={s.scroll}
+      showsVerticalScrollIndicator={false}
+      showsHorizontalScrollIndicator={false}
+      scrollEnabled={scrollEnabled}
+    >
       <Hero step={4} onBack={onBack} />
       <View style={s.form}>
         <Text style={s.secTitle}>Select your location</Text>
@@ -323,15 +362,14 @@ function Step4Location({ phone, email, pharmName, onDone, onBack }: {
         </View>
         {/* Map */}
         <View style={map.container}>
-          <MapView
-            style={{ flex: 1 }}
-            initialRegion={{ latitude: 5.6037, longitude: -0.187, latitudeDelta: 0.05, longitudeDelta: 0.05 }}
-            onPress={e => setPin(e.nativeEvent.coordinate)}
-          >
-            {pin && (
-              <Marker coordinate={pin} pinColor="#2563eb" title="Custom Location" />
-            )}
-          </MapView>
+          {initialCoords ? (
+            <MapComponent pin={pin} onPressMap={setPin} initialCoords={initialCoords} setScrollEnabled={setScrollEnabled} />
+          ) : (
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f1f5f9' }}>
+              <ActivityIndicator color={GREEN} />
+              <Text style={{ marginTop: 8, color: '#62748e', fontSize: 12 }}>Getting your GPS location...</Text>
+            </View>
+          )}
         </View>
         {/* Selected location card */}
         {pin && (
@@ -342,7 +380,7 @@ function Step4Location({ phone, email, pharmName, onDone, onBack }: {
             <View style={{ flex: 1, marginLeft: 12 }}>
               <Text style={map.cardTitle}>{pharmName}</Text>
               <Text style={map.cardSub}>
-                Coordinates {Math.round(pin.latitude)}, {Math.round(pin.longitude)} · Pin dropped on map
+                Coordinates {Math.round(pin.latitude * 1000) / 1000}, {Math.round(pin.longitude * 1000) / 1000} · Pin dropped on map
               </Text>
             </View>
             <Pressable onPress={() => setPin(null)}>
@@ -352,7 +390,7 @@ function Step4Location({ phone, email, pharmName, onDone, onBack }: {
         )}
         <PrimaryBtn label="Confirm Location" onPress={handleConfirm} loading={loading} />
       </View>
-    </View>
+    </ScrollView>
   );
 }
 const map = StyleSheet.create({
@@ -378,8 +416,8 @@ function SuccessScreen({ onDone }: { onDone: () => void }) {
         </SafeAreaView>
       </View>
       <View style={{ backgroundColor: GREEN }}>
-        <Svg width={width} height={36} viewBox={`0 0 ${width} 36`}>
-          <Path d={`M0,0 Q${width/2},45 ${width},0 L${width},36 L0,36 Z`} fill="#ffffff" />
+        <Svg width={width} height={20} viewBox={`0 0 ${width} 20`}>
+          <Path d={`M0,20 Q${width / 2},0 ${width},20 L${width},20 L0,20 Z`} fill="#ffffff" />
         </Svg>
       </View>
       <View style={[s.form, { alignItems: 'center' }]}>
@@ -454,8 +492,14 @@ export default function PharmacyRegister() {
     <Step2Verify phone={phone} onNext={() => setStep(3)} onBack={goBack} />
   );
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, backgroundColor: '#fff' }}>
-      <Step1Phone onNext={(p) => { setPhone(p); setStep(2); }} onBack={goBack} />
-    </KeyboardAvoidingView>
+    <View style={{ flex: 1, backgroundColor: '#fff' }}>
+      <Step1Phone 
+        onNext={(p) => {
+          setPhone(p);
+          setStep(2);
+        }} 
+        onBack={goBack} 
+      />
+    </View>
   );
 }

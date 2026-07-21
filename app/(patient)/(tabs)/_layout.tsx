@@ -1,20 +1,19 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
-import { useColorScheme } from '@/components/useColorScheme';
-import { colors } from '@/theme/colors';
+import { useThemeContext } from '@/hooks/useThemeContext';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function TabsLayout() {
-  const colorScheme = useColorScheme();
-  const theme = colors[colorScheme ?? 'light'];
+  const { theme, primaryColor } = useThemeContext();
 
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: theme.patient.primary,
-        tabBarInactiveTintColor: theme.text.muted,
+        tabBarActiveTintColor: primaryColor,
+        tabBarInactiveTintColor: theme.textDim,
+        tabBarHideOnKeyboard: true,
         tabBarStyle: {
-          backgroundColor: theme.background,
+          backgroundColor: theme.card,
           borderTopColor: theme.border,
           elevation: 8,
           shadowOpacity: 0.1,
@@ -30,25 +29,25 @@ export default function TabsLayout() {
         options={{
           title: 'Home',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'home' : 'home-outline'} size={24} color={color} />
+            <Ionicons name={focused ? 'home' : 'home-outline'} size={22} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="search"
+        options={{
+          title: 'Search',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? 'search' : 'search-outline'} size={22} color={color} />
           ),
         }}
       />
       <Tabs.Screen
         name="chat"
         options={{
-          title: 'AI Assistant',
+          title: 'Chat',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'chatbubble-ellipses' : 'chatbubble-ellipses-outline'} size={24} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="pharmacies"
-        options={{
-          title: 'Pharmacies',
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'map' : 'map-outline'} size={24} color={color} />
+            <Ionicons name={focused ? 'chatbubble-ellipses' : 'chatbubble-ellipses-outline'} size={22} color={color} />
           ),
         }}
       />
@@ -57,7 +56,7 @@ export default function TabsLayout() {
         options={{
           title: 'Profile',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'person' : 'person-outline'} size={24} color={color} />
+            <Ionicons name={focused ? 'person' : 'person-outline'} size={22} color={color} />
           ),
         }}
       />

@@ -7,10 +7,8 @@ import {
   Pressable, 
   ActivityIndicator, 
   ScrollView,
-  KeyboardAvoidingView,
   Platform,
-  Dimensions,
-} from 'react-native';
+  Dimensions} from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAuthStore } from '@/store/authStore';
 import { supabase } from '@/lib/supabase';
@@ -69,7 +67,7 @@ export default function Register() {
   const isPharmacy = role === 'pharmacy';
   const activeColor = isPharmacy ? PHARMACY_GREEN : PATIENT_BLUE;
 
-  const { loginMock } = useAuthStore();
+  const { signUp } = useAuthStore();
 
   const handleRegister = async () => {
     if (!fullName || !email || !password || !confirmPassword) {
@@ -85,27 +83,25 @@ export default function Register() {
     setErrorMsg(null);
 
     try {
-      // Local mock login registration
-      loginMock(phone || 'N/A', role, fullName);
+      await signUp(phone || 'N/A', email, password, role, fullName);
       router.replace(isPharmacy ? '/(pharmacy)/(tabs)/dashboard' : '/(patient)/(tabs)/home');
     } catch (e: any) {
-      setErrorMsg('Registration failed. Please try again.');
+      setErrorMsg(e.message || 'Registration failed. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.root}
-    >
-      <ScrollView contentContainerStyle={styles.scroll} bounces={false}>
+    <View style={styles.root}>
+      <ScrollView contentContainerStyle={styles.scroll} bounces={false}
+        showsVerticalScrollIndicator={false}
+        showsHorizontalScrollIndicator={false}>
         {/* ── Header ── */}
         <View style={{ backgroundColor: activeColor }}>
           <SafeAreaView edges={['top']} style={styles.heroInner}>
             <Pressable onPress={() => router.back()} style={styles.backBtn}>
-              <Ionicons name="arrow-back" size={20} color="#ffffff" />
+              <Ionicons name='arrow-back' size={20} color="#ffffff" />
             </Pressable>
             <Text style={styles.heroTitle}>Create Account</Text>
             <Text style={styles.heroSubtitle}>Join thousands managing their health smarter.</Text>
@@ -114,11 +110,9 @@ export default function Register() {
 
         {/* Wave curve */}
         <View style={{ backgroundColor: activeColor }}>
-          <Svg width={width} height={40} viewBox={`0 0 ${width} 40`}>
-            <Path
-              d={`M0,0 Q${width / 2},50 ${width},0 L${width},40 L0,40 Z`}
-              fill="#ffffff"
-            />
+          <Svg width={width} height={20} viewBox={`0 0 ${width} 20`}>
+            <Path d={`M0,20 Q${width / 2},0 ${width},20 L${width},20 L0,20 Z`}
+            fill="#ffffff" />
           </Svg>
         </View>
 
@@ -191,7 +185,7 @@ export default function Register() {
           </Text>
         </View>
       </ScrollView>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
@@ -209,13 +203,13 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   backBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
+    width: 46,
+    height: 46,
+    borderRadius: 9999,
     backgroundColor: 'rgba(255,255,255,0.22)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 8,
   },
   heroTitle: {
     fontSize: 26,

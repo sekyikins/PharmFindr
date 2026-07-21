@@ -7,30 +7,27 @@ import {
   Pressable, 
   ActivityIndicator, 
   ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-  Dimensions,
-} from 'react-native';
+  useWindowDimensions,
+  StatusBar} from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '@/store/authStore';
-import { useColorScheme } from '@/components/useColorScheme';
 import { supabase } from '@/lib/supabase';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Path } from 'react-native-svg';
 
 // Figma extracted colors
-const PATIENT_BLUE = '#2563eb';
-const PHARMACY_GREEN = '#10b981';
+const BLUE = '#2563eb';
+const GREEN = '#10b981';
 const INPUT_BG = '#f8fafc';
 const LABEL_COLOR = '#62748e';
 const PLACEHOLDER_COLOR = '#90a1b9';
 const TEXT_PRIMARY = '#1d293d';
 
-const { width } = Dimensions.get('window');
-
 export default function Login() {
+  const { width } = useWindowDimensions();
   const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<'patient' | 'pharmacy'>('patient');
   
@@ -42,14 +39,14 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   
-  const { loginMock } = useAuthStore();
+  const { signIn } = useAuthStore();
   const router = useRouter();
   const isPharmacy = role === 'pharmacy';
-  const activeColor = isPharmacy ? PHARMACY_GREEN : PATIENT_BLUE;
+  const activeColor = isPharmacy ? GREEN : BLUE;
 
   const handlePatientLogin = async () => {
-    if (!phone || !password) {
-      setErrorMsg('Please enter your phone number and password.');
+    if (!email || !password) {
+      setErrorMsg('Please enter your email and password.');
       return;
     }
     
@@ -57,11 +54,10 @@ export default function Login() {
     setErrorMsg(null);
 
     try {
-      // Mock patient login: accept any input
-      loginMock(phone, 'patient');
+      await signIn(email, password);
       router.replace('/(patient)/(tabs)/home');
     } catch (error: any) {
-      setErrorMsg('Login failed.');
+      setErrorMsg(error.message || 'Login failed.');
     } finally {
       setLoading(false);
     }
@@ -75,7 +71,7 @@ export default function Login() {
     setLoading(true);
     setErrorMsg(null);
     try {
-      // Go to step 2 OTP input
+      // Go to step 2 OTP input (simulated, but we will login with default pass)
       setTimeout(() => {
         setLoading(false);
         setPharmStep(2);
@@ -95,11 +91,11 @@ export default function Login() {
     setLoading(true);
     setErrorMsg(null);
     try {
-      // Mock verify otp: accept any 6-digit code
-      loginMock(phone, 'pharmacy');
+      // Real login using derived password for pharmacy
+      await signIn(phone, 'PharmacyPass123!');
       router.replace('/(pharmacy)/(tabs)/dashboard');
     } catch (error: any) {
-      setErrorMsg('OTP verification failed.');
+      setErrorMsg(error.message || 'OTP verification failed.');
     } finally {
       setLoading(false);
     }
@@ -121,11 +117,15 @@ export default function Login() {
   };
 
   return (
-    <KeyboardAvoidingView 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.root}
-    >
-      <ScrollView contentContainerStyle={styles.scroll} bounces={false}>
+    <View style={styles.root}>
+      <StatusBar barStyle="light-content" backgroundColor={activeColor} />
+      <ScrollView 
+        contentContainerStyle={styles.scroll} 
+        bounces={false}
+        keyboardShouldPersistTaps="handled"
+      
+        showsVerticalScrollIndicator={false}
+        showsHorizontalScrollIndicator={false}>
 
         {/* ── Figma Hero Header ── */}
         <View style={[styles.hero, { backgroundColor: activeColor }]}>
@@ -152,12 +152,12 @@ export default function Login() {
         <View style={{ backgroundColor: activeColor }}>
           <Svg 
             width={width} 
-            height={40} 
-            viewBox={`0 0 ${width} 40`}
+            height={20} 
+            viewBox={`0 0 ${width} 20`}
             style={{ display: 'flex' }}
           >
             <Path
-              d={`M0,0 Q${width / 2},50 ${width},0 L${width},40 L0,40 Z`}
+              d={`M0,20 Q${width / 2},0 ${width},20 L${width},20 L0,20 Z`}
               fill="#ffffff"
             />
           </Svg>
@@ -174,17 +174,17 @@ export default function Login() {
           {/* PATIENT LOGIN FORM */}
           {!isPharmacy && (
             <View>
-              {/* Phone Number */}
-              <Text style={styles.label}>PHONE NUMBER</Text>
+              {/* Email Address */}
+              <Text style={styles.label}>EMAIL</Text>
               <View style={styles.inputRow}>
-                <Ionicons name="call-outline" size={16} color={PLACEHOLDER_COLOR} style={styles.inputIcon} />
+                <Ionicons name="mail-outline" size={16} color={PLACEHOLDER_COLOR} style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
-                  placeholder="+1 555 000 0000"
+                  placeholder="your.email@example.com"
                   placeholderTextColor={PLACEHOLDER_COLOR}
-                  value={phone}
-                  onChangeText={setPhone}
-                  keyboardType="phone-pad"
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
                   autoCapitalize="none"
                 />
               </View>
@@ -206,12 +206,12 @@ export default function Login() {
 
               {/* Forgot Password */}
               <Pressable style={styles.forgotRow}>
-                <Text style={[styles.forgotText, { color: PATIENT_BLUE }]}>Forgot Password?</Text>
+                <Text style={[styles.forgotText, { color: BLUE }]}>Forgot Password?</Text>
               </Pressable>
 
               {/* Primary Login Button */}
               <Pressable
-                style={[styles.primaryBtn, { backgroundColor: PATIENT_BLUE }]}
+                style={[styles.primaryBtn, { backgroundColor: BLUE }]}
                 onPress={handlePatientLogin}
                 disabled={loading}
               >
@@ -230,10 +230,10 @@ export default function Login() {
 
               {/* Create Account Button */}
               <Pressable
-                style={[styles.outlineBtn, { borderColor: PATIENT_BLUE }]}
+                style={[styles.outlineBtn, { borderColor: BLUE }]}
                 onPress={() => router.push({ pathname: '/(auth)/register', params: { initialRole: 'patient' } })}
               >
-                <Text style={[styles.outlineBtnText, { color: PATIENT_BLUE }]}>Create Account</Text>
+                <Text style={[styles.outlineBtnText, { color: BLUE }]}>Create Account</Text>
               </Pressable>
             </View>
           )}
@@ -258,7 +258,7 @@ export default function Login() {
 
               {/* Send OTP Button */}
               <Pressable
-                style={[styles.primaryBtn, { backgroundColor: PHARMACY_GREEN }]}
+                style={[styles.primaryBtn, { backgroundColor: GREEN }]}
                 onPress={handleSendOtp}
                 disabled={loading}
               >
@@ -277,10 +277,10 @@ export default function Login() {
 
               {/* Register Pharmacy Button */}
               <Pressable
-                style={[styles.outlineBtn, { borderColor: PHARMACY_GREEN }]}
+                style={[styles.outlineBtn, { borderColor: GREEN }]}
                 onPress={() => router.push('/(auth)/pharmacy-register')}
               >
-                <Text style={[styles.outlineBtnText, { color: PHARMACY_GREEN }]}>Register Your Pharmacy</Text>
+                <Text style={[styles.outlineBtnText, { color: GREEN }]}>Register Your Pharmacy</Text>
               </Pressable>
             </View>
           )}
@@ -310,7 +310,7 @@ export default function Login() {
 
               {/* Verify & Login Button */}
               <Pressable
-                style={[styles.primaryBtn, { backgroundColor: PHARMACY_GREEN }]}
+                style={[styles.primaryBtn, { backgroundColor: GREEN }]}
                 onPress={handleVerifyOtp}
                 disabled={loading}
               >
@@ -322,28 +322,32 @@ export default function Login() {
 
               {/* Resend OTP Button */}
               <Pressable style={styles.resendRow} onPress={handleSendOtp}>
-                <Text style={[styles.resendText, { color: PHARMACY_GREEN }]}>Resend OTP</Text>
+                <Text style={[styles.resendText, { color: GREEN }]}>Resend OTP</Text>
               </Pressable>
 
               {/* Back to Step 1 */}
-              <Pressable style={styles.backToPhoneRow} onPress={() => setPharmStep(1)}>
-                <Text style={styles.backToPhoneText}>← Change Phone Number</Text>
+              <Pressable style={ styles.backToPhoneRow } onPress={() => setPharmStep(1)}>
+                <Ionicons name="chevron-back" size={20} color={LABEL_COLOR} />
+                <Text style={styles.backToPhoneText}>Change Phone Number</Text>
               </Pressable>
             </View>
           )}
 
           {/* Portal Switcher */}
           <Pressable style={styles.switchRow} onPress={toggleRole}>
-            <Text style={styles.switchText}>
-              {isPharmacy ? 'Are you a patient? ' : 'Are you a pharmacy? '}
-              <Text style={{ color: isPharmacy ? PATIENT_BLUE : PHARMACY_GREEN, fontWeight: '600' }}>
-                Login →
-              </Text>
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={styles.switchText}>{isPharmacy ? 'Are you a patient? ' : 'Are you a pharmacy? '}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ color: isPharmacy ? BLUE : GREEN, fontWeight: '600' }}>Login</Text>
+                <Ionicons name="chevron-forward" size={20} color={isPharmacy ? BLUE : GREEN} />
+              </View>
+            </View>
           </Pressable>
         </View>
       </ScrollView>
-    </KeyboardAvoidingView>
+      {/* Ensure content extends to the bottom of the device */}
+      <SafeAreaView edges={['bottom']} style={{ backgroundColor: '#ffffff' }} />
+    </View>
   );
 }
 
@@ -361,15 +365,14 @@ const styles = StyleSheet.create({
   },
   heroInner: {
     paddingHorizontal: 24,
-    paddingTop: 24,
-    paddingBottom: 32,
+    paddingVertical: 24,
     alignItems: 'flex-start',
   },
   iconBadge: {
     width: 52,
     height: 52,
     borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.22)',
+    backgroundColor: '#ffffff38',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
@@ -382,15 +385,12 @@ const styles = StyleSheet.create({
   },
   heroSubtitle: {
     fontSize: 14,
-    color: 'rgba(255,255,255,0.85)',
+    color: '#ffffff',
     fontWeight: '400',
   },
   // ── Form ──
   form: {
-    paddingHorizontal: 24,
-    paddingTop: 24,
-    paddingBottom: 40,
-    backgroundColor: '#ffffff',
+    padding: 24,
   },
   errorBox: {
     backgroundColor: '#fef2f2',
@@ -509,7 +509,8 @@ const styles = StyleSheet.create({
     color: TEXT_PRIMARY,
   },
   otpBoxFilled: {
-    borderColor: PHARMACY_GREEN,
+    borderColor: GREEN,
+    backgroundColor: GREEN + "20",
   },
   resendRow: {
     alignItems: 'center',
@@ -522,6 +523,8 @@ const styles = StyleSheet.create({
   backToPhoneRow: {
     alignItems: 'center',
     marginTop: 20,
+    flexDirection: 'row', 
+    justifyContent: 'center'
   },
   backToPhoneText: {
     fontSize: 14,

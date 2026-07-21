@@ -1,15 +1,16 @@
 import React from 'react';
-import { 
-  StyleSheet, 
-  Text, 
-  Pressable, 
-  ActivityIndicator, 
-  PressableProps, 
-  StyleProp, 
-  ViewStyle, 
-  TextStyle 
+import {
+  StyleSheet,
+  Text,
+  Pressable,
+  ActivityIndicator,
+  PressableProps,
+  StyleProp,
+  ViewStyle,
+  TextStyle,
 } from 'react-native';
 import { useThemeContext } from '@/hooks/useThemeContext';
+import { RADIUS, FONT_SIZE } from '@/styles/theme';
 
 interface ButtonProps extends PressableProps {
   title: string;
@@ -19,76 +20,74 @@ interface ButtonProps extends PressableProps {
   textStyle?: StyleProp<TextStyle>;
 }
 
-export function Button({ 
-  title, 
-  variant = 'primary', 
-  loading = false, 
-  style, 
-  textStyle, 
+export function Button({
+  title,
+  variant = 'primary',
+  loading = false,
+  style,
+  textStyle,
   disabled,
-  ...props 
+  ...props
 }: ButtonProps) {
-  const { theme, primaryColor, secondaryColor } = useThemeContext();
+  const { primaryColor, secondaryColor } = useThemeContext();
 
   const getStyles = () => {
     switch (variant) {
       case 'secondary':
         return {
-          container: [styles.container, { backgroundColor: secondaryColor }, style],
-          text: [styles.text, { color: primaryColor }, textStyle]
+          container: [styles.base, { backgroundColor: secondaryColor }, style],
+          text:      [styles.text, { color: primaryColor }, textStyle],
         };
       case 'outline':
         return {
-          container: [styles.container, { backgroundColor: 'transparent', borderWidth: 1.2, borderColor: primaryColor }, style],
-          text: [styles.text, { color: primaryColor }, textStyle]
+          container: [styles.base, { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: primaryColor }, style],
+          text:      [styles.text, { color: primaryColor }, textStyle],
         };
       case 'ghost':
         return {
-          container: [styles.container, { backgroundColor: 'transparent' }, style],
-          text: [styles.text, { color: primaryColor }, textStyle]
+          container: [styles.base, { backgroundColor: 'transparent' }, style],
+          text:      [styles.text, { color: primaryColor }, textStyle],
         };
-      case 'primary':
-      default:
+      default: // primary
         return {
-          container: [styles.container, { backgroundColor: primaryColor }, style],
-          text: [styles.text, { color: '#ffffff' }, textStyle]
+          container: [styles.base, { backgroundColor: primaryColor }, style],
+          text:      [styles.text, { color: '#ffffff' }, textStyle],
         };
     }
   };
 
-  const activeStyles = getStyles();
+  const s = getStyles();
 
   return (
-    <Pressable 
+    <Pressable
       style={({ pressed }) => [
-        activeStyles.container,
+        s.container,
         (pressed || disabled || loading) && styles.pressed,
       ]}
       disabled={disabled || loading}
       {...props}
     >
-      {loading ? (
-        <ActivityIndicator color={variant === 'primary' ? '#ffffff' : primaryColor} size="small" />
-      ) : (
-        <Text style={activeStyles.text}>{title}</Text>
-      )}
+      {loading
+        ? <ActivityIndicator color={variant === 'primary' ? '#ffffff' : primaryColor} size="small" />
+        : <Text style={s.text}>{title}</Text>
+      }
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    height: 48,
-    borderRadius: 16,
+  base: {
+    height: 52,
+    borderRadius: RADIUS.pill,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
   },
   text: {
-    fontSize: 14,
+    fontSize: FONT_SIZE.xl,
     fontWeight: '600',
   },
   pressed: {
-    opacity: 0.8,
+    opacity: 0.75,
   },
 });

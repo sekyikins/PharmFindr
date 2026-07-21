@@ -3,13 +3,11 @@ import { ActivityIndicator, View, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '@/store/authStore';
 import { colors } from '@/theme/colors';
-import { useColorScheme } from '@/components/useColorScheme';
 
 export default function Index() {
   const { session, profile, loading, initialize } = useAuthStore();
   const router = useRouter();
-  const colorScheme = useColorScheme();
-  const theme = colors[colorScheme ?? 'light'];
+  const theme = colors.light;
 
   useEffect(() => {
     initialize();
