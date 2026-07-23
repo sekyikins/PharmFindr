@@ -59,7 +59,7 @@ export default function Register() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [role] = useState<'patient' | 'pharmacy'>(initialRole || 'patient');
+  const [role] = useState<'user' | 'pharmacy'>(initialRole === 'pharmacy' ? 'pharmacy' : 'user');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   
@@ -199,8 +199,7 @@ const styles = StyleSheet.create({
   },
   heroInner: {
     paddingHorizontal: 24,
-    paddingTop: 16,
-    paddingBottom: 32,
+    paddingVertical: 16,
   },
   backBtn: {
     width: 46,

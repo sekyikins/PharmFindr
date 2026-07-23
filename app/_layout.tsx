@@ -49,7 +49,14 @@ function RootLayoutNav() {
     <ThemeProvider value={DefaultTheme}>
       {/* Default to dark status bar text (visible on white/light backgrounds) */}
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
-      <Stack screenOptions={{ headerShown: false }}>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          animation: 'slide_from_right',
+          animationDuration: 220,
+          gestureEnabled: true,
+        }}
+      >
         <Stack.Screen name="index" />
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="(patient)" />

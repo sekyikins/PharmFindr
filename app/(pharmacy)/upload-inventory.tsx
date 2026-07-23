@@ -145,7 +145,7 @@ export default function UploadInventory() {
           <Ionicons name="cloud-upload-outline" size={48} color={primaryColor} />
           <Text style={[styles.pickerTitle, { color: theme.text.primary }]}>Upload Inventory File</Text>
           <Text style={[styles.pickerDesc, { color: theme.text.secondary }]}>
-            Supports CSV, XLS, and XLSX files. The file should have columns matching Name, Price, and Quantity.
+            Supports CSV, XLS, and XLSX files. Required columns: <Text style={{ fontWeight: '700' }}>Name</Text>, <Text style={{ fontWeight: '700' }}>Strength</Text> (optional), <Text style={{ fontWeight: '700' }}>Quantity</Text>, <Text style={{ fontWeight: '700' }}>Price</Text>.
           </Text>
 
           <Button 
@@ -161,6 +161,33 @@ export default function UploadInventory() {
             </Text>
           )}
         </Card>
+
+        {/* Column format guide */}
+        <View style={[styles.formatBox, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
+          <Text style={[styles.formatTitle, { color: theme.text.primary }]}>📋 Required File Format</Text>
+          <Text style={[styles.formatSub, { color: theme.text.secondary }]}>
+            Your spreadsheet must have a header row with these column names (case-insensitive):
+          </Text>
+          <View style={styles.formatTable}>
+            {[
+              { col: 'Name', req: true,  hint: 'Medicine name (e.g. Amoxicillin)' },
+              { col: 'Strength', req: false, hint: 'Dose strength — can be blank (e.g. 500mg)' },
+              { col: 'Quantity', req: true,  hint: 'Also accepts: qty, stock' },
+              { col: 'Price',    req: true,  hint: 'Unit price in GH₵' },
+            ].map(({ col, req, hint }) => (
+              <View key={col} style={styles.formatRow}>
+                <View style={[styles.colBadge, { backgroundColor: req ? primaryColor + '18' : theme.border + '60' }]}>
+                  <Text style={[styles.colName, { color: req ? primaryColor : theme.text.muted }]}>{col}</Text>
+                  {!req && <Text style={[styles.colOpt, { color: theme.text.muted }]}>optional</Text>}
+                </View>
+                <Text style={[styles.colHint, { color: theme.text.secondary }]}>{hint}</Text>
+              </View>
+            ))}
+          </View>
+          <Text style={[styles.formatExample, { color: theme.text.muted }]}>
+            Example row:{'  '}Amoxicillin, 500mg, 48, 12.50
+          </Text>
+        </View>
 
         {errorMsg && (
           <View style={[styles.errorBox, { backgroundColor: theme.errorBg, borderColor: theme.error }]}>
@@ -294,5 +321,59 @@ const styles = StyleSheet.create({
   importBtn: {
     marginTop: SPACING.lg,
     marginBottom: 40,
+  },
+
+  formatBox: {
+    borderWidth: 1,
+    borderRadius: RADIUS.xl,
+    padding: SPACING.xl,
+    marginBottom: SPACING.xl,
+    gap: 10,
+  },
+  formatTitle: {
+    fontSize: FONT_SIZE.lg,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  formatSub: {
+    fontSize: FONT_SIZE.sm,
+    lineHeight: 18,
+  },
+  formatTable: {
+    gap: 8,
+    marginTop: 4,
+  },
+  formatRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  colBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderRadius: RADIUS.md,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    minWidth: 90,
+  },
+  colName: {
+    fontSize: FONT_SIZE.body,
+    fontWeight: '700',
+  },
+  colOpt: {
+    fontSize: 10,
+    fontStyle: 'italic',
+  },
+  colHint: {
+    fontSize: FONT_SIZE.sm,
+    flex: 1,
+    lineHeight: 16,
+  },
+  formatExample: {
+    fontSize: FONT_SIZE.sm,
+    fontStyle: 'italic',
+    marginTop: 4,
+    letterSpacing: 0.2,
   },
 });

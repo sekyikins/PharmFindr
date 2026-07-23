@@ -15,6 +15,7 @@ import { supabase } from '@/lib/supabase';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Path } from 'react-native-svg';
+import { validateGhanaPhone, sendArkeselOtp, verifyArkeselOtp } from '@/lib/arkeselSms';
 
 // Figma extracted colors
 const BLUE = '#2563eb';
@@ -63,23 +64,93 @@ export default function Login() {
     }
   };
 
+  const [formattedPhone, setFormattedPhone] = useState('');
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [resendTimer, setResendTimer] = useState(0);
+
+  const startResendTimer = () => {
+    setResendTimer(30);
+    const interval = setInterval(() => {
+      setResendTimer((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
   const handleSendOtp = async () => {
-    if (!phone) {
+    const raw = phone.trim();
+    if (!raw) {
       setErrorMsg('Please enter your pharmacy phone number.');
       return;
     }
+
+    // Step 1: Validate Ghana phone format (free — no credits spent)
+    const validation = validateGhanaPhone(raw);
+    if (!validation.valid) {
+      setErrorMsg(validation.error || 'Invalid phone number.');
+      return;
+    }
+
     setLoading(true);
     setErrorMsg(null);
+    setSuccessMsg(null);
+
+    // Step 2: Check pharmacies table — phone is stored there, not in profiles
     try {
-      // Go to step 2 OTP input (simulated, but we will login with default pass)
-      setTimeout(() => {
+      const { data: pharmacies, error: dbError } = await supabase
+        .from('pharmacies')
+        .select('id')
+        .eq('phone', validation.formatted)
+        .limit(1);
+
+      if (dbError) {
+        console.warn('Supabase pharmacy phone lookup error:', dbError.message);
+        // Don't block on DB errors — proceed to OTP
+      } else if (!pharmacies || pharmacies.length === 0) {
+        setErrorMsg('No pharmacy account found with this number. Please register first.');
         setLoading(false);
-        setPharmStep(2);
-      }, 500);
-    } catch (error: any) {
-      setErrorMsg('Failed to send OTP.');
-      setLoading(false);
+        return;
+      }
+    } catch (e: any) {
+      console.warn('DB lookup failed:', e.message);
+      // Proceed — don't block login on DB errors
     }
+
+    // Step 3: Send OTP via Arkesel's managed OTP service (costs credit)
+    setFormattedPhone(validation.formatted);
+    const result = await sendArkeselOtp(validation.formatted);
+    setLoading(false);
+
+    if (!result.success) {
+      setErrorMsg(result.error || 'Failed to send OTP. Please try again.');
+      return;
+    }
+
+    setSuccessMsg(`OTP sent! A 6-digit code has been sent via SMS to ${raw}.`);
+    setPharmStep(2);
+    startResendTimer();
+  };
+
+  const handleResendOtp = async () => {
+    if (resendTimer > 0) return;
+    setLoading(true);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    const result = await sendArkeselOtp(formattedPhone);
+    setLoading(false);
+
+    if (!result.success) {
+      setErrorMsg(result.error || 'Failed to resend OTP. Please try again.');
+      return;
+    }
+
+    setSuccessMsg(`A new OTP code has been sent via SMS to ${phone.trim()}.`);
+    startResendTimer();
   };
 
   const handleVerifyOtp = async () => {
@@ -88,14 +159,28 @@ export default function Login() {
       setErrorMsg('Please enter the 6-digit code.');
       return;
     }
+
     setLoading(true);
     setErrorMsg(null);
+
+    // Defensively re-derive formattedPhone in case state is stale
+    const phoneToUse = formattedPhone || validateGhanaPhone(phone.trim()).formatted;
+
+    // Verify code with Arkesel's server-side OTP service
+    const verify = await verifyArkeselOtp(phoneToUse, code);
+    if (!verify.success) {
+      setErrorMsg(verify.error || 'Invalid verification code.');
+      setLoading(false);
+      return;
+    }
+
     try {
-      // Real login using derived password for pharmacy
-      await signIn(phone, 'PharmacyPass123!');
+      console.log('[PharmLogin] Signing in with phone:', phoneToUse);
+      await signIn(phoneToUse, 'PharmacyPass123!');
       router.replace('/(pharmacy)/(tabs)/dashboard');
     } catch (error: any) {
-      setErrorMsg(error.message || 'OTP verification failed.');
+      console.error('[PharmLogin] signIn error:', error.message, '| phone used:', phoneToUse);
+      setErrorMsg(error.message || 'Login failed after OTP verification.');
     } finally {
       setLoading(false);
     }
@@ -168,6 +253,13 @@ export default function Login() {
           {errorMsg && (
             <View style={[styles.errorBox, { borderColor: '#ef4444' }]}>
               <Text style={styles.errorText}>{errorMsg}</Text>
+            </View>
+          )}
+
+          {successMsg && (
+            <View style={styles.successBox}>
+              <Ionicons name="checkmark-circle" size={18} color={GREEN} style={{ marginRight: 8 }} />
+              <Text style={styles.successText}>{successMsg}</Text>
             </View>
           )}
 
@@ -321,8 +413,14 @@ export default function Login() {
               </Pressable>
 
               {/* Resend OTP Button */}
-              <Pressable style={styles.resendRow} onPress={handleSendOtp}>
-                <Text style={[styles.resendText, { color: GREEN }]}>Resend OTP</Text>
+              <Pressable
+                style={styles.resendRow}
+                onPress={handleResendOtp}
+                disabled={loading || resendTimer > 0}
+              >
+                <Text style={[styles.resendText, { color: resendTimer > 0 ? PLACEHOLDER_COLOR : GREEN }]}>
+                  {resendTimer > 0 ? `Resend OTP in ${resendTimer}s` : 'Resend OTP'}
+                </Text>
               </Pressable>
 
               {/* Back to Step 1 */}
@@ -403,6 +501,21 @@ const styles = StyleSheet.create({
     color: '#ef4444',
     fontSize: 13,
     textAlign: 'center',
+  },
+  successBox: {
+    backgroundColor: '#ecfdf5',
+    borderWidth: 1,
+    borderColor: '#10b981',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  successText: {
+    color: '#047857',
+    fontSize: 13,
+    flex: 1,
   },
   label: {
     fontSize: 10,

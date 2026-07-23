@@ -12,6 +12,7 @@ export default function TabsLayout() {
         tabBarActiveTintColor: primaryColor,
         tabBarInactiveTintColor: theme.textDim,
         tabBarHideOnKeyboard: true,
+        animation: 'shift',
         tabBarStyle: {
           backgroundColor: theme.card,
           borderTopColor: theme.border,

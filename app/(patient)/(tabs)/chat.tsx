@@ -12,10 +12,11 @@ import {
   Keyboard,
   Alert,
   ActivityIndicator,
+  BackHandler,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useThemeContext } from '@/hooks/useThemeContext';
 import { useChatStore } from '@/store/chatStore';
 import { useAuthStore } from '@/store/authStore';
@@ -112,6 +113,29 @@ export default function AIChat() {
     ]).start(() => setSidebarOpen(false));
   };
 
+  // Close sidebar on hardware Back button press
+  useEffect(() => {
+    if (!sidebarOpen) return;
+
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      closeSidebar();
+      return true; // Prevent default back navigation
+    });
+
+    return () => subscription.remove();
+  }, [sidebarOpen]);
+
+  // Close sidebar when navigating away or switching tabs
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        setSidebarOpen(false);
+        slideAnim.setValue(-320);
+        overlayOpacity.setValue(0);
+      };
+    }, [])
+  );
+
   const handleSend = useCallback(
     (text?: string) => {
       const msgText = (text ?? inputText).trim();
@@ -142,7 +166,6 @@ export default function AIChat() {
       'Clear Chat History',
       'Are you sure you want to clear all your AI chat messages?',
       [
-        { text: 'Cancel', style: 'cancel' },
         {
           text: 'Clear All',
           style: 'destructive',
@@ -153,7 +176,9 @@ export default function AIChat() {
             }
           },
         },
-      ]
+        { text: 'Cancel', style: 'cancel' },
+      ],
+      { cancelable: true }
     );
   };
 
@@ -226,12 +251,12 @@ export default function AIChat() {
                 style={styles.chatItem}
                 onPress={() => {
                   closeSidebar();
-                  router.push('/(patient)/edit-profile');
+                  router.push('/(patient)/health-profile');
                 }}
               >
                 <Ionicons name="fitness-outline" size={18} color={primaryColor} />
                 <Text style={[styles.chatItemText, { color: theme.text.primary }]}>
-                  Personal Health Profile
+                  Health Parameters
                 </Text>
               </Pressable>
 

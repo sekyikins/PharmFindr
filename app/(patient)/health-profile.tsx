@@ -17,10 +17,10 @@ import { useAuthStore } from '@/store/authStore';
 import { useThemeContext } from '@/hooks/useThemeContext';
 import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
 
-export default function EditPatientProfile() {
+export default function HealthProfile() {
   const router = useRouter();
   const { theme, primaryColor } = useThemeContext();
-  const { patientProfile, fetchPatientProfile, updatePatientProfile } = useAuthStore();
+  const { appUser, fetchAppUser, updateAppUser } = useAuthStore();
 
   const [age, setAge] = useState('');
   const [weight, setWeight] = useState('');
@@ -39,19 +39,19 @@ export default function EditPatientProfile() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    fetchPatientProfile();
-  }, [fetchPatientProfile]);
+    fetchAppUser();
+  }, [fetchAppUser]);
 
   useEffect(() => {
-    if (patientProfile) {
-      setAge(patientProfile.age ? String(patientProfile.age) : '');
-      setWeight(patientProfile.weight ? String(patientProfile.weight) : '');
-      setHeight(patientProfile.height ? String(patientProfile.height) : '');
-      setGender(patientProfile.gender || 'Prefer not to say');
+    if (appUser) {
+      setAge(appUser.age ? String(appUser.age) : '');
+      setWeight(appUser.weight ? String(appUser.weight) : '');
+      setHeight(appUser.height ? String(appUser.height) : '');
+      setGender(appUser.gender || 'Prefer not to say');
 
-      const allergies = patientProfile.allergies || [];
-      const conditions = patientProfile.existing_conditions || [];
-      const meds = patientProfile.current_medications || [];
+      const allergies = appUser.allergies || [];
+      const conditions = appUser.existing_conditions || [];
+      const meds = appUser.current_medications || [];
 
       setHasAllergies(allergies.length > 0);
       setAllergiesText(allergies.join(', '));
@@ -62,7 +62,7 @@ export default function EditPatientProfile() {
       setHasMedications(meds.length > 0);
       setMedicationsText(meds.join(', '));
     }
-  }, [patientProfile]);
+  }, [appUser]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -73,7 +73,7 @@ export default function EditPatientProfile() {
           .map((s) => s.trim())
           .filter(Boolean);
 
-      await updatePatientProfile({
+      await updateAppUser({
         age: age ? parseInt(age, 10) : null,
         weight: weight ? parseFloat(weight) : null,
         height: height ? parseFloat(height) : null,
@@ -83,8 +83,9 @@ export default function EditPatientProfile() {
         current_medications: hasMedications ? splitTags(medicationsText) : [],
       });
 
-      Alert.alert('Success', 'Health profile updated successfully!');
-      router.back();
+      Alert.alert('Success', 'Health & Safety parameters updated successfully!', [
+        { text: 'OK', onPress: () => router.back() },
+      ]);
     } catch (e: any) {
       Alert.alert('Error', e.message || 'Failed to update profile.');
     } finally {
@@ -104,8 +105,8 @@ export default function EditPatientProfile() {
         >
           <Ionicons name="arrow-back" size={18} color={theme.text.primary} />
         </Pressable>
-        <Text style={[styles.headerTitle, { color: theme.text.primary }]}>Personal Health Profile</Text>
-        <View style={{ width: 36 }} />
+        <Text style={[styles.headerTitle, { color: theme.text.primary }]}>Health & Safety Parameters</Text>
+        <View style={{ width: 15 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
@@ -280,13 +281,13 @@ export default function EditPatientProfile() {
           {saving ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.saveBtnText}>Save Profile</Text>
+            <Text style={styles.saveBtnText}>Save Parameters</Text>
           )}
         </Pressable>
       </ScrollView>
 
       {/* Gender Dropdown Modal */}
-      <Modal visible={genderModalVisible} transparent animationType="fade">
+      <Modal visible={genderModalVisible} transparent animationType="fade" onRequestClose={() => setGenderModalVisible(false)}>
         <Pressable style={styles.modalOverlay} onPress={() => setGenderModalVisible(false)}>
           <View style={[styles.dropdownModalCard, { backgroundColor: theme.card }]}>
             <Text style={[styles.dropdownModalTitle, { color: theme.text.primary }]}>Select Gender</Text>

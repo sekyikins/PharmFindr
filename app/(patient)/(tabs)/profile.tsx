@@ -8,10 +8,15 @@ import {
   useWindowDimensions,
   Alert,
   RefreshControl,
+  Image,
+  Modal,
+  TextInput,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
 import { useAuthStore } from '@/store/authStore';
 import { useThemeContext } from '@/hooks/useThemeContext';
 import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
@@ -19,20 +24,36 @@ import { supabase } from '@/lib/supabase';
 import Svg, { Path } from 'react-native-svg';
 
 const MENU_ITEMS = [
-  { id: 'health', icon: 'fitness-outline', label: 'Personal Health Profile', route: '/(patient)/edit-profile' },
+  { id: 'health', icon: 'fitness-outline', label: 'Health Parameters', route: '/(patient)/health-profile' },
   { id: 'reservations', icon: 'receipt-outline', label: 'My Reservations', route: '/(patient)/reservations-history' },
   { id: 'history', icon: 'time-outline', label: 'Prescription History', route: '/(patient)/prescription-history' },
   { id: 'saved', icon: 'heart-outline', label: 'Saved Medicines', route: '/(patient)/medicines' },
   { id: 'notifs', icon: 'notifications-outline', label: 'Notifications', route: '/(patient)/notifications' },
+  { id: 'help', icon: 'help-circle-outline', label: 'Help & Feedback', route: '/(patient)/help-feedback' },
 ];
 
 export default function Profile() {
   const router = useRouter();
-  const { profile, user, signOut } = useAuthStore();
+  const { profile, user, signOut, updateProfile, uploadAvatar } = useAuthStore();
   const { theme, primaryColor } = useThemeContext();
   const { width } = useWindowDimensions();
 
   const [stats, setStats] = useState({ prescriptions: 0, reservations: 0 });
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
+  // Edit Account Modal State
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [editName, setEditName] = useState(profile?.full_name ?? '');
+  const [editPhone, setEditPhone] = useState(profile?.phone ?? '');
+  const [editPassword, setEditPassword] = useState('');
+  const [savingAccount, setSavingAccount] = useState(false);
+
+  useEffect(() => {
+    if (profile) {
+      setEditName(profile.full_name ?? '');
+      setEditPhone(profile.phone ?? '');
+    }
+  }, [profile]);
 
   const displayName = profile?.full_name ?? 'User';
   const initials = displayName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2);
@@ -67,7 +88,6 @@ export default function Profile() {
       'Sign Out',
       'Are you sure you want to sign out of your account?',
       [
-        { text: 'Cancel', style: 'cancel' },
         {
           text: 'Sign Out',
           style: 'destructive',
@@ -76,8 +96,92 @@ export default function Profile() {
             router.replace('/(auth)/login');
           },
         },
-      ]
+        { text: 'Cancel', style: 'cancel' },
+      ],
+      { cancelable: true }
     );
+  };
+
+  const handlePickAvatar = async () => {
+    Alert.alert(
+      'Update Profile Picture',
+      'Choose an option',
+      [
+        {
+          text: 'Camera',
+          onPress: async () => {
+            const perm = await ImagePicker.requestCameraPermissionsAsync();
+            if (!perm.granted) {
+              Alert.alert('Permission Denied', 'Camera permission is required.', [{ text: 'OK' }, { text: 'Cancel', style: 'cancel' }], { cancelable: true });
+              return;
+            }
+            const result = await ImagePicker.launchCameraAsync({
+              allowsEditing: true,
+              aspect: [1, 1],
+              quality: 0.8,
+            });
+            if (!result.canceled && result.assets?.[0]?.uri) {
+              setUploadingAvatar(true);
+              await uploadAvatar(result.assets[0].uri);
+              setUploadingAvatar(false);
+            }
+          },
+        },
+        {
+          text: 'Gallery',
+          onPress: async () => {
+            const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (!perm.granted) {
+              Alert.alert('Permission Denied', 'Media library permission is required.');
+              return;
+            }
+            const result = await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ['images'],
+              allowsEditing: true,
+              aspect: [1, 1],
+              quality: 0.8,
+              legacy: true,
+            });
+            if (!result.canceled && result.assets?.[0]?.uri) {
+              setUploadingAvatar(true);
+              await uploadAvatar(result.assets[0].uri);
+              setUploadingAvatar(false);
+            }
+          },
+        },
+        { text: 'Cancel', style: 'cancel' },
+      ],
+      { cancelable: true }
+    );
+  };
+
+  const handleSaveAccount = async () => {
+    if (!editName.trim()) {
+      Alert.alert('Validation Error', 'Full Name cannot be empty.');
+      return;
+    }
+    setSavingAccount(true);
+    try {
+      // 1. Update Profile table
+      await updateProfile({
+        full_name: editName.trim(),
+        phone: editPhone.trim(),
+      });
+
+      // 2. Update Password if provided
+      if (editPassword.trim()) {
+        const { error } = await supabase.auth.updateUser({ password: editPassword.trim() });
+        if (error) throw error;
+      }
+
+      Alert.alert('Success', 'Account information updated successfully!');
+      setEditModalVisible(false);
+      setEditPassword('');
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'Failed to update account.');
+    } finally {
+      setSavingAccount(false);
+    }
   };
 
   return (
@@ -90,13 +194,30 @@ export default function Profile() {
       >
         {/* ── Blue Hero ── */}
         <View style={[styles.hero, { backgroundColor: primaryColor }]}>
-          <View style={styles.avatarCircle}>
-            <Text style={[styles.avatarText, { color: primaryColor }]}>{initials}</Text>
-          </View>
+          <Pressable style={styles.avatarWrapper} onPress={handlePickAvatar} disabled={uploadingAvatar}>
+            <View style={styles.avatarCircle}>
+              {profile?.avatar_url ? (
+                <Image source={{ uri: profile.avatar_url }} style={styles.avatarImage} />
+              ) : (
+                <Text style={[styles.avatarText, { color: primaryColor }]}>{initials}</Text>
+              )}
+            </View>
+            <View style={[styles.avatarEditBadge, { backgroundColor: theme.card }]}>
+              {uploadingAvatar ? (
+                <ActivityIndicator size="small" color={primaryColor} />
+              ) : (
+                <Ionicons name="camera" size={14} color={primaryColor} />
+              )}
+            </View>
+          </Pressable>
+
           <Text style={styles.heroName}>{displayName}</Text>
-          <Text style={styles.heroSub}>
-            {profile?.phone ?? 'N/A'}
-          </Text>
+          <Text style={styles.heroSub}>{profile?.phone ?? 'N/A'}</Text>
+
+          <Pressable style={styles.editAccountPill} onPress={() => router.push('/(patient)/edit-account')}>
+            <Ionicons name="pencil" size={12} color="#fff" />
+            <Text style={styles.editAccountPillText}>Edit Account Details</Text>
+          </Pressable>
         </View>
 
         
@@ -150,6 +271,57 @@ export default function Profile() {
           </View>
         </View>
       </ScrollView>
+
+      {/* Account Details Edit Modal */}
+      <Modal visible={editModalVisible} transparent animationType="fade" onRequestClose={() => setEditModalVisible(false)}>
+        <Pressable style={styles.modalOverlay} onPress={() => setEditModalVisible(false)}>
+          <Pressable style={[styles.editModalCard, { backgroundColor: theme.card }]} onPress={(e) => e.stopPropagation()}>
+            <Text style={[styles.editModalTitle, { color: theme.text.primary }]}>Edit Account Details</Text>
+
+            <Text style={[styles.fieldLabel, { color: theme.textDim }]}>FULL NAME</Text>
+            <TextInput
+              style={[styles.modalInput, { backgroundColor: theme.surfaceSecondary, color: theme.text.primary, borderColor: theme.border }]}
+              value={editName}
+              onChangeText={setEditName}
+              placeholder="Full Name"
+              placeholderTextColor={theme.textDim}
+            />
+
+            <Text style={[styles.fieldLabel, { color: theme.textDim }]}>PHONE NUMBER</Text>
+            <TextInput
+              style={[styles.modalInput, { backgroundColor: theme.surfaceSecondary, color: theme.text.primary, borderColor: theme.border }]}
+              value={editPhone}
+              onChangeText={setEditPhone}
+              placeholder="+233..."
+              placeholderTextColor={theme.textDim}
+              keyboardType="phone-pad"
+            />
+
+            <Text style={[styles.fieldLabel, { color: theme.textDim }]}>NEW PASSWORD (Optional)</Text>
+            <TextInput
+              style={[styles.modalInput, { backgroundColor: theme.surfaceSecondary, color: theme.text.primary, borderColor: theme.border }]}
+              value={editPassword}
+              onChangeText={setEditPassword}
+              placeholder="Leave blank to keep current"
+              placeholderTextColor={theme.textDim}
+              secureTextEntry
+            />
+
+            <View style={styles.modalActionRow}>
+              <Pressable style={[styles.modalBtnCancel, { borderColor: theme.border }]} onPress={() => setEditModalVisible(false)}>
+                <Text style={[styles.modalBtnCancelText, { color: theme.text.primary }]}>Cancel</Text>
+              </Pressable>
+              <Pressable style={[styles.modalBtnSave, { backgroundColor: primaryColor }]} onPress={handleSaveAccount} disabled={savingAccount}>
+                {savingAccount ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.modalBtnSaveText}>Save Changes</Text>
+                )}
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -173,18 +345,49 @@ const styles = StyleSheet.create({
     paddingBottom: 0,
     paddingHorizontal: SPACING.xl,
   },
+  avatarWrapper: {
+    position: 'relative',
+    marginBottom: 12,
+  },
   avatarCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 84,
+    height: 84,
+    borderRadius: 42,
     backgroundColor: '#ffffff',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
+    overflow: 'hidden',
+  },
+  avatarImage: { width: 84, height: 84, borderRadius: 42 },
+  avatarEditBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
   },
   avatarText: { fontSize: 28, fontWeight: '700' },
   heroName: { fontSize: FONT_SIZE.hero, fontWeight: '700', color: '#ffffff', marginBottom: 4 },
-  heroSub: { fontSize: FONT_SIZE.body, color: 'rgba(255,255,255,0.8)', marginBottom: SPACING.md },
+  heroSub: { fontSize: FONT_SIZE.body, color: 'rgba(255,255,255,0.8)', marginBottom: 8 },
+  editAccountPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: RADIUS.pill,
+    marginBottom: 12,
+  },
+  editAccountPillText: { color: '#ffffff', fontSize: FONT_SIZE.sm, fontWeight: '600' },
 
   // ── Stats ──
   statsCard: {
@@ -220,4 +423,60 @@ const styles = StyleSheet.create({
     marginRight: 14,
   },
   menuLabel: { flex: 1, fontSize: FONT_SIZE.xl, fontWeight: '500' },
+
+  // ── Modal ──
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  editModalCard: {
+    width: '90%',
+    borderRadius: RADIUS.xl,
+    padding: 22,
+    elevation: 8,
+  },
+  editModalTitle: {
+    fontSize: FONT_SIZE.xxl,
+    fontWeight: '700',
+    marginBottom: 18,
+  },
+  fieldLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    marginBottom: 6,
+    marginTop: 12,
+  },
+  modalInput: {
+    borderRadius: RADIUS.md,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderWidth: 1,
+    fontSize: FONT_SIZE.body,
+  },
+  modalActionRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 24,
+  },
+  modalBtnCancel: {
+    flex: 1,
+    height: 44,
+    borderRadius: RADIUS.pill,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalBtnCancelText: { fontWeight: '600', fontSize: FONT_SIZE.body },
+  modalBtnSave: {
+    flex: 1,
+    height: 44,
+    borderRadius: RADIUS.pill,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalBtnSaveText: { color: '#ffffff', fontWeight: '700', fontSize: FONT_SIZE.body },
 });

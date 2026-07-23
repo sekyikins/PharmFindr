@@ -33,7 +33,7 @@ export default function Reservations() {
       // 2. Get reservations with profile details
       const { data: resData, error: resErr } = await supabase
         .from('reservations')
-        .select('*, profiles(full_name, phone)')
+        .select('*, app_users(full_name, phone)')
         .eq('pharmacy_id', pharm.id)
         .order('created_at', { ascending: false });
 
@@ -56,8 +56,8 @@ export default function Reservations() {
           return {
             id: item.id,
             ref: 'REF-' + item.id.substring(0, 5).toUpperCase(),
-            patientName: item.profiles?.full_name || 'Patient',
-            patientPhone: item.profiles?.phone || 'N/A',
+            patientName: item.app_users?.full_name || 'User',
+            patientPhone: item.app_users?.phone || 'N/A',
             timeAgo: timeAgo,
             medicines: medicines,
             status: item.status,

@@ -338,7 +338,7 @@ export default function Inventory() {
       )}
 
       {/* Edit Modal */}
-      <Modal visible={!!editItem} transparent animationType="slide">
+      <Modal visible={!!editItem} transparent animationType="slide" onRequestClose={() => setEditItem(null)}>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalCard, { backgroundColor: theme.card }]}>
             <Text style={[styles.modalTitle, { color: theme.text.primary }]}>Edit Medicine</Text>

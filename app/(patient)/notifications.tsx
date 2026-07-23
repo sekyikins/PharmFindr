@@ -183,7 +183,7 @@ export default function Notifications() {
             return (
               <Pressable
                 style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}
-                onPress={() => router.push('/(patient)/(tabs)/reserve')}
+                onPress={() => router.push('/(patient)/reservations-history')}
               >
                 <View style={[styles.iconCircle, { backgroundColor: colors.bg }]}>
                   <Ionicons name={item.icon as any} size={22} color={colors.color} />

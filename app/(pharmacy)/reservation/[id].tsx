@@ -45,7 +45,7 @@ export default function PharmacyReservationDetails() {
 
       if (resData?.user_id) {
         const { data: profileData, error: profErr } = await supabase
-          .from('profiles')
+          .from('app_users')
           .select('*')
           .eq('id', resData.user_id)
           .single();

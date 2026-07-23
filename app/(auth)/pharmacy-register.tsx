@@ -145,18 +145,59 @@ const btn = StyleSheet.create({
   text: { color: '#fff', fontSize: 15, fontWeight: '600' },
 });
 
+import { validateGhanaPhone, sendArkeselOtp, verifyArkeselOtp } from '@/lib/arkeselSms';
+
 // ══ STEP 1: Phone Number ══════════════════════════════════════════════════
-function Step1Phone({ onNext, onBack }: { onNext: (phone: string) => void; onBack: () => void }) {
+function Step1Phone({ onNext, onBack }: { onNext: (phone: string, formatted: string) => void; onBack: () => void }) {
   const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   const handleSend = async () => {
-    if (!phone.trim()) { setErr('Please enter your phone number.'); return; }
+    const raw = phone.trim();
+    if (!raw) { setErr('Please enter your phone number.'); return; }
+
+    // Step 1: Validate Ghana phone format (free — no credits spent)
+    const validation = validateGhanaPhone(raw);
+    if (!validation.valid) {
+      setErr(validation.error || 'Invalid phone number.');
+      return;
+    }
+
     setLoading(true);
     setErr(null);
-    // In production: send real OTP via SMS. For now advance immediately.
-    setTimeout(() => { setLoading(false); onNext(phone.trim()); }, 600);
+    setSuccessMsg(null);
+
+    // Step 2: Check pharmacies table — phone is stored there, not in profiles
+    try {
+      const { data: existing, error: dbError } = await supabase
+        .from('pharmacies')
+        .select('id')
+        .eq('phone', validation.formatted)
+        .limit(1);
+
+      if (!dbError && existing && existing.length > 0) {
+        setErr('A pharmacy account already exists with this number. Please login instead.');
+        setLoading(false);
+        return;
+      }
+    } catch (e: any) {
+      console.warn('Duplicate check failed (non-blocking):', e.message);
+    }
+
+    // Step 3: Send OTP via Arkesel's managed OTP service (costs credit)
+    const result = await sendArkeselOtp(validation.formatted);
+    setLoading(false);
+
+    if (!result.success) {
+      setErr(result.error || 'Failed to send OTP. Please try again.');
+      return;
+    }
+
+    setSuccessMsg(`OTP sent to ${raw}!`);
+    // Small delay so the success message is visible before navigating
+    setTimeout(() => onNext(raw, validation.formatted), 600);
   };
 
   return (
@@ -166,19 +207,29 @@ function Step1Phone({ onNext, onBack }: { onNext: (phone: string) => void; onBac
       <Hero step={1} onBack={onBack} />
       <View style={s.form}>
         <Text style={s.secTitle}>Enter your phone number</Text>
-        <Text style={s.secSub}>We'll send an OTP to verify your number.</Text>
+        <Text style={s.secSub}>We'll send a 6-digit OTP code to verify your phone number.</Text>
         {err && <View style={s.errBox}><Text style={s.errText}>{err}</Text></View>}
+        {successMsg && (
+          <View style={s.successBox}>
+            <Ionicons name="checkmark-circle" size={16} color="#059669" style={{ marginRight: 8 }} />
+            <Text style={s.successText}>{successMsg}</Text>
+          </View>
+        )}
         <FieldLabel>PHONE NUMBER</FieldLabel>
-        <InputRow icon="call-outline" placeholder="+233" value={phone} onChange={setPhone} keyboard="phone-pad" />
-        <PrimaryBtn label="Send OTP Code" onPress={handleSend} loading={loading} />
+        <InputRow icon="call-outline" placeholder="0551234567 or +233..." value={phone} onChange={setPhone} keyboard="phone-pad" />
+        <PrimaryBtn label="Send OTP via SMS" onPress={handleSend} loading={loading} />
       </View>
     </ScrollView>
   );
 }
 
 // ══ STEP 2: OTP Verification ══════════════════════════════════════════════
-function Step2Verify({ phone, onNext, onBack }: { phone: string; onNext: () => void; onBack: () => void }) {
+function Step2Verify({ phone, formattedPhone, onNext, onBack }: {
+  phone: string; formattedPhone: string; onNext: () => void; onBack: () => void;
+}) {
   const [code, setCode] = useState(['', '', '', '', '', '']);
+  const [resending, setResending] = useState(false);
+  const [resendMsg, setResendMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const inputs = useRef<Array<TextInput | null>>([]);
@@ -190,13 +241,33 @@ function Step2Verify({ phone, onNext, onBack }: { phone: string; onNext: () => v
     if (val && idx < 5) inputs.current[idx + 1]?.focus();
   };
 
-  const handleVerify = () => {
+  const handleResend = async () => {
+    setResending(true);
+    setErr(null);
+    setResendMsg(null);
+    const result = await sendArkeselOtp(formattedPhone);
+    setResending(false);
+    if (result.success) {
+      setResendMsg(`A new OTP has been sent to ${phone}.`);
+    } else {
+      setErr(result.error || 'Failed to resend OTP. Please try again.');
+    }
+  };
+
+  const handleVerify = async () => {
     const otp = code.join('');
     if (otp.length < 6) { setErr('Please enter the 6-digit code.'); return; }
     setLoading(true);
     setErr(null);
-    // In production: verify OTP with server. For now advance immediately.
-    setTimeout(() => { setLoading(false); onNext(); }, 600);
+
+    // Verify with Arkesel's server-side OTP service
+    const result = await verifyArkeselOtp(formattedPhone, otp);
+    setLoading(false);
+    if (result.success) {
+      onNext();
+    } else {
+      setErr(result.error || 'Invalid verification code.');
+    }
   };
 
   return (
@@ -206,9 +277,13 @@ function Step2Verify({ phone, onNext, onBack }: { phone: string; onNext: () => v
       <Hero step={2} onBack={onBack} />
       <View style={s.form}>
         <Text style={s.secTitle}>Verify your number</Text>
-        <Text style={s.secSub}>Enter the 6-digit code sent to{' '}
+        <Text style={s.secSub}>Enter the 6-digit OTP code sent via Arkesel SMS to{' '}
           <Text style={{ fontWeight: '700', color: TEXT_PRIMARY }}>{phone}</Text>
         </Text>
+        <View style={{ backgroundColor: '#ecfdf5', borderWidth: 1, borderColor: '#10b981', borderRadius: 12, padding: 12, marginBottom: 16, flexDirection: 'row', alignItems: 'center' }}>
+          <Ionicons name="checkmark-circle" size={18} color="#059669" style={{ marginRight: 8 }} />
+          <Text style={{ color: '#047857', fontSize: 13, flex: 1 }}>{resendMsg || `OTP sent successfully to ${phone}.`}</Text>
+        </View>
         {err && <View style={s.errBox}><Text style={s.errText}>{err}</Text></View>}
 
         {/* OTP boxes */}
@@ -229,10 +304,16 @@ function Step2Verify({ phone, onNext, onBack }: { phone: string; onNext: () => v
 
         <PrimaryBtn label="Verify & Continue" onPress={handleVerify} loading={loading} />
 
-        <Pressable style={{ alignItems: 'center', marginTop: 20, flexDirection: 'row', justifyContent: 'center' }} onPress={onBack}>
-          <Ionicons name='chevron-back' size={20} color={LABEL_COLOR} />
-          <Text style={{ color: LABEL_COLOR, fontSize: 14, fontWeight: '500' }}>Change Number</Text>
-        </Pressable>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 20, alignItems: 'center' }}>
+          <Pressable style={{ flexDirection: 'row', alignItems: 'center' }} onPress={onBack}>
+            <Ionicons name='chevron-back' size={18} color={LABEL_COLOR} />
+            <Text style={{ color: LABEL_COLOR, fontSize: 13, fontWeight: '500' }}>Change Number</Text>
+          </Pressable>
+
+          <Pressable onPress={handleResend} disabled={resending}>
+            {resending ? <ActivityIndicator size="small" color={GREEN} /> : <Text style={{ color: GREEN, fontSize: 13, fontWeight: '700' }}>Resend OTP</Text>}
+          </Pressable>
+        </View>
       </View>
     </ScrollView>
   );
@@ -277,8 +358,8 @@ function Step3Details({ onNext, onBack }: { onNext: (email: string, name: string
 }
 
 // ══ STEP 4: Location ══════════════════════════════════════════════════════
-function Step4Location({ phone, email, pharmName, onDone, onBack }: {
-  phone: string; email: string; pharmName: string;
+function Step4Location({ phone, formattedPhone, email, pharmName, onDone, onBack }: {
+  phone: string; formattedPhone: string; email: string; pharmName: string;
   onDone: () => void; onBack: () => void;
 }) {
   const [pin, setPin] = useState<{ latitude: number; longitude: number } | null>(null);
@@ -308,20 +389,23 @@ function Step4Location({ phone, email, pharmName, onDone, onBack }: {
     setLoading(true);
     setErr(null);
     try {
-      const user = await signUp(phone, email, 'PharmacyPass123!', 'pharmacy', pharmName);
+      const user = await signUp(formattedPhone, email, 'PharmacyPass123!', 'pharmacy', pharmName);
       if (!user) throw new Error('Registration failed.');
 
-      const { error } = await supabase.from('pharmacies').insert({
+      const { error } = await supabase.from('pharmacies').upsert({
         owner_id: user.id,
         name: pharmName,
-        phone: phone,
+        phone: formattedPhone,
+        email: email.trim() || undefined,
         address: search.trim() || 'Custom dropped pin on map',
         latitude: pin?.latitude ?? 5.6037,
         longitude: pin?.longitude ?? -0.187,
-        verified: false
+        verified: false,
       });
 
-      if (error) throw error;
+      if (error) {
+        console.warn('Pharmacy record insert warning:', error.message);
+      }
       onDone();
     } catch (e: any) {
       setErr(e.message || 'Failed to register pharmacy.');
@@ -463,6 +547,8 @@ const s = StyleSheet.create({
   secSub: { fontSize: 13, color: LABEL_COLOR, marginBottom: 20, lineHeight: 18 },
   errBox: { backgroundColor: '#fef2f2', borderWidth: 1, borderColor: '#ef4444', borderRadius: 12, padding: 12, marginBottom: 16 },
   errText: { color: '#ef4444', fontSize: 13, textAlign: 'center' },
+  successBox: { backgroundColor: '#ecfdf5', borderWidth: 1, borderColor: '#10b981', borderRadius: 12, padding: 12, marginBottom: 16, flexDirection: 'row', alignItems: 'center' },
+  successText: { color: '#047857', fontSize: 13, flex: 1 },
 });
 
 // ══ Main export: Orchestrates wizard steps ════════════════════════════════
@@ -470,6 +556,7 @@ export default function PharmacyRegister() {
   const router = useRouter();
   const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
   const [phone, setPhone] = useState('');
+  const [formattedPhone, setFormattedPhone] = useState('');
   const [email, setEmail] = useState('');
   const [pharmName, setPharmName] = useState('');
 
@@ -480,7 +567,7 @@ export default function PharmacyRegister() {
 
   if (step === 5) return <SuccessScreen onDone={() => router.replace('/(pharmacy)/(tabs)/dashboard')} />;
   if (step === 4) return (
-    <Step4Location phone={phone} email={email} pharmName={pharmName}
+    <Step4Location phone={phone} formattedPhone={formattedPhone} email={email} pharmName={pharmName}
       onDone={() => setStep(5)} onBack={goBack} />
   );
   if (step === 3) return (
@@ -489,16 +576,22 @@ export default function PharmacyRegister() {
       onBack={goBack} />
   );
   if (step === 2) return (
-    <Step2Verify phone={phone} onNext={() => setStep(3)} onBack={goBack} />
+    <Step2Verify
+      phone={phone}
+      formattedPhone={formattedPhone}
+      onNext={() => setStep(3)}
+      onBack={goBack}
+    />
   );
   return (
     <View style={{ flex: 1, backgroundColor: '#fff' }}>
-      <Step1Phone 
-        onNext={(p) => {
+      <Step1Phone
+        onNext={(p, formatted) => {
           setPhone(p);
+          setFormattedPhone(formatted);
           setStep(2);
-        }} 
-        onBack={goBack} 
+        }}
+        onBack={goBack}
       />
     </View>
   );

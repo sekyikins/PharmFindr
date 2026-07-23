@@ -9,10 +9,13 @@ import {
   Alert,
   ActivityIndicator,
   RefreshControl,
+  Image,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
 import { useAuthStore } from '@/store/authStore';
 import { useThemeContext } from '@/hooks/useThemeContext';
 import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
@@ -21,7 +24,7 @@ import Skeleton from '@/components/ui/Skeleton';
 
 export default function PharmacyProfile() {
   const router = useRouter();
-  const { user, signOut } = useAuthStore();
+  const { user, profile, signOut, updateProfile, uploadAvatar } = useAuthStore();
   const { theme, primaryColor } = useThemeContext();
 
   const [pharmId, setPharmId] = useState<string | null>(null);
@@ -30,8 +33,10 @@ export default function PharmacyProfile() {
   const [phone, setPhone] = useState('');
   const [openingTime, setOpeningTime] = useState('');
   const [closingTime, setClosingTime] = useState('');
+  const [newPassword, setNewPassword] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   const fetchProfile = useCallback(async () => {
     if (!user?.id) return;
@@ -62,10 +67,64 @@ export default function PharmacyProfile() {
     fetchProfile();
   }, [fetchProfile]);
 
+  const handlePickAvatar = async () => {
+    Alert.alert(
+      'Update Pharmacy Logo / Photo',
+      'Choose an option',
+      [
+        {
+          text: 'Camera',
+          onPress: async () => {
+            const perm = await ImagePicker.requestCameraPermissionsAsync();
+            if (!perm.granted) {
+              Alert.alert('Permission Denied', 'Camera permission is required.', [{ text: 'OK' }, { text: 'Cancel', style: 'cancel' }], { cancelable: true });
+              return;
+            }
+            const result = await ImagePicker.launchCameraAsync({
+              allowsEditing: true,
+              aspect: [1, 1],
+              quality: 0.8,
+            });
+            if (!result.canceled && result.assets?.[0]?.uri) {
+              setUploadingAvatar(true);
+              await uploadAvatar(result.assets[0].uri);
+              setUploadingAvatar(false);
+            }
+          },
+        },
+        {
+          text: 'Gallery',
+          onPress: async () => {
+            const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (!perm.granted) {
+              Alert.alert('Permission Denied', 'Media library permission is required.');
+              return;
+            }
+            const result = await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ['images'],
+              allowsEditing: true,
+              aspect: [1, 1],
+              quality: 0.8,
+              legacy: true,
+            });
+            if (!result.canceled && result.assets?.[0]?.uri) {
+              setUploadingAvatar(true);
+              await uploadAvatar(result.assets[0].uri);
+              setUploadingAvatar(false);
+            }
+          },
+        },
+        { text: 'Cancel', style: 'cancel' },
+      ],
+      { cancelable: true }
+    );
+  };
+
   const handleSave = async () => {
     if (!pharmId) return;
     setSaving(true);
     try {
+      // Update pharmacy record
       const { error } = await supabase
         .from('pharmacies')
         .update({
@@ -78,6 +137,20 @@ export default function PharmacyProfile() {
         .eq('id', pharmId);
 
       if (error) throw error;
+
+      // Update user profile record
+      await updateProfile({
+        full_name: pharmacyName,
+        phone,
+      });
+
+      // Change Password if provided
+      if (newPassword.trim()) {
+        const { error: pwdErr } = await supabase.auth.updateUser({ password: newPassword.trim() });
+        if (pwdErr) throw pwdErr;
+        setNewPassword('');
+      }
+
       Alert.alert('Saved', 'Pharmacy profile updated successfully!');
     } catch (e: any) {
       Alert.alert('Error', e.message || 'Failed to save profile.');
@@ -99,7 +172,6 @@ export default function PharmacyProfile() {
       'Sign Out',
       'Are you sure you want to sign out of your account?',
       [
-        { text: 'Cancel', style: 'cancel' },
         {
           text: 'Sign Out',
           style: 'destructive',
@@ -108,7 +180,9 @@ export default function PharmacyProfile() {
             router.replace('/(auth)/login');
           },
         },
-      ]
+        { text: 'Cancel', style: 'cancel' },
+      ],
+      { cancelable: true }
     );
   };
 
@@ -146,11 +220,25 @@ export default function PharmacyProfile() {
             <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={primaryColor} colors={[primaryColor]} />
           }
         >
-          {/* ── Avatar / Icon ── */}
+          {/* ── Avatar / Logo ── */}
           <View style={styles.avatarContainer}>
-            <View style={[styles.avatarCircle, { backgroundColor: theme.successBg }]}>
-              <Ionicons name="shield-checkmark-outline" size={28} color={primaryColor} />
-            </View>
+            <Pressable style={styles.avatarWrapper} onPress={handlePickAvatar} disabled={uploadingAvatar}>
+              <View style={[styles.avatarCircle, { backgroundColor: theme.successBg }]}>
+                {profile?.avatar_url ? (
+                  <Image source={{ uri: profile.avatar_url }} style={styles.avatarImage} />
+                ) : (
+                  <Ionicons name="shield-checkmark-outline" size={28} color={primaryColor} />
+                )}
+              </View>
+              <View style={[styles.avatarEditBadge, { backgroundColor: theme.card }]}>
+                {uploadingAvatar ? (
+                  <ActivityIndicator size="small" color={primaryColor} />
+                ) : (
+                  <Ionicons name="camera" size={14} color={primaryColor} />
+                )}
+              </View>
+            </Pressable>
+            <Text style={{ color: theme.textDim, fontSize: FONT_SIZE.sm, marginTop: 6 }}>Tap to change pharmacy photo</Text>
           </View>
 
           {/* ── Fields ── */}
@@ -190,10 +278,27 @@ export default function PharmacyProfile() {
             placeholder="22:00:00"
             theme={theme}
           />
+          <ProfileField
+            label="NEW PASSWORD (Optional)"
+            value={newPassword}
+            onChange={setNewPassword}
+            placeholder="Leave blank to keep current"
+            secureTextEntry
+            theme={theme}
+          />
 
           {/* ── Save Button ── */}
           <Pressable style={[styles.saveBtn, { backgroundColor: primaryColor }]} onPress={handleSave} disabled={saving}>
             {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Save Changes</Text>}
+          </Pressable>
+
+          {/* ── Help & Feedback ── */}
+          <Pressable
+            style={[styles.helpBtn, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}
+            onPress={() => router.push('/(patient)/help-feedback')}
+          >
+            <Ionicons name="help-circle-outline" size={20} color={theme.text.primary} />
+            <Text style={[styles.helpText, { color: theme.text.primary }]}>Help & Feedback</Text>
           </Pressable>
 
           {/* ── Sign Out ── */}
@@ -213,6 +318,7 @@ function ProfileField({
   onChange,
   placeholder,
   keyboardType,
+  secureTextEntry,
   theme,
 }: {
   label: string;
@@ -220,6 +326,7 @@ function ProfileField({
   onChange: (v: string) => void;
   placeholder?: string;
   keyboardType?: any;
+  secureTextEntry?: boolean;
   theme: any;
 }) {
   return (
@@ -233,6 +340,7 @@ function ProfileField({
           placeholder={placeholder}
           placeholderTextColor={theme.text.muted}
           keyboardType={keyboardType || 'default'}
+          secureTextEntry={secureTextEntry}
         />
         <Ionicons name="pencil-outline" size={14} color={theme.text.muted} />
       </View>
@@ -295,14 +403,38 @@ const styles = StyleSheet.create({
   // ── Avatar ──
   avatarContainer: {
     alignItems: 'center',
-    marginBottom: SPACING.xxl,
+    marginBottom: SPACING.xl,
+  },
+  avatarWrapper: {
+    position: 'relative',
   },
   avatarCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: RADIUS.lg*2,
+    width: 76,
+    height: 76,
+    borderRadius: 38,
     justifyContent: 'center',
     alignItems: 'center',
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+  },
+  avatarEditBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
   },
 
   // ── Save Button ──
@@ -320,6 +452,22 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
+  // ── Help & Feedback ──
+  helpBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    height: 48,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    marginBottom: SPACING.md,
+  },
+  helpText: {
+    fontSize: FONT_SIZE.lg,
+    fontWeight: '600',
+  },
+
   // ── Sign Out ──
   signOutBtn: {
     flexDirection: 'row',
@@ -328,7 +476,7 @@ const styles = StyleSheet.create({
     gap: 8,
     height: 48,
     borderRadius: RADIUS.lg,
-    marginTop: SPACING.sm,
+    marginTop: SPACING.xs,
   },
   signOutText: {
     fontSize: FONT_SIZE.lg,

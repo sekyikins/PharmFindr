@@ -6,6 +6,7 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
+        animation: 'shift',
         tabBarStyle: { display: 'none' }, // Pharmacy uses card-based navigation from dashboard
       }}
     >

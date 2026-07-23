@@ -99,14 +99,7 @@ export default function SearchMedicines() {
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
       {/* Header */}
       <View style={[styles.header, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
-        <Pressable
-          style={[styles.backBtn, { backgroundColor: theme.surfaceSecondary }]}
-          onPress={() => router.replace('/(patient)/(tabs)/home')}
-        >
-          <Ionicons name="arrow-back" size={18} color={theme.text.primary} />
-        </Pressable>
         <Text style={[styles.headerTitle, { color: theme.text.primary }]}>Search Medicines</Text>
-        <View style={{ width: 36 }} />
       </View>
 
       {/* Search Bar */}
@@ -246,7 +239,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     paddingHorizontal: SPACING.xl,
     paddingVertical: SPACING.md,
     borderBottomWidth: 1,
