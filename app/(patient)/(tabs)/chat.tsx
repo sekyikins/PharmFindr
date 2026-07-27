@@ -215,14 +215,14 @@ export default function AIChat() {
               <Text style={[styles.sidebarTitle, { color: theme.text.primary }]}>
                 PharmFindr AI
               </Text>
-              <Pressable onPress={closeSidebar} style={{ padding: 4 }}>
+              <Pressable onPress={closeSidebar} style={({pressed})=>[pressed && {opacity: 0.5}, { padding: 4 }]}>
                 <Ionicons name="close" size={22} color={theme.textDim} />
               </Pressable>
             </View>
 
             <View style={styles.sidebarBody}>
             <Pressable
-              style={[styles.newChatBtn, { backgroundColor: primaryColor }]}
+              style={({pressed})=>[pressed && {opacity: 0.5}, styles.newChatBtn, { backgroundColor: primaryColor }]}
               onPress={handleNewChat}
             >
               <Ionicons name="add" size={18} color="#fff" />
@@ -235,7 +235,7 @@ export default function AIChat() {
               </Text>
 
               <Pressable
-                style={styles.chatItem}
+                style={({pressed})=>[styles.chatItem, pressed && {opacity: 0.5}]}
                 onPress={() => {
                   closeSidebar();
                   router.push('/(patient)/scan');
@@ -248,7 +248,7 @@ export default function AIChat() {
               </Pressable>
 
               <Pressable
-                style={styles.chatItem}
+                style={({pressed})=>[styles.chatItem, pressed && {opacity: 0.5}]}
                 onPress={() => {
                   closeSidebar();
                   router.push('/(patient)/health-profile');
@@ -261,7 +261,7 @@ export default function AIChat() {
               </Pressable>
 
               <Pressable
-                style={styles.chatItem}
+                style={({pressed})=>[styles.chatItem, pressed && {opacity: 0.5}]}
                 onPress={() => {
                   closeSidebar();
                   router.push('/(patient)/prescription-history');
@@ -278,7 +278,7 @@ export default function AIChat() {
               </Text>
 
               <Pressable
-                style={styles.chatItem}
+                style={({pressed})=>[styles.chatItem, pressed && {opacity: 0.5}]}
                 onPress={() => handleSidebarPrompt('What is general dietary and lifestyle advice for managing diabetes?')}
               >
                 <Ionicons name="chatbubble-outline" size={18} color={theme.textDim} />
@@ -288,7 +288,7 @@ export default function AIChat() {
               </Pressable>
 
               <Pressable
-                style={styles.chatItem}
+                style={({pressed})=>[styles.chatItem, pressed && {opacity: 0.5}]}
                 onPress={() => handleSidebarPrompt('Can I take ibuprofen on an empty stomach?')}
               >
                 <Ionicons name="chatbubble-outline" size={18} color={theme.textDim} />
@@ -298,7 +298,7 @@ export default function AIChat() {
               </Pressable>
 
               <Pressable
-                style={styles.chatItem}
+                style={({pressed})=>[styles.chatItem, pressed && {opacity: 0.5}]}
                 onPress={() => handleSidebarPrompt('What is Amoxicillin used for and what are common side effects?')}
               >
                 <Ionicons name="chatbubble-outline" size={18} color={theme.textDim} />
@@ -308,7 +308,7 @@ export default function AIChat() {
               </Pressable>
 
               <Pressable
-                style={styles.chatItem}
+                style={({pressed})=>[styles.chatItem, pressed && {opacity: 0.5}]}
                 onPress={() => handleSidebarPrompt('Can you explain how to safely check for drug-drug interactions?')}
               >
                 <Ionicons name="chatbubble-outline" size={18} color={theme.textDim} />
@@ -318,7 +318,7 @@ export default function AIChat() {
               </Pressable>
 
               <View style={{ marginTop: 24, borderTopWidth: 1, borderTopColor: theme.border, paddingTop: 12 }}>
-                <Pressable style={styles.chatItem} onPress={handleClearHistory}>
+                <Pressable style={({pressed})=>[styles.chatItem, pressed && {opacity: 0.5}]} onPress={handleClearHistory}>
                   <Ionicons name="trash-outline" size={18} color={theme.error} />
                   <Text style={[styles.chatItemText, { color: theme.error }]}>
                     Clear Chat History
@@ -333,7 +333,7 @@ export default function AIChat() {
       {/* Header */}
       <View style={[styles.header, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
         <Pressable
-          style={[styles.menuBtn, { backgroundColor: theme.surfaceSecondary }]}
+          style={({pressed})=>[styles.menuBtn, pressed && {opacity: 0.5}, { backgroundColor: theme.surfaceSecondary }]}
           onPress={openSidebar}
         >
           <Ionicons name="menu" size={22} color={theme.text.primary} />
@@ -442,7 +442,7 @@ export default function AIChat() {
             {SUGGESTION_CHIPS.map((chip) => (
               <Pressable
                 key={chip}
-                style={[styles.chip, { backgroundColor: theme.card, borderColor: theme.border }]}
+                style={({pressed})=>[styles.chip, pressed && {opacity: 0.5}, { backgroundColor: theme.card, borderColor: theme.border }]}
                 onPress={() => handleSend(chip)}
               >
                 <Text style={[styles.chipText, { color: theme.text.primary }]}>{chip}</Text>
@@ -489,12 +489,12 @@ export default function AIChat() {
           />
 
           <Pressable
-            style={[
+            style={({pressed})=>[
               styles.sendBtn,
               {
                 backgroundColor: primaryColor,
                 opacity: inputText.trim() && !loading ? 1 : 0.5,
-              },
+              }, pressed && {opacity: 0.5}
             ]}
             onPress={() => handleSend()}
             disabled={loading}

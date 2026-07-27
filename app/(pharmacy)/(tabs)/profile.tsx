@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   StyleSheet,
   Text,
@@ -10,7 +10,6 @@ import {
   ActivityIndicator,
   RefreshControl,
   Image,
-  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,6 +20,8 @@ import { useThemeContext } from '@/hooks/useThemeContext';
 import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
 import { supabase } from '@/lib/supabase';
 import Skeleton from '@/components/ui/Skeleton';
+import { BottomSheetModal } from '@gorhom/bottom-sheet';
+import AvatarPickerSheet from '@/components/ui/AvatarPickerSheet';
 
 export default function PharmacyProfile() {
   const router = useRouter();
@@ -37,6 +38,7 @@ export default function PharmacyProfile() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const avatarSheetRef = useRef<BottomSheetModal>(null);
 
   const fetchProfile = useCallback(async () => {
     if (!user?.id) return;
@@ -67,57 +69,8 @@ export default function PharmacyProfile() {
     fetchProfile();
   }, [fetchProfile]);
 
-  const handlePickAvatar = async () => {
-    Alert.alert(
-      'Update Pharmacy Logo / Photo',
-      'Choose an option',
-      [
-        {
-          text: 'Camera',
-          onPress: async () => {
-            const perm = await ImagePicker.requestCameraPermissionsAsync();
-            if (!perm.granted) {
-              Alert.alert('Permission Denied', 'Camera permission is required.', [{ text: 'OK' }, { text: 'Cancel', style: 'cancel' }], { cancelable: true });
-              return;
-            }
-            const result = await ImagePicker.launchCameraAsync({
-              allowsEditing: true,
-              aspect: [1, 1],
-              quality: 0.8,
-            });
-            if (!result.canceled && result.assets?.[0]?.uri) {
-              setUploadingAvatar(true);
-              await uploadAvatar(result.assets[0].uri);
-              setUploadingAvatar(false);
-            }
-          },
-        },
-        {
-          text: 'Gallery',
-          onPress: async () => {
-            const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-            if (!perm.granted) {
-              Alert.alert('Permission Denied', 'Media library permission is required.');
-              return;
-            }
-            const result = await ImagePicker.launchImageLibraryAsync({
-              mediaTypes: ['images'],
-              allowsEditing: true,
-              aspect: [1, 1],
-              quality: 0.8,
-              legacy: true,
-            });
-            if (!result.canceled && result.assets?.[0]?.uri) {
-              setUploadingAvatar(true);
-              await uploadAvatar(result.assets[0].uri);
-              setUploadingAvatar(false);
-            }
-          },
-        },
-        { text: 'Cancel', style: 'cancel' },
-      ],
-      { cancelable: true }
-    );
+  const handlePickAvatar = () => {
+    avatarSheetRef.current?.present();
   };
 
   const handleSave = async () => {
@@ -177,7 +130,7 @@ export default function PharmacyProfile() {
           style: 'destructive',
           onPress: async () => {
             await signOut();
-            router.replace('/(auth)/login');
+            router.replace({ pathname: '/(auth)/login', params: { initialRole: 'pharmacy' } });
           },
         },
         { text: 'Cancel', style: 'cancel' },
@@ -191,7 +144,7 @@ export default function PharmacyProfile() {
       {/* ── Header ── */}
       <View style={[styles.header, { borderBottomColor: theme.border, backgroundColor: theme.card }]}>
         <Pressable
-          style={[styles.backBtn, { backgroundColor: theme.surfaceSecondary }]}
+          style={({pressed})=>[styles.backBtn, pressed && {opacity: 0.5}, { backgroundColor: theme.surfaceSecondary }]}
           onPress={() => router.push('/(pharmacy)/(tabs)/dashboard')}
         >
           <Ionicons name="arrow-back" size={18} color={theme.text.primary} />
@@ -222,7 +175,7 @@ export default function PharmacyProfile() {
         >
           {/* ── Avatar / Logo ── */}
           <View style={styles.avatarContainer}>
-            <Pressable style={styles.avatarWrapper} onPress={handlePickAvatar} disabled={uploadingAvatar}>
+            <Pressable style={({pressed})=>[styles.avatarWrapper, pressed && {opacity: 0.5}]} onPress={handlePickAvatar} disabled={uploadingAvatar}>
               <View style={[styles.avatarCircle, { backgroundColor: theme.successBg }]}>
                 {profile?.avatar_url ? (
                   <Image source={{ uri: profile.avatar_url }} style={styles.avatarImage} />
@@ -238,7 +191,7 @@ export default function PharmacyProfile() {
                 )}
               </View>
             </Pressable>
-            <Text style={{ color: theme.textDim, fontSize: FONT_SIZE.sm, marginTop: 6 }}>Tap to change pharmacy photo</Text>
+            <Text style={{ color: theme.textDim, fontSize: FONT_SIZE.md, marginTop: 6 }}>Tap to change pharmacy photo</Text>
           </View>
 
           {/* ── Fields ── */}
@@ -288,13 +241,13 @@ export default function PharmacyProfile() {
           />
 
           {/* ── Save Button ── */}
-          <Pressable style={[styles.saveBtn, { backgroundColor: primaryColor }]} onPress={handleSave} disabled={saving}>
+          <Pressable style={({pressed})=>[styles.saveBtn, pressed && {opacity: 0.5}, { backgroundColor: primaryColor }]} onPress={handleSave} disabled={saving}>
             {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Save Changes</Text>}
           </Pressable>
 
           {/* ── Help & Feedback ── */}
           <Pressable
-            style={[styles.helpBtn, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}
+            style={({pressed})=>[styles.helpBtn, pressed && {opacity: 0.5}, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}
             onPress={() => router.push('/(patient)/help-feedback')}
           >
             <Ionicons name="help-circle-outline" size={20} color={theme.text.primary} />
@@ -302,12 +255,48 @@ export default function PharmacyProfile() {
           </Pressable>
 
           {/* ── Sign Out ── */}
-          <Pressable style={[styles.signOutBtn, { backgroundColor: theme.errorBg }]} onPress={handleSignOut}>
+          <Pressable style={({pressed})=>[styles.signOutBtn, pressed && {opacity: 0.5}, { backgroundColor: theme.errorBg, borderColor: theme.errorBorder }]} onPress={handleSignOut}>
             <Ionicons name="log-out-outline" size={18} color={theme.error} />
             <Text style={[styles.signOutText, { color: theme.error }]}>Sign Out</Text>
           </Pressable>
         </ScrollView>
       )}
+
+      <AvatarPickerSheet
+        ref={avatarSheetRef}
+        hasPhoto={!!profile?.avatar_url}
+        onCamera={async () => {
+          const perm = await ImagePicker.requestCameraPermissionsAsync();
+          if (!perm.granted) {
+            Alert.alert('Permission Denied', 'Camera permission is required.');
+            return;
+          }
+          const result = await ImagePicker.launchCameraAsync({ allowsEditing: true, aspect: [1, 1], quality: 0.8 });
+          if (!result.canceled && result.assets?.[0]?.uri) {
+            setUploadingAvatar(true);
+            await uploadAvatar(result.assets[0].uri);
+            setUploadingAvatar(false);
+          }
+        }}
+        onGallery={async () => {
+          const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+          if (!perm.granted) {
+            Alert.alert('Permission Denied', 'Media library permission is required.');
+            return;
+          }
+          const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.8, legacy: true });
+          if (!result.canceled && result.assets?.[0]?.uri) {
+            setUploadingAvatar(true);
+            await uploadAvatar(result.assets[0].uri);
+            setUploadingAvatar(false);
+          }
+        }}
+        onRemove={async () => {
+          setUploadingAvatar(true);
+          await updateProfile({ avatar_url: null });
+          setUploadingAvatar(false);
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -342,7 +331,7 @@ function ProfileField({
           keyboardType={keyboardType || 'default'}
           secureTextEntry={secureTextEntry}
         />
-        <Ionicons name="pencil-outline" size={14} color={theme.text.muted} />
+        <Ionicons name="pencil" size={14} color={theme.text.muted} />
       </View>
     </View>
   );
@@ -353,7 +342,7 @@ const fieldStyles = StyleSheet.create({
     marginBottom: SPACING.sm,
   },
   label: {
-    fontSize: FONT_SIZE.xs,
+    fontSize: FONT_SIZE.sm,
     fontWeight: '700',
     letterSpacing: 0.8,
     textTransform: 'uppercase',
@@ -369,7 +358,7 @@ const fieldStyles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    fontSize: FONT_SIZE.xl,
+    fontSize: FONT_SIZE.lg,
   },
 });
 
@@ -459,7 +448,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     height: 48,
-    borderRadius: RADIUS.lg,
+    borderRadius: RADIUS.pill,
     borderWidth: 1,
     marginBottom: SPACING.md,
   },
@@ -476,6 +465,7 @@ const styles = StyleSheet.create({
     gap: 8,
     height: 48,
     borderRadius: RADIUS.lg,
+    borderWidth: 1,
     marginTop: SPACING.xs,
   },
   signOutText: {

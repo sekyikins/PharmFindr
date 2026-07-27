@@ -19,7 +19,10 @@ export default function Reservations() {
   const [refreshing, setRefreshing] = useState(false);
 
   const fetchReservations = useCallback(async () => {
-    if (!user) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
     try {
       // 1. Get pharmacy owned by current user
       const { data: pharm, error: pharmErr } = await supabase
@@ -28,7 +31,13 @@ export default function Reservations() {
         .eq('owner_id', user.id)
         .single();
 
-      if (pharmErr) throw pharmErr;
+      if (pharmErr || !pharm) {
+        // No pharmacy record yet — show empty state gracefully
+        console.warn('No pharmacy found for user:', pharmErr?.message);
+        setLoading(false);
+        setRefreshing(false);
+        return;
+      }
 
       // 2. Get reservations with profile details
       const { data: resData, error: resErr } = await supabase
@@ -67,7 +76,6 @@ export default function Reservations() {
       );
     } catch (e: any) {
       console.warn('Error fetching reservations:', e.message);
-      Alert.alert('Error', 'Failed to load reservations.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -159,11 +167,11 @@ export default function Reservations() {
         {/* Action buttons (pending only) */}
         {isPending && (
           <View style={styles.actionRow}>
-            <Pressable style={[styles.acceptBtn, { backgroundColor: primaryColor }]} onPress={() => handleAccept(item.id)}>
+            <Pressable style={({pressed})=>[styles.acceptBtn, pressed && {opacity: 0.5}, { backgroundColor: primaryColor }]} onPress={() => handleAccept(item.id)}>
               <Ionicons name="checkmark" size={15} color="#fff" />
               <Text style={styles.actionBtnText}>Accept</Text>
             </Pressable>
-            <Pressable style={[styles.declineBtn, { backgroundColor: theme.errorBg, borderColor: theme.errorBorder }]} onPress={() => handleDecline(item.id)}>
+            <Pressable style={({pressed})=>[styles.declineBtn, pressed && {opacity: 0.5}, { backgroundColor: theme.errorBg, borderColor: theme.errorBorder }]} onPress={() => handleDecline(item.id)}>
               <Ionicons name="close" size={15} color={theme.error} />
               <Text style={[styles.actionBtnText, { color: theme.error }]}>Decline</Text>
             </Pressable>
@@ -177,7 +185,7 @@ export default function Reservations() {
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
       {/* Header */}
       <View style={[styles.header, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
-        <Pressable style={[styles.backBtn, { backgroundColor: theme.surfaceSecondary }]} onPress={() => router.push('/(pharmacy)/(tabs)/dashboard')}>
+        <Pressable style={({pressed})=>[styles.backBtn, pressed && {opacity: 0.5}, { backgroundColor: theme.surfaceSecondary }]} onPress={() => router.push('/(pharmacy)/(tabs)/dashboard')}>
           <Ionicons name="arrow-back" size={18} color={theme.text.primary} />
         </Pressable>
         <Text style={[styles.headerTitle, { color: theme.text.primary }]}>Reservations</Text>

@@ -99,7 +99,7 @@ export default function Navigate() {
 
       {/* Floating header */}
       <SafeAreaView style={styles.floatingHeader} edges={['top']}>
-        <Pressable style={[styles.backBtn, { backgroundColor: theme.card }]} onPress={() => router.back()}>
+        <Pressable style={({pressed})=>[styles.backBtn, pressed && {opacity: 0.5}, { backgroundColor: theme.card }]} onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={18} color={theme.text.primary} />
         </Pressable>
 
@@ -144,7 +144,7 @@ export default function Navigate() {
         </View>
 
         <Pressable
-          style={[styles.startBtn, { backgroundColor: primaryColor }]}
+          style={({pressed})=>[styles.startBtn, pressed && {opacity: 0.5}, { backgroundColor: primaryColor }]}
           onPress={openExternalNav}
         >
           <Ionicons name="navigate" size={18} color="#fff" style={{ marginRight: 8 }} />

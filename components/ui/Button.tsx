@@ -88,6 +88,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   pressed: {
-    opacity: 0.75,
+    opacity: 0.5,
   },
 });

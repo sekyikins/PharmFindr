@@ -73,7 +73,7 @@ export default function MedicineDetail() {
         
         {/* ── Blue Hero Header ── */}
         <View style={[styles.hero, { backgroundColor: primaryColor }]}>
-          <Pressable style={styles.backBtn} onPress={() => router.back()}>
+          <Pressable style={({pressed})=>[styles.backBtn, pressed && { opacity: 0.5 }]} onPress={() => router.back()}>
             <Ionicons name="arrow-back" size={18} color="#ffffff" />
           </Pressable>
 
@@ -123,7 +123,7 @@ export default function MedicineDetail() {
 
         {/* ── Find Nearby Button ── */}
         <Pressable
-          style={[styles.findBtn, { backgroundColor: primaryColor }]}
+          style={({pressed})=>[styles.findBtn, pressed && { opacity: 0.5 }, { backgroundColor: primaryColor }]}
           onPress={() => router.push('/(patient)/pharmacies')}
         >
           <Text style={styles.findBtnText}>Find Nearby Pharmacies</Text>

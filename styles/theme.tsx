@@ -37,14 +37,14 @@ export const RADIUS = {
 
 // ─── Font Size ────────────────────────────────────────────────────────────────
 export const FONT_SIZE = {
-  xs: 10,
-  sm: 11,
+  xs: 8,
+  sm: 10,
   md: 12,
-  body: 13,
-  lg: 14,
-  xl: 15,
-  xxl: 17,
-  title: 20,
+  body: 14,
+  lg: 16,
+  xl: 18,
+  xxl: 20,
+  title: 22,
   hero: 24,
 } as const;
 
@@ -60,9 +60,9 @@ const _makePalette = () => {
     card:             '#ffffff',
     surface:          '#f8fafc',
     surfaceSecondary: '#f1f5f9',
-    border:           '#e2e8f0',
-    borderLight:      '#f1f5f9',
-    borderMuted:      '#f1f5f9',
+    border:           '#c6c7c9ff',
+    borderLight:      '#d8dbdeff',
+    borderMuted:      '#c4c5c7ff',
 
     // Patient portal (blue)
     patientPrimary:   '#2563eb',

@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Camera, CameraView, useCameraPermissions } from 'expo-camera';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import { parsePrescriptionImage } from '@/lib/gemini';
 import { Ionicons } from '@expo/vector-icons';
@@ -69,7 +69,7 @@ export default function Scan() {
         <Text style={[styles.permissionText, { color: theme.textMuted }]}>
           We need camera permissions to scan your prescriptions and extract medicine details automatically.
         </Text>
-        <Pressable style={[styles.permissionBtn, { backgroundColor: primaryColor }]} onPress={requestPermission}>
+        <Pressable style={({pressed})=>[styles.permissionBtn, pressed && { opacity: 0.5 }, { backgroundColor: primaryColor }]} onPress={requestPermission}>
           <Text style={styles.permissionBtnText}>Grant Camera Permission</Text>
         </Pressable>
       </SafeAreaView>
@@ -154,7 +154,7 @@ export default function Scan() {
         <Text style={[styles.permissionText, { color: theme.text.primary }]}>
           We need your permission to use the camera to scan prescriptions.
         </Text>
-        <Pressable style={[styles.permissionBtn, { backgroundColor: primaryColor }]} onPress={requestPermission}>
+        <Pressable style={({pressed})=>[styles.permissionBtn, pressed && { opacity: 0.5 }, { backgroundColor: primaryColor }]} onPress={requestPermission}>
           <Text style={styles.permissionBtnText}>Grant Permission</Text>
         </Pressable>
       </SafeAreaView>
@@ -189,11 +189,11 @@ export default function Scan() {
 
             {/* Header Controls */}
             <SafeAreaView style={styles.cameraHeader} edges={['top']}>
-              <Pressable onPress={() => router.back()} style={styles.circleIconBtn}>
+              <Pressable onPress={() => router.back()} style={({pressed})=>[styles.circleIconBtn, pressed && { opacity: 0.5 }]}>
                 <Ionicons name="arrow-back" size={20} color="#ffffff" />
               </Pressable>
 
-              <Pressable onPress={() => setFlash(!flash)} style={styles.circleIconBtn}>
+              <Pressable onPress={() => setFlash(!flash)} style={({pressed})=>[styles.circleIconBtn, pressed && { opacity: 0.5 }]}>
                 <Ionicons name={flash ? 'flash' : 'flash-outline'} size={20} color={flash ? '#fbbf24' : '#ffffff'} />
               </Pressable>
             </SafeAreaView>
@@ -225,16 +225,16 @@ export default function Scan() {
 
             {/* Action Footer */}
             <View style={styles.cameraFooter}>
-              <Pressable onPress={handlePickImage} style={styles.footerIconBtn}>
+              <Pressable onPress={handlePickImage} style={({pressed})=>[styles.footerIconBtn, pressed && { opacity: 0.5 }]}>
                 <Ionicons name="image-outline" size={24} color="#ffffff" />
                 <Text style={styles.footerIconLabel}>Gallery</Text>
               </Pressable>
 
-              <Pressable onPress={handleCapture} style={styles.captureOuter}>
+              <Pressable onPress={handleCapture} style={({pressed})=>[styles.captureOuter, pressed && { opacity: 0.5 }]}>
                 <View style={styles.captureInner} />
               </Pressable>
 
-              <Pressable onPress={() => {}} style={styles.footerIconBtn}>
+              <Pressable onPress={() => {}} style={({pressed})=>[styles.footerIconBtn, pressed && { opacity: 0.5 }]}>
                 <Ionicons name="bulb-outline" size={24} color="#ffffff" />
                 <Text style={styles.footerIconLabel}>Tips</Text>
               </Pressable>

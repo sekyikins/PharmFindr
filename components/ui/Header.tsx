@@ -24,7 +24,7 @@ export function Header({ title, showBack = false, rightElement }: HeaderProps) {
     >
       <View style={styles.side}>
         {showBack && (
-          <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
+          <Pressable onPress={() => router.back()} style={({pressed})=>[styles.backBtn, pressed && {opacity: 0.5}, { backgroundColor: theme.surfaceSecondary }]} hitSlop={8}>
             <Ionicons name="arrow-back" size={18} color={theme.text.primary} />
           </Pressable>
         )}

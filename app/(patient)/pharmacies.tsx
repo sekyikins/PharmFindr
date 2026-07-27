@@ -8,7 +8,6 @@ import {
   Pressable,
   Animated,
   Easing,
-  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,7 +17,10 @@ import { useThemeContext } from '@/hooks/useThemeContext';
 import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
 import { getCurrentLocation, type Coords } from '@/lib/location';
 import { searchNearbyPharmacies, type OsmPharmacy } from '@/lib/osm';
+import { usePharmacyStore } from '@/store/pharmacyStore';
 import Skeleton from '@/components/ui/Skeleton';
+import BottomSheet from '@gorhom/bottom-sheet';
+import AppBottomSheet from '@/components/ui/AppBottomSheet';
 
 export default function Pharmacies() {
   const router = useRouter();
@@ -29,11 +31,23 @@ export default function Pharmacies() {
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const [searchQuery, setSearchQuery] = useState(routeQuery);
   const [userCoords, setUserCoords] = useState<Coords | null>(null);
-  const [pharmacies, setPharmacies] = useState<OsmPharmacy[]>([]);
-  const [selectedPharmacy, setSelectedPharmacy] = useState<OsmPharmacy | null>(null);
-  const [loading, setLoading] = useState(true);
+
+  // Seed from the shared store — instant display if already loaded by home screen
+  const {
+    pharmacies: storePharmacies,
+    userCoords: storeCoords,
+    setPharmacies: storeSetPharmacies,
+    setUserCoords: storeSetCoords,
+  } = usePharmacyStore();
+
+  const [pharmacies, setPharmacies] = useState<OsmPharmacy[]>(storePharmacies);
+  const [selectedPharmacy, setSelectedPharmacy] = useState<OsmPharmacy | null>(
+    storePharmacies[0] ?? null
+  );
+  // Start as NOT loading if we already have cached data
+  const [loading, setLoading] = useState(storePharmacies.length === 0);
   const [error, setError] = useState<string | null>(null);
-  const [modalVisible, setModalVisible] = useState(false);
+  const stopLoadingSheetRef = useRef<any>(null);
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const spinAnim = useRef(new Animated.Value(0)).current;
@@ -70,7 +84,7 @@ export default function Pharmacies() {
       abortControllerRef.current.abort();
     }
     setLoading(false);
-    setModalVisible(false);
+    stopLoadingSheetRef.current?.dismiss?.() ?? stopLoadingSheetRef.current?.close?.();
   };
 
   const loadPharmacies = useCallback(async () => {
@@ -89,20 +103,20 @@ export default function Pharmacies() {
       const coords = await getCurrentLocation();
       if (controller.signal.aborted) return;
       setUserCoords(coords);
+      storeSetCoords(coords); // sync to shared store
 
+      const accumulated: OsmPharmacy[] = [];
       await searchNearbyPharmacies(
         coords,
         5000,
         (foundPharmacy) => {
-          setPharmacies((prev) => {
-            if (prev.some((p) => p.id === foundPharmacy.id)) return prev;
-            const updated = [...prev, foundPharmacy];
-            // Set initial selected pharmacy for map view
-            if (!selectedPharmacy && updated.length === 1) {
-              setSelectedPharmacy(updated[0]);
-            }
-            return updated;
-          });
+          if (accumulated.some((p) => p.id === foundPharmacy.id)) return;
+          accumulated.push(foundPharmacy);
+          storeSetPharmacies([...accumulated]); // keep shared store in sync
+          setPharmacies([...accumulated]);
+          if (!selectedPharmacy && accumulated.length === 1) {
+            setSelectedPharmacy(accumulated[0]);
+          }
         },
         controller.signal
       );
@@ -118,6 +132,15 @@ export default function Pharmacies() {
   }, [selectedPharmacy]);
 
   useEffect(() => {
+    // If the store already has data, display it immediately — no re-fetch needed.
+    // The user can still pull-to-refresh or tap the refresh button to force a reload.
+    if (storePharmacies.length > 0) {
+      setPharmacies(storePharmacies);
+      if (storeCoords) setUserCoords(storeCoords);
+      setLoading(false);
+      return;
+    }
+    // Store is empty — do a fresh load
     loadPharmacies();
     return () => {
       if (abortControllerRef.current) {
@@ -128,7 +151,7 @@ export default function Pharmacies() {
 
   const handleRefreshPress = () => {
     if (loading) {
-      setModalVisible(true);
+      stopLoadingSheetRef.current?.expand();
     } else {
       loadPharmacies();
     }
@@ -151,7 +174,7 @@ export default function Pharmacies() {
 
   const renderPharmacyCard = ({ item }: { item: OsmPharmacy }) => (
     <Pressable
-      style={[styles.pharmCard, { backgroundColor: theme.card, borderColor: theme.border }]}
+      style={({pressed})=>[styles.pharmCard, pressed && { opacity: 0.5 }, { backgroundColor: theme.card, borderColor: theme.border }]}
       onPress={() =>
         router.push({
           pathname: '/(patient)/pharmacy/[id]',
@@ -218,7 +241,7 @@ export default function Pharmacies() {
       {/* Header */}
       <View style={[styles.header, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
         <Pressable
-          style={[styles.navBtn, { backgroundColor: theme.surfaceSecondary }]}
+          style={({pressed})=>[styles.navBtn, pressed && { opacity: 0.5 }, { backgroundColor: theme.surfaceSecondary }]}
           onPress={() => router.back()}
         >
           <Ionicons name="arrow-back" size={18} color={theme.text.primary} />
@@ -227,7 +250,7 @@ export default function Pharmacies() {
         <Text style={[styles.headerTitle, { color: theme.text.primary }]}>Nearby Pharmacies</Text>
 
         <Pressable
-          style={[styles.navBtn, { backgroundColor: theme.surfaceSecondary }]}
+          style={({pressed})=>[styles.navBtn, pressed && { opacity: 0.5 }, { backgroundColor: theme.surfaceSecondary }]}
           onPress={handleRefreshPress}
         >
           <Animated.View style={{ transform: [{ rotate: spinInterpolate }] }}>
@@ -264,8 +287,9 @@ export default function Pharmacies() {
           />
         </View>
         <Pressable
-          style={[
+          style={({pressed})=>[
             styles.toggleBtn,
+            pressed && { opacity: 0.5 },
             { borderColor: theme.border, backgroundColor: theme.card },
             viewMode === 'list' && [styles.toggleActive, { backgroundColor: theme.patientSecondary, borderColor: primaryColor }],
           ]}
@@ -274,8 +298,9 @@ export default function Pharmacies() {
           <Ionicons name="list-outline" size={18} color={viewMode === 'list' ? primaryColor : theme.text.muted} />
         </Pressable>
         <Pressable
-          style={[
+          style={({pressed})=>[
             styles.toggleBtn,
+            pressed && { opacity: 0.5 },
             { borderColor: theme.border, backgroundColor: theme.card },
             viewMode === 'map' && [styles.toggleActive, { backgroundColor: theme.patientSecondary, borderColor: primaryColor }],
           ]}
@@ -316,7 +341,7 @@ export default function Pharmacies() {
                 <Text style={[styles.emptyText, { color: theme.textDim }]}>
                   {error || 'No pharmacies found nearby.'}
                 </Text>
-                <Pressable style={[styles.retryBtn, { backgroundColor: primaryColor }]} onPress={loadPharmacies}>
+                <Pressable style={({pressed})=>[styles.retryBtn, pressed && { opacity: 0.5 }, { backgroundColor: primaryColor }]} onPress={loadPharmacies}>
                   <Text style={styles.retryBtnText}>Retry Search</Text>
                 </Pressable>
               </View>
@@ -343,7 +368,7 @@ export default function Pharmacies() {
                 {filtered.length} pharmacies found {loading ? '(loading more…)' : ''}
               </Text>
               <Pressable
-                style={styles.pharmCardSmall}
+                style={({pressed})=>[styles.pharmCardSmall, pressed && { opacity: 0.5 }]}
                 onPress={() => {
                   router.push({
                     pathname: '/(patient)/pharmacy/[id]',
@@ -384,48 +409,39 @@ export default function Pharmacies() {
         </View>
       )}
 
-      {/* Interactive Modal when clicking spinning refresh button */}
-      <Modal visible={modalVisible} transparent animationType="fade" onRequestClose={() => setModalVisible(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalCard, { backgroundColor: theme.card }]}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-              <Animated.View style={{ transform: [{ rotate: spinInterpolate }] }}>
-                <Ionicons name="refresh-circle" size={28} color={primaryColor} />
-              </Animated.View>
-              <Text style={[styles.modalTitle, { color: theme.text.primary }]}>
-                Loading Pharmacies…
-              </Text>
-            </View>
-            <Text style={[styles.modalSub, { color: theme.textMuted }]}>
-              Pharmacies are currently being streamed from nearby locations. What would you like to do?
+      {/* Stop-loading action sheet */}
+      <AppBottomSheet
+        ref={stopLoadingSheetRef}
+        snapPoints={['38%']}
+        title="Loading Pharmacies…"
+      >
+        <View style={styles.sheetBody}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+            <Animated.View style={{ transform: [{ rotate: spinInterpolate }] }}>
+              <Ionicons name="refresh-circle" size={24} color={primaryColor} />
+            </Animated.View>
+            <Text style={[styles.sheetSub, { color: theme.textMuted }]}>
+              Pharmacies are being streamed from nearby locations.
             </Text>
-
-            <Pressable style={[styles.modalOptionBtn, { backgroundColor: theme.surfaceSecondary }]} onPress={stopLoading}>
-              <Ionicons name="stop-circle-outline" size={20} color={theme.errorText || '#ef4444'} />
-              <Text style={[styles.modalOptionText, { color: theme.text.primary }]}>
-                1. Stop loading pharmacies
-              </Text>
-            </Pressable>
-
-            <Pressable
-              style={[styles.modalOptionBtn, { backgroundColor: theme.patientSecondary, marginTop: 8 }]}
-              onPress={() => {
-                setModalVisible(false);
-                loadPharmacies();
-              }}
-            >
-              <Ionicons name="reload-outline" size={20} color={primaryColor} />
-              <Text style={[styles.modalOptionText, { color: primaryColor, fontWeight: '700' }]}>
-                2. Restart loading pharmacies
-              </Text>
-            </Pressable>
-
-            <Pressable style={{ marginTop: 14, alignItems: 'center' }} onPress={() => setModalVisible(false)}>
-              <Text style={{ color: theme.textDim, fontSize: FONT_SIZE.sm }}>Cancel</Text>
-            </Pressable>
           </View>
+
+          <Pressable
+            style={({pressed})=>[styles.sheetOptionBtn, pressed && { opacity: 0.5 }, { backgroundColor: theme.surfaceSecondary }]}
+            onPress={() => { stopLoadingSheetRef.current?.close(); stopLoading(); }}
+          >
+            <Ionicons name="stop-circle-outline" size={20} color={theme.error ?? '#ef4444'} />
+            <Text style={[styles.sheetOptionText, { color: theme.text.primary }]}>Stop loading pharmacies</Text>
+          </Pressable>
+
+          <Pressable
+            style={({pressed})=>[styles.sheetOptionBtn, pressed && { opacity: 0.5 }, { backgroundColor: theme.patientSecondary, marginTop: 10 }]}
+            onPress={() => { stopLoadingSheetRef.current?.close(); loadPharmacies(); }}
+          >
+            <Ionicons name="reload-outline" size={20} color={primaryColor} />
+            <Text style={[styles.sheetOptionText, { color: primaryColor, fontWeight: '700' }]}>Restart loading pharmacies</Text>
+          </Pressable>
         </View>
-      </Modal>
+      </AppBottomSheet>
     </SafeAreaView>
   );
 }
@@ -539,10 +555,10 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: FONT_SIZE.body, textAlign: 'center' },
   retryBtn: { paddingHorizontal: 20, paddingVertical: 10, borderRadius: RADIUS.pill, marginTop: 8 },
   retryBtnText: { color: '#fff', fontSize: FONT_SIZE.body, fontWeight: '700' },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-  modalCard: { width: '100%', borderRadius: RADIUS.xl, padding: 20 },
-  modalTitle: { fontSize: FONT_SIZE.xl, fontWeight: '700' },
-  modalSub: { fontSize: FONT_SIZE.sm, lineHeight: 20, marginBottom: 16 },
-  modalOptionBtn: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderRadius: RADIUS.lg },
-  modalOptionText: { fontSize: FONT_SIZE.body, fontWeight: '600' },
+  // Bottom sheet styles (replaces old centered modal)
+  sheetBody: { paddingHorizontal: SPACING.xl, paddingTop: SPACING.sm },
+  sheetSub: { fontSize: FONT_SIZE.sm, lineHeight: 20, flex: 1 },
+  sheetOptionBtn: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderRadius: RADIUS.lg, marginBottom: 4 },
+  sheetOptionText: { fontSize: FONT_SIZE.body, fontWeight: '600', flex: 1 },
 });
+

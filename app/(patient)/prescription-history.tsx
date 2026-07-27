@@ -110,7 +110,7 @@ export default function PrescriptionHistory() {
       {/* Header */}
       <View style={[styles.header, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
         <Pressable
-          style={[styles.backBtn, { backgroundColor: theme.surfaceSecondary }]}
+          style={({pressed})=>[styles.backBtn, pressed && { opacity: 0.5 }, { backgroundColor: theme.surfaceSecondary }]}
           onPress={() => router.back()}
         >
           <Ionicons name="arrow-back" size={18} color={theme.text.primary} />
@@ -138,7 +138,7 @@ export default function PrescriptionHistory() {
           }
           renderItem={({ item }) => (
             <Pressable
-              style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}
+              style={({pressed})=>[styles.card, pressed && { opacity: 0.5 }, { backgroundColor: theme.card, borderColor: theme.border }]}
               onPress={() => {
                 router.push({
                   pathname: '/(patient)/ocr-result',

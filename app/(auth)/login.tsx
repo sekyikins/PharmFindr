@@ -8,14 +8,17 @@ import {
   ActivityIndicator, 
   ScrollView,
   useWindowDimensions,
+  Image,
   StatusBar} from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAuthStore } from '@/store/authStore';
 import { supabase } from '@/lib/supabase';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, AntDesign } from '@expo/vector-icons';
 import Svg, { Path } from 'react-native-svg';
 import { validateGhanaPhone, sendArkeselOtp, verifyArkeselOtp } from '@/lib/arkeselSms';
+import { PHARMACY_PASS } from '@/lib/authConstants';
+import OtpInput, { type OtpInputHandle } from '@/components/ui/OtpInput';
 
 // Figma extracted colors
 const BLUE = '#2563eb';
@@ -27,16 +30,18 @@ const TEXT_PRIMARY = '#1d293d';
 
 export default function Login() {
   const { width } = useWindowDimensions();
+  const { initialRole } = useLocalSearchParams<{ initialRole?: 'patient' | 'pharmacy' }>();
+
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState<'patient' | 'pharmacy'>('patient');
+  const [role, setRole] = useState<'patient' | 'pharmacy'>(initialRole === 'pharmacy' ? 'pharmacy' : 'patient');
   
-  // Pharmacy login steps
   const [pharmStep, setPharmStep] = useState<1 | 2>(1);
-  const [otpCode, setOtpCode] = useState(['', '', '', '', '', '']);
-  const otpInputs = useRef<Array<TextInput | null>>([]);
-  
+  // OTP component ref — used to trigger shake/success from parent
+  const otpRef = useRef<OtpInputHandle>(null);
+  const [pendingOtpCode, setPendingOtpCode] = useState('');
+
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   
@@ -66,20 +71,6 @@ export default function Login() {
 
   const [formattedPhone, setFormattedPhone] = useState('');
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
-  const [resendTimer, setResendTimer] = useState(0);
-
-  const startResendTimer = () => {
-    setResendTimer(30);
-    const interval = setInterval(() => {
-      setResendTimer((prev) => {
-        if (prev <= 1) {
-          clearInterval(interval);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-  };
 
   const handleSendOtp = async () => {
     const raw = phone.trim();
@@ -132,11 +123,9 @@ export default function Login() {
 
     setSuccessMsg(`OTP sent! A 6-digit code has been sent via SMS to ${raw}.`);
     setPharmStep(2);
-    startResendTimer();
   };
 
   const handleResendOtp = async () => {
-    if (resendTimer > 0) return;
     setLoading(true);
     setErrorMsg(null);
     setSuccessMsg(null);
@@ -150,11 +139,9 @@ export default function Login() {
     }
 
     setSuccessMsg(`A new OTP code has been sent via SMS to ${phone.trim()}.`);
-    startResendTimer();
   };
 
-  const handleVerifyOtp = async () => {
-    const code = otpCode.join('');
+  const handleVerifyOtp = async (code: string) => {
     if (code.length < 6) {
       setErrorMsg('Please enter the 6-digit code.');
       return;
@@ -171,16 +158,22 @@ export default function Login() {
     if (!verify.success) {
       setErrorMsg(verify.error || 'Invalid verification code.');
       setLoading(false);
+      // Shake the OTP boxes and clear them
+      otpRef.current?.shake();
       return;
     }
 
+    // Show success state briefly before navigating
+    otpRef.current?.showSuccess();
+
     try {
       console.log('[PharmLogin] Signing in with phone:', phoneToUse);
-      await signIn(phoneToUse, 'PharmacyPass123!');
+      await signIn(phoneToUse, PHARMACY_PASS);
       router.replace('/(pharmacy)/(tabs)/dashboard');
     } catch (error: any) {
       console.error('[PharmLogin] signIn error:', error.message, '| phone used:', phoneToUse);
       setErrorMsg(error.message || 'Login failed after OTP verification.');
+      otpRef.current?.shake();
     } finally {
       setLoading(false);
     }
@@ -190,15 +183,13 @@ export default function Login() {
     setRole(prev => prev === 'patient' ? 'pharmacy' : 'patient');
     setPharmStep(1);
     setErrorMsg(null);
+    setPendingOtpCode('');
+    otpRef.current?.reset();
   };
 
-  const handleOtpChange = (val: string, idx: number) => {
-    const next = [...otpCode];
-    next[idx] = val.slice(-1);
-    setOtpCode(next);
-    if (val && idx < 5) {
-      otpInputs.current[idx + 1]?.focus();
-    }
+  const handleOtpComplete = (code: string) => {
+    setPendingOtpCode(code);
+    handleVerifyOtp(code);
   };
 
   return (
@@ -297,7 +288,7 @@ export default function Login() {
               </View>
 
               {/* Forgot Password */}
-              <Pressable style={styles.forgotRow}>
+              <Pressable style={({pressed})=>[styles.forgotRow, pressed && { opacity: 0.5 }]}>
                 <Text style={[styles.forgotText, { color: BLUE }]}>Forgot Password?</Text>
               </Pressable>
 
@@ -322,10 +313,20 @@ export default function Login() {
 
               {/* Create Account Button */}
               <Pressable
-                style={[styles.outlineBtn, { borderColor: BLUE }]}
+                style={({ pressed }) =>[styles.outlineBtn, pressed && { opacity: 0.5 }, { borderColor: BLUE }]}
                 onPress={() => router.push({ pathname: '/(auth)/register', params: { initialRole: 'patient' } })}
               >
                 <Text style={[styles.outlineBtnText, { color: BLUE }]}>Create Account</Text>
+              </Pressable>
+              <Pressable
+                style={({ pressed }) =>[styles.outlineBtn, pressed && { opacity: 0.5 }, { borderColor: BLUE, flexDirection: 'row', gap: 8 }]}
+                onPress={() => console.log('Google Sign In')}
+              >
+                <Image 
+                source={require('@/assets/images/google.png')} 
+                style={{ width: 24, height: 24 }} 
+                />
+                <Text style={styles.outlineBtnText}>Sign in with Google</Text>
               </Pressable>
             </View>
           )}
@@ -384,47 +385,29 @@ export default function Login() {
                 Enter the 6-digit code sent to <Text style={{ fontWeight: 'bold' }}>{phone}</Text>
               </Text>
 
-              {/* OTP Box inputs */}
-              <View style={styles.otpContainer}>
-                {otpCode.map((digit, i) => (
-                  <TextInput
-                    key={i}
-                    ref={el => { otpInputs.current[i] = el; }}
-                    style={[styles.otpBox, digit ? styles.otpBoxFilled : {}]}
-                    value={digit}
-                    onChangeText={val => handleOtpChange(val, i)}
-                    keyboardType="number-pad"
-                    maxLength={1}
-                    textAlign="center"
-                  />
-                ))}
-              </View>
+              {/* OTP Component */}
+              <OtpInput
+                ref={otpRef}
+                accentColor={GREEN}
+                onComplete={handleOtpComplete}
+                onResend={handleResendOtp}
+                disabled={loading}
+              />
 
               {/* Verify & Login Button */}
               <Pressable
                 style={[styles.primaryBtn, { backgroundColor: GREEN }]}
-                onPress={handleVerifyOtp}
-                disabled={loading}
+                onPress={() => handleVerifyOtp(pendingOtpCode)}
+                disabled={loading || pendingOtpCode.length < 6}
               >
-                {loading 
-                  ? <ActivityIndicator color="#ffffff" /> 
+                {loading
+                  ? <ActivityIndicator color="#ffffff" />
                   : <Text style={styles.primaryBtnText}>Verify & Login</Text>
                 }
               </Pressable>
 
-              {/* Resend OTP Button */}
-              <Pressable
-                style={styles.resendRow}
-                onPress={handleResendOtp}
-                disabled={loading || resendTimer > 0}
-              >
-                <Text style={[styles.resendText, { color: resendTimer > 0 ? PLACEHOLDER_COLOR : GREEN }]}>
-                  {resendTimer > 0 ? `Resend OTP in ${resendTimer}s` : 'Resend OTP'}
-                </Text>
-              </Pressable>
-
               {/* Back to Step 1 */}
-              <Pressable style={ styles.backToPhoneRow } onPress={() => setPharmStep(1)}>
+              <Pressable style={({pressed})=>[styles.backToPhoneRow, pressed && { opacity: 0.5 }]} onPress={() => setPharmStep(1)}>
                 <Ionicons name="chevron-back" size={20} color={LABEL_COLOR} />
                 <Text style={styles.backToPhoneText}>Change Phone Number</Text>
               </Pressable>
@@ -432,7 +415,7 @@ export default function Login() {
           )}
 
           {/* Portal Switcher */}
-          <Pressable style={styles.switchRow} onPress={toggleRole}>
+          <Pressable style={({pressed})=>[styles.switchRow, pressed && { opacity: 0.5 }]} onPress={toggleRole}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
               <Text style={styles.switchText}>{isPharmacy ? 'Are you a patient? ' : 'Are you a pharmacy? '}</Text>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
@@ -474,6 +457,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
+  },
+  pharmacyBtn: {
+    flexDirection: "row",
+    padding: 10,
+    alignSelf: "flex-start",
+    borderRadius: 9999,
+    backgroundColor: 'rgba(255,255,255,0.22)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  pharmacyText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#fff',
+    marginLeft: 8,
   },
   heroTitle: {
     fontSize: 28,
@@ -584,6 +583,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: 12,
   },
   outlineBtnText: {
     fontSize: 15,
@@ -591,8 +591,7 @@ const styles = StyleSheet.create({
   },
   switchRow: {
     alignItems: 'center',
-    marginTop: 28,
-    paddingBottom: 12,
+    paddingVertical: 12,
   },
   switchText: {
     fontSize: 13,

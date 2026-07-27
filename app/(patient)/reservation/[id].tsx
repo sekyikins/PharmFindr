@@ -87,7 +87,7 @@ export default function ConfirmReservation() {
       {/* ── Header ── */}
       <View style={[styles.header, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
         <Pressable
-          style={[styles.backBtn, { backgroundColor: theme.surfaceSecondary }]}
+          style={({pressed})=>[styles.backBtn, pressed && {opacity: 0.5}, { backgroundColor: theme.surfaceSecondary }]}
           onPress={() => router.back()}
         >
           <Ionicons name="arrow-back" size={18} color={theme.text.primary} />
@@ -126,7 +126,7 @@ export default function ConfirmReservation() {
         {/* ── Action Buttons ── */}
         <View style={styles.actionRow}>
           <Pressable
-            style={[styles.primaryBtn, { backgroundColor: primaryColor }]}
+            style={({pressed})=>[styles.primaryBtn, pressed && {opacity: 0.5}, { backgroundColor: primaryColor }]}
             onPress={handleConfirm}
             disabled={submitting}
           >
@@ -134,7 +134,7 @@ export default function ConfirmReservation() {
           </Pressable>
 
           <Pressable
-            style={[styles.secondaryBtn, { borderColor: primaryColor, backgroundColor: theme.card }]}
+            style={({pressed})=>[styles.secondaryBtn, pressed && {opacity: 0.5}, { borderColor: primaryColor, backgroundColor: theme.card }]}
             onPress={() => router.back()}
           >
             <Text style={[styles.secondaryBtnText, { color: primaryColor }]}>Cancel</Text>

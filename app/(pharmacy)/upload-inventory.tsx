@@ -3,8 +3,7 @@ import {
   StyleSheet, 
   Text, 
   View, 
-  ScrollView, 
-  Pressable, 
+  ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '@/store/authStore';

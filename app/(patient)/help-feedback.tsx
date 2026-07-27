@@ -69,7 +69,7 @@ export default function HelpAndFeedback() {
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
       {/* ── Header ── */}
       <View style={[styles.header, { borderBottomColor: theme.border, backgroundColor: theme.card }]}>
-        <Pressable style={[styles.circleBtn, { backgroundColor: theme.surfaceSecondary }]} onPress={() => router.back()}>
+        <Pressable style={({pressed})=>[styles.circleBtn, pressed && { opacity: 0.5 }, { backgroundColor: theme.surfaceSecondary }]} onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={20} color={theme.text.primary} />
         </Pressable>
         <Text style={[styles.headerTitle, { color: theme.text.primary }]}>Help & Feedback</Text>
@@ -78,7 +78,7 @@ export default function HelpAndFeedback() {
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* ── 1. HELP CENTER (FAQS) ── */}
-        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
+        <View>
           <View style={styles.cardTitleRow}>
             <Ionicons name="help-buoy-outline" size={22} color={primaryColor} />
             <Text style={[styles.cardTitle, { color: theme.text.primary }]}>Help Center & FAQs</Text>
@@ -89,7 +89,7 @@ export default function HelpAndFeedback() {
             return (
               <View key={idx} style={[styles.faqItem, { borderBottomColor: theme.border }]}>
                 <Pressable
-                  style={styles.faqHeader}
+                  style={({pressed})=>[styles.faqHeader, pressed && {opacity: 0.5}]}
                   onPress={() => setExpandedFaq(isOpen ? null : idx)}
                 >
                   <Text style={[styles.faqQuestion, { color: theme.text.primary }]}>{faq.q}</Text>
@@ -104,7 +104,7 @@ export default function HelpAndFeedback() {
         </View>
 
         {/* ── 2. SEND FEEDBACK ── */}
-        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border, marginTop: 16 }]}>
+        <View style={{ backgroundColor: theme.card, borderColor: theme.border, borderRadius: RADIUS.lg, marginTop: 10, padding: SPACING.md }}>
           <View style={styles.cardTitleRow}>
             <Ionicons name="chatbox-ellipses-outline" size={22} color={primaryColor} />
             <Text style={[styles.cardTitle, { color: theme.text.primary }]}>Send Feedback</Text>
@@ -120,8 +120,8 @@ export default function HelpAndFeedback() {
               return (
                 <Pressable
                   key={cat}
-                  style={[
-                    styles.catPill,
+                  style={({pressed})=>[
+                    styles.catPill, pressed && { opacity: 0.5 },
                     {
                       backgroundColor: active ? primaryColor : theme.surfaceSecondary,
                       borderColor: active ? primaryColor : theme.border,
@@ -149,7 +149,7 @@ export default function HelpAndFeedback() {
           />
 
           <Pressable
-            style={[styles.submitBtn, { backgroundColor: primaryColor }]}
+            style={({pressed})=>[styles.submitBtn, pressed && {opacity: 0.5}, { backgroundColor: primaryColor }]}
             onPress={handleSendFeedback}
             disabled={submittingFeedback}
           >
@@ -159,8 +159,8 @@ export default function HelpAndFeedback() {
         </View>
 
         {/* ── 3. LEGAL & APP INFO MENU ── */}
-        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border, marginTop: 16, paddingVertical: 0 }]}>
-          <Pressable style={styles.menuRow} onPress={() => setLegalModalType('terms')}>
+        <View style={{ marginTop: 16, paddingVertical: 0 }}>
+          <Pressable style={({pressed})=>[styles.menuRow, pressed && { opacity: 0.5 }]} onPress={() => setLegalModalType('terms')}>
             <View style={styles.menuRowLeft}>
               <Ionicons name="document-text-outline" size={20} color={theme.textMuted} />
               <Text style={[styles.menuRowText, { color: theme.text.primary }]}>Terms of Service</Text>
@@ -170,7 +170,7 @@ export default function HelpAndFeedback() {
 
           <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />
 
-          <Pressable style={styles.menuRow} onPress={() => setLegalModalType('privacy')}>
+          <Pressable style={({pressed})=>[styles.menuRow, pressed && { opacity: 0.5 }]} onPress={() => setLegalModalType('privacy')}>
             <View style={styles.menuRowLeft}>
               <Ionicons name="shield-outline" size={20} color={theme.textMuted} />
               <Text style={[styles.menuRowText, { color: theme.text.primary }]}>Privacy Policy</Text>
@@ -180,7 +180,7 @@ export default function HelpAndFeedback() {
 
           <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />
 
-          <Pressable style={styles.menuRow} onPress={() => setAppInfoVisible(true)}>
+          <Pressable style={({pressed})=>[styles.menuRow, pressed && { opacity: 0.5 }]} onPress={() => setAppInfoVisible(true)}>
             <View style={styles.menuRowLeft}>
               <Ionicons name="information-circle-outline" size={20} color={primaryColor} />
               <Text style={[styles.menuRowText, { color: theme.text.primary }]}>App Info</Text>
@@ -192,7 +192,7 @@ export default function HelpAndFeedback() {
 
       {/* ══ APP INFO MODAL (Centered display) ══ */}
       <Modal visible={appInfoVisible} transparent animationType="fade" onRequestClose={() => setAppInfoVisible(false)}>
-        <Pressable style={styles.modalOverlay} onPress={() => setAppInfoVisible(false)}>
+        <Pressable style={[styles.modalOverlay]} onPress={() => setAppInfoVisible(false)}>
           <Pressable style={[styles.appInfoCard, { backgroundColor: theme.card }]} onPress={(e) => e.stopPropagation()}>
             <View style={styles.appInfoContent}>
               <Image
@@ -209,13 +209,6 @@ export default function HelpAndFeedback() {
               <Text style={[styles.appInfoCopyright, { color: theme.textDim }]}>
                 © 2026 PharmFindr Inc. All rights reserved.
               </Text>
-
-              <Pressable
-                style={[styles.appInfoCloseBtn, { backgroundColor: primaryColor }]}
-                onPress={() => setAppInfoVisible(false)}
-              >
-                <Text style={styles.appInfoCloseText}>Close</Text>
-              </Pressable>
             </View>
           </Pressable>
         </Pressable>
@@ -228,7 +221,7 @@ export default function HelpAndFeedback() {
             <Text style={[styles.headerTitle, { color: theme.text.primary }]}>
               {legalModalType === 'terms' ? 'Terms of Service' : 'Privacy Policy'}
             </Text>
-            <Pressable style={[styles.circleBtn, { backgroundColor: theme.surfaceSecondary }]} onPress={() => setLegalModalType(null)}>
+            <Pressable style={({pressed})=>[styles.circleBtn, pressed && { opacity: 0.5 }, { backgroundColor: theme.surfaceSecondary }]} onPress={() => setLegalModalType(null)}>
               <Ionicons name="close" size={20} color={theme.text.primary} />
             </Pressable>
           </View>
@@ -268,14 +261,8 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: SPACING.xl,
-    paddingBottom: 40,
   },
 
-  card: {
-    borderRadius: RADIUS.xl,
-    padding: SPACING.lg,
-    borderWidth: 1,
-  },
   cardTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -287,7 +274,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   cardSub: {
-    fontSize: FONT_SIZE.sm,
+    fontSize: FONT_SIZE.md,
     marginBottom: 14,
   },
 
@@ -308,9 +295,11 @@ const styles = StyleSheet.create({
     paddingRight: 10,
   },
   faqAnswer: {
-    fontSize: FONT_SIZE.sm,
+    fontSize: FONT_SIZE.md,
     marginTop: 8,
     lineHeight: 20,
+    borderTopWidth: 1,
+    
   },
 
   // Feedback
@@ -326,7 +315,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   catPillText: {
-    fontSize: FONT_SIZE.xs,
+    fontSize: FONT_SIZE.sm,
     fontWeight: '600',
   },
   feedbackInput: {
@@ -409,7 +398,8 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   appInfoCopyright: {
-    fontSize: FONT_SIZE.xs,
+    textAlign: 'center',
+    fontSize: FONT_SIZE.sm,
     marginBottom: 20,
   },
   appInfoCloseBtn: {

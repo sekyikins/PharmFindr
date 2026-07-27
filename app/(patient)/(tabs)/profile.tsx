@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   StyleSheet,
   Text,
@@ -9,8 +9,6 @@ import {
   Alert,
   RefreshControl,
   Image,
-  Modal,
-  TextInput,
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -22,6 +20,8 @@ import { useThemeContext } from '@/hooks/useThemeContext';
 import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
 import { supabase } from '@/lib/supabase';
 import Svg, { Path } from 'react-native-svg';
+import { BottomSheetModal } from '@gorhom/bottom-sheet';
+import AvatarPickerSheet from '@/components/ui/AvatarPickerSheet';
 
 const MENU_ITEMS = [
   { id: 'health', icon: 'fitness-outline', label: 'Health Parameters', route: '/(patient)/health-profile' },
@@ -40,6 +40,7 @@ export default function Profile() {
 
   const [stats, setStats] = useState({ prescriptions: 0, reservations: 0 });
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const avatarSheetRef = useRef<BottomSheetModal>(null);
 
   // Edit Account Modal State
   const [editModalVisible, setEditModalVisible] = useState(false);
@@ -93,7 +94,7 @@ export default function Profile() {
           style: 'destructive',
           onPress: async () => {
             await signOut();
-            router.replace('/(auth)/login');
+            router.replace({ pathname: '/(auth)/login', params: { initialRole: 'patient' } });
           },
         },
         { text: 'Cancel', style: 'cancel' },
@@ -102,57 +103,8 @@ export default function Profile() {
     );
   };
 
-  const handlePickAvatar = async () => {
-    Alert.alert(
-      'Update Profile Picture',
-      'Choose an option',
-      [
-        {
-          text: 'Camera',
-          onPress: async () => {
-            const perm = await ImagePicker.requestCameraPermissionsAsync();
-            if (!perm.granted) {
-              Alert.alert('Permission Denied', 'Camera permission is required.', [{ text: 'OK' }, { text: 'Cancel', style: 'cancel' }], { cancelable: true });
-              return;
-            }
-            const result = await ImagePicker.launchCameraAsync({
-              allowsEditing: true,
-              aspect: [1, 1],
-              quality: 0.8,
-            });
-            if (!result.canceled && result.assets?.[0]?.uri) {
-              setUploadingAvatar(true);
-              await uploadAvatar(result.assets[0].uri);
-              setUploadingAvatar(false);
-            }
-          },
-        },
-        {
-          text: 'Gallery',
-          onPress: async () => {
-            const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-            if (!perm.granted) {
-              Alert.alert('Permission Denied', 'Media library permission is required.');
-              return;
-            }
-            const result = await ImagePicker.launchImageLibraryAsync({
-              mediaTypes: ['images'],
-              allowsEditing: true,
-              aspect: [1, 1],
-              quality: 0.8,
-              legacy: true,
-            });
-            if (!result.canceled && result.assets?.[0]?.uri) {
-              setUploadingAvatar(true);
-              await uploadAvatar(result.assets[0].uri);
-              setUploadingAvatar(false);
-            }
-          },
-        },
-        { text: 'Cancel', style: 'cancel' },
-      ],
-      { cancelable: true }
-    );
+  const handlePickAvatar = () => {
+    avatarSheetRef.current?.present();
   };
 
   const handleSaveAccount = async () => {
@@ -194,7 +146,11 @@ export default function Profile() {
       >
         {/* ── Blue Hero ── */}
         <View style={[styles.hero, { backgroundColor: primaryColor }]}>
-          <Pressable style={styles.avatarWrapper} onPress={handlePickAvatar} disabled={uploadingAvatar}>
+          <Pressable style={({pressed})=>[styles.editAccountPill, pressed && {opacity: 0.5}, { position: 'absolute', right: 20, top: 30 }]} onPress={() => router.push('/(patient)/edit-account')}>
+            <Ionicons name="pencil" size={12} color="#fff" />
+            <Text style={styles.editAccountPillText}>Edit</Text>
+          </Pressable>
+          <Pressable style={({pressed})=>[styles.avatarWrapper, pressed && {opacity: 0.7}]} onPress={handlePickAvatar} disabled={uploadingAvatar}>
             <View style={styles.avatarCircle}>
               {profile?.avatar_url ? (
                 <Image source={{ uri: profile.avatar_url }} style={styles.avatarImage} />
@@ -212,12 +168,7 @@ export default function Profile() {
           </Pressable>
 
           <Text style={styles.heroName}>{displayName}</Text>
-          <Text style={styles.heroSub}>{profile?.phone ?? 'N/A'}</Text>
-
-          <Pressable style={styles.editAccountPill} onPress={() => router.push('/(patient)/edit-account')}>
-            <Ionicons name="pencil" size={12} color="#fff" />
-            <Text style={styles.editAccountPillText}>Edit Account Details</Text>
-          </Pressable>
+          <Text style={styles.heroSub}>{profile?.phone ?? 'N/A'}</Text>          
         </View>
 
         
@@ -237,7 +188,7 @@ export default function Profile() {
               </Svg>
             </View>
 
-        <View style={{padding:SPACING.lg}}>
+        <View style={{paddingVertical:SPACING.lg}}>
           {/* ── Stats Row ── */}
           <View style={[styles.statsCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
             <StatItem value={stats.prescriptions} label="Prescriptions" theme={theme} valueColor={primaryColor} />
@@ -246,11 +197,11 @@ export default function Profile() {
           </View>
 
           {/* ── Menu ── */}
-          <View style={[styles.menuCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+          <View>
             {MENU_ITEMS.map((item) => (
               <Pressable
                 key={item.id}
-                style={[styles.menuRow, { borderBottomColor: theme.background }]}
+                style={({pressed})=>[styles.menuRow, { borderBottomColor: theme.background }, pressed && { opacity: 0.5 }]}
                 onPress={() => item.route && router.push(item.route as any)}
               >
                 <View style={[styles.menuIconCircle, { backgroundColor: theme.surfaceSecondary }]}>
@@ -260,68 +211,53 @@ export default function Profile() {
                 <Ionicons name="chevron-forward" size={16} color={theme.textDim} />
               </Pressable>
             ))}
+          </View>
 
             {/* Logout */}
-            <Pressable style={[styles.menuRow, { borderWidth: 1, backgroundColor: theme.errorBg, borderColor: theme.error, borderRadius: RADIUS.xl }]} onPress={handleSignOut}>
+            <Pressable style={({pressed})=>[styles.signOut, {backgroundColor: theme.errorBg, borderColor: theme.error }, pressed && {opacity: 0.5}]} onPress={handleSignOut}>
               <View style={[styles.menuIconCircle, { backgroundColor: theme.errorBg }]}>
                 <Ionicons name="log-out-outline" size={18} color={theme.error} />
               </View>
               <Text style={[styles.menuLabel, { color: theme.error }]}>Logout</Text>
             </Pressable>
-          </View>
         </View>
       </ScrollView>
 
-      {/* Account Details Edit Modal */}
-      <Modal visible={editModalVisible} transparent animationType="fade" onRequestClose={() => setEditModalVisible(false)}>
-        <Pressable style={styles.modalOverlay} onPress={() => setEditModalVisible(false)}>
-          <Pressable style={[styles.editModalCard, { backgroundColor: theme.card }]} onPress={(e) => e.stopPropagation()}>
-            <Text style={[styles.editModalTitle, { color: theme.text.primary }]}>Edit Account Details</Text>
-
-            <Text style={[styles.fieldLabel, { color: theme.textDim }]}>FULL NAME</Text>
-            <TextInput
-              style={[styles.modalInput, { backgroundColor: theme.surfaceSecondary, color: theme.text.primary, borderColor: theme.border }]}
-              value={editName}
-              onChangeText={setEditName}
-              placeholder="Full Name"
-              placeholderTextColor={theme.textDim}
-            />
-
-            <Text style={[styles.fieldLabel, { color: theme.textDim }]}>PHONE NUMBER</Text>
-            <TextInput
-              style={[styles.modalInput, { backgroundColor: theme.surfaceSecondary, color: theme.text.primary, borderColor: theme.border }]}
-              value={editPhone}
-              onChangeText={setEditPhone}
-              placeholder="+233..."
-              placeholderTextColor={theme.textDim}
-              keyboardType="phone-pad"
-            />
-
-            <Text style={[styles.fieldLabel, { color: theme.textDim }]}>NEW PASSWORD (Optional)</Text>
-            <TextInput
-              style={[styles.modalInput, { backgroundColor: theme.surfaceSecondary, color: theme.text.primary, borderColor: theme.border }]}
-              value={editPassword}
-              onChangeText={setEditPassword}
-              placeholder="Leave blank to keep current"
-              placeholderTextColor={theme.textDim}
-              secureTextEntry
-            />
-
-            <View style={styles.modalActionRow}>
-              <Pressable style={[styles.modalBtnCancel, { borderColor: theme.border }]} onPress={() => setEditModalVisible(false)}>
-                <Text style={[styles.modalBtnCancelText, { color: theme.text.primary }]}>Cancel</Text>
-              </Pressable>
-              <Pressable style={[styles.modalBtnSave, { backgroundColor: primaryColor }]} onPress={handleSaveAccount} disabled={savingAccount}>
-                {savingAccount ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.modalBtnSaveText}>Save Changes</Text>
-                )}
-              </Pressable>
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
+      <AvatarPickerSheet
+        ref={avatarSheetRef}
+        hasPhoto={!!profile?.avatar_url}
+        onCamera={async () => {
+          const perm = await ImagePicker.requestCameraPermissionsAsync();
+          if (!perm.granted) {
+            Alert.alert('Permission Denied', 'Camera permission is required.');
+            return;
+          }
+          const result = await ImagePicker.launchCameraAsync({ allowsEditing: true, aspect: [1, 1], quality: 0.8 });
+          if (!result.canceled && result.assets?.[0]?.uri) {
+            setUploadingAvatar(true);
+            await uploadAvatar(result.assets[0].uri);
+            setUploadingAvatar(false);
+          }
+        }}
+        onGallery={async () => {
+          const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+          if (!perm.granted) {
+            Alert.alert('Permission Denied', 'Media library permission is required.');
+            return;
+          }
+          const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.8, legacy: true });
+          if (!result.canceled && result.assets?.[0]?.uri) {
+            setUploadingAvatar(true);
+            await uploadAvatar(result.assets[0].uri);
+            setUploadingAvatar(false);
+          }
+        }}
+        onRemove={async () => {
+          setUploadingAvatar(true);
+          await updateProfile({ avatar_url: null });
+          setUploadingAvatar(false);
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -392,6 +328,7 @@ const styles = StyleSheet.create({
   // ── Stats ──
   statsCard: {
     marginBottom: SPACING.md,
+    marginHorizontal: SPACING.md,
     flexDirection: 'row',
     borderRadius: RADIUS.xl,
     padding: SPACING.lg,
@@ -403,16 +340,24 @@ const styles = StyleSheet.create({
   statDivider: { width: 1, marginVertical: 4 },
 
   // ── Menu ──
-  menuCard: {
-    borderRadius: RADIUS.xl,
-    overflow: 'hidden',
-    borderWidth: 1,
-  },
   menuRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 16,
     paddingHorizontal: 16,
+  },
+  
+  signOut: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    alignSelf: 'center',
+    width: '95%',
+    borderRadius: RADIUS.pill,
+    borderWidth: 1,
+    marginTop: 20,
   },
   menuIconCircle: {
     width: 36,
@@ -422,7 +367,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 14,
   },
-  menuLabel: { flex: 1, fontSize: FONT_SIZE.xl, fontWeight: '500' },
+  menuLabel: { flex: 1, fontSize: FONT_SIZE.lg, fontWeight: '500' },
 
   // ── Modal ──
   modalOverlay: {

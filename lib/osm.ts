@@ -134,6 +134,5 @@ export async function searchNearbyPharmacies(
 
   pharmacies.sort((a, b) => a.distanceKm - b.distanceKm);
   return pharmacies;
-
-  return pharmacies;
 }
+

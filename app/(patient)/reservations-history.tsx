@@ -93,7 +93,7 @@ export default function PatientReservationsHistory() {
 
     return (
       <Pressable
-        style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}
+        style={({pressed})=>[styles.card, pressed && { opacity: 0.5 }, { backgroundColor: theme.card, borderColor: theme.border }]}
         onPress={() => router.push(`/(patient)/reservation/${item.id}`)}
       >
         <View style={styles.cardHeader}>
@@ -142,7 +142,7 @@ export default function PatientReservationsHistory() {
       {/* Header */}
       <View style={[styles.header, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
         <Pressable
-          style={[styles.navBtn, { backgroundColor: theme.surfaceSecondary }]}
+          style={({pressed})=>[styles.navBtn, pressed && { opacity: 0.5 }, { backgroundColor: theme.surfaceSecondary }]}
           onPress={() => router.back()}
         >
           <Ionicons name="arrow-back" size={18} color={theme.text.primary} />
@@ -156,8 +156,9 @@ export default function PatientReservationsHistory() {
         {(['all', 'pending', 'accepted', 'collected'] as const).map((filter) => (
           <Pressable
             key={filter}
-            style={[
+            style={({pressed})=>[
               styles.filterChip,
+              pressed && { opacity: 0.5 },
               { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
               activeFilter === filter && { backgroundColor: theme.patientSecondary, borderColor: primaryColor },
             ]}
@@ -231,14 +232,15 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   filterChip: {
-    paddingHorizontal: 14,
+    flex: 1,
+    alignItems: 'center',
     paddingVertical: 6,
     borderRadius: RADIUS.pill,
     borderWidth: 1,
   },
   filterText: { fontSize: FONT_SIZE.sm, fontWeight: '600' },
-  list: { padding: SPACING.lg, gap: 12 },
-  skeletonContainer: { padding: SPACING.lg, gap: 12 },
+  list: { padding: SPACING.lg, gap: SPACING.md },
+  skeletonContainer: { padding: SPACING.lg, gap: SPACING.md },
   card: {
     borderRadius: RADIUS.xl,
     padding: SPACING.lg,

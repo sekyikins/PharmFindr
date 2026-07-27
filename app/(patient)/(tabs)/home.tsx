@@ -13,8 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeContext } from '@/hooks/useThemeContext';
 import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
-import { getCurrentLocation } from '@/lib/location';
-import { searchNearbyPharmacies, type OsmPharmacy } from '@/lib/osm';
+import { usePharmacyStore } from '@/store/pharmacyStore';
 import { supabase } from '@/lib/supabase';
 import Skeleton from '@/components/ui/Skeleton';
 
@@ -24,15 +23,28 @@ export default function Home() {
   const { theme, primaryColor } = useThemeContext();
   const firstName = profile?.full_name?.split(' ')[0] ?? 'there';
 
-  const [prescriptions, setPrescriptions] = useState<any[]>([]);
-  const [pharmacies, setPharmacies] = useState<OsmPharmacy[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Nearby pharmacies come from the shared store (populated by the pharmacies screen)
+  // No re-fetch needed — the store holds device-location-based results independently of auth.
+  const { pharmacies: allPharmacies, loading: pharmLoading, loadNearby } = usePharmacyStore();
+  const pharmacies = allPharmacies.slice(0, 2);
 
-  const fetchHomeData = useCallback(async () => {
-    if (!user) return;
-    setLoading(true);
+  const [prescriptions, setPrescriptions] = useState<any[]>([]);
+  const [rxLoading, setRxLoading] = useState(true);
+
+  // Load pharmacies from device GPS (not user-dependent)
+  useEffect(() => {
+    if (allPharmacies.length === 0) {
+      loadNearby();
+    }
+  }, []);
+
+  const fetchPrescriptions = useCallback(async () => {
+    if (!user) {
+      setRxLoading(false);
+      return;
+    }
+    setRxLoading(true);
     try {
-      // 1. Fetch user's prescriptions from Supabase
       const { data: rxData, error: rxError } = await supabase
         .from('prescriptions')
         .select('*')
@@ -48,7 +60,6 @@ export default function Home() {
           const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
           let meds: string[] = [];
           try {
-            // Parse medicines if it is stored as JSON or string
             if (typeof rx.ai_interpretation === 'object' && rx.ai_interpretation?.medicines) {
               meds = rx.ai_interpretation.medicines.map((m: any) => m.name || String(m));
             } else if (typeof rx.ocr_text === 'string') {
@@ -57,31 +68,22 @@ export default function Home() {
           } catch (err) {
             console.warn('Error parsing medicines from prescription:', err);
           }
-
           if (meds.length === 0) meds = ['Prescription Scan'];
-
-          return {
-            id: rx.id,
-            date: dateStr,
-            medicines: meds,
-          };
+          return { id: rx.id, date: dateStr, medicines: meds };
         })
       );
-
-      // 2. Fetch nearby pharmacies using GPS + OSM
-      const coords = await getCurrentLocation();
-      const results = await searchNearbyPharmacies(coords, 5000);
-      setPharmacies(results.slice(0, 2)); // show top 2 nearby
     } catch (e: any) {
-      console.warn('Error loading home screen data:', e.message);
+      console.warn('Error loading prescriptions:', e.message);
     } finally {
-      setLoading(false);
+      setRxLoading(false);
     }
   }, [user]);
 
   useEffect(() => {
-    fetchHomeData();
-  }, [fetchHomeData]);
+    fetchPrescriptions();
+  }, [fetchPrescriptions]);
+
+  const loading = rxLoading;
 
   const getGreeting = () => {
     const h = new Date().getHours();
@@ -94,7 +96,7 @@ export default function Home() {
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await fetchHomeData();
+    await Promise.all([fetchPrescriptions(), loadNearby()]);
     setRefreshing(false);
   };
 
@@ -114,7 +116,7 @@ export default function Home() {
               <Text style={[styles.name, { color: theme.text }]}>{firstName}</Text>
             </View>
             <Pressable
-              style={[styles.notifBtn, { backgroundColor: theme.surfaceSecondary }]}
+              style={({pressed})=>[styles.notifBtn, pressed && { opacity: 0.5 }, { backgroundColor: theme.surfaceSecondary }]}
               onPress={() => router.push('/(patient)/notifications')}
             >
               <Ionicons name="notifications-outline" size={20} color={theme.textMuted} />
@@ -150,7 +152,7 @@ export default function Home() {
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={[styles.sectionLabel, { color: theme.textDim }]}>RECENT PRESCRIPTIONS</Text>
-              <Pressable onPress={() => router.push('/(patient)/prescription-history')}>
+              <Pressable style={({pressed})=>[pressed && { opacity: 0.5 }]} onPress={() => router.push('/(patient)/prescription-history')}>
                 <Text style={[styles.viewAll, { color: primaryColor }]}>View All</Text>
               </Pressable>
             </View>
@@ -170,7 +172,7 @@ export default function Home() {
               <View style={[styles.emptyCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
                 <Ionicons name="document-text-outline" size={28} color={theme.textDim} />
                 <Text style={[styles.emptyText, { color: theme.textMuted }]}>No prescriptions scanned yet.</Text>
-                <Pressable style={[styles.scanLinkBtn, { backgroundColor: primaryColor }]} onPress={() => router.push('/(patient)/scan')}>
+                <Pressable style={({pressed})=>[styles.scanLinkBtn, pressed && { opacity: 0.5 }, { backgroundColor: primaryColor }]} onPress={() => router.push('/(patient)/scan')}>
                   <Text style={styles.scanLinkText}>Scan Now</Text>
                 </Pressable>
               </View>
@@ -178,7 +180,7 @@ export default function Home() {
               prescriptions.map((rx) => (
                 <Pressable
                   key={rx.id}
-                  style={[styles.card, { backgroundColor: theme.card }]}
+                  style={({pressed})=>[styles.card, { backgroundColor: theme.card }, pressed && { opacity: 0.5 }]}
                   onPress={() => router.push('/(patient)/prescription-history')}
                 >
                   <View style={[styles.cardIcon, { backgroundColor: theme.patientSecondary }]}>
@@ -200,11 +202,11 @@ export default function Home() {
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={[styles.sectionLabel, { color: theme.textDim }]}>NEARBY PHARMACIES</Text>
-              <Pressable onPress={() => router.push('/(patient)/pharmacies')}>
+              <Pressable style={({pressed})=>[pressed && { opacity: 0.5 }]} onPress={() => router.push('/(patient)/pharmacies')}>
                 <Text style={[styles.viewAll, { color: primaryColor }]}>See All</Text>
               </Pressable>
             </View>
-            {loading ? (
+            {pharmLoading ? (
               <View style={{ gap: 10 }}>
                 {[1, 2].map((i) => (
                   <View key={i} style={[styles.pharmacyCard, { backgroundColor: theme.card }]}>
@@ -217,12 +219,14 @@ export default function Home() {
                 ))}
               </View>
             ) : pharmacies.length === 0 ? (
-              <Text style={[styles.emptyText, { color: theme.textDim, paddingVertical: 10 }]}>No pharmacies found nearby.</Text>
+              <Text style={[styles.emptyText, { color: theme.textDim, paddingVertical: 10 }]}>
+                No pharmacies found nearby. Open the pharmacies tab to search.
+              </Text>
             ) : (
               pharmacies.map((p) => (
                 <Pressable
                   key={p.id}
-                  style={[styles.pharmacyCard, { backgroundColor: theme.card }]}
+                  style={({pressed})=>[styles.pharmacyCard, { backgroundColor: theme.card }, pressed && { opacity: 0.5 }]}
                   onPress={() =>
                     router.push({
                       pathname: '/(patient)/pharmacy/[id]',
@@ -267,7 +271,7 @@ function QuickAction({
   icon: any; label: string; color: string; bg: string; cardBg: string; labelColor: string; onPress: () => void;
 }) {
   return (
-    <Pressable style={[styles.actionBtn, { backgroundColor: cardBg }]} onPress={onPress}>
+    <Pressable style={({pressed})=>[styles.actionBtn, { backgroundColor: cardBg }, pressed && { opacity: 0.5 }]} onPress={onPress}>
       <View style={[styles.actionIcon, { backgroundColor: bg }]}>
         <Ionicons name={icon} size={22} color={color} />
       </View>
@@ -324,7 +328,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: SPACING.sm,
   },
-  actionLabel: { fontSize: FONT_SIZE.body, fontWeight: '600' },
+  actionLabel: { fontSize: FONT_SIZE.sm, fontWeight: '600' },
 
   // Prescription Cards
   card: {
@@ -345,8 +349,8 @@ const styles = StyleSheet.create({
     marginRight: SPACING.md,
   },
   cardBody: { flex: 1 },
-  cardTitle: { fontSize: FONT_SIZE.xl, fontWeight: '700', marginBottom: 2 },
-  cardSub: { fontSize: FONT_SIZE.body },
+  cardTitle: { fontSize: FONT_SIZE.lg, fontWeight: '700', marginBottom: 2 },
+  cardSub: { fontSize: FONT_SIZE.md },
 
   emptyCard: {
     borderRadius: RADIUS.xl,
@@ -357,7 +361,7 @@ const styles = StyleSheet.create({
     gap: 8,
     marginTop: 4,
   },
-  emptyText: { fontSize: FONT_SIZE.body, textAlign: 'center' },
+  emptyText: { fontSize: FONT_SIZE.lg, textAlign: 'center' },
   scanLinkBtn: {
     paddingHorizontal: 20,
     paddingVertical: 8,
@@ -384,7 +388,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: SPACING.md,
   },
-  pharmacyName: { fontSize: FONT_SIZE.xl, fontWeight: '700', marginBottom: 4 },
+  pharmacyName: { fontSize: FONT_SIZE.lg, fontWeight: '700', marginBottom: 2 },
   pharmacyMeta: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
   distance: { fontSize: FONT_SIZE.md },
 });

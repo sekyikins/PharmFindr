@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   StyleSheet,
   Text,
@@ -7,7 +7,6 @@ import {
   TextInput,
   Pressable,
   Alert,
-  Modal,
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
@@ -19,6 +18,7 @@ import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
 import Skeleton from '@/components/ui/Skeleton';
+import AppBottomSheet from '@/components/ui/AppBottomSheet';
 
 export default function Inventory() {
   const router = useRouter();
@@ -32,6 +32,7 @@ export default function Inventory() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
   const [editItem, setEditItem] = useState<any>(null);
+  const editSheetRef = useRef<any>(null);
 
   // New medicine form state
   const [newName, setNewName] = useState('');
@@ -157,6 +158,8 @@ export default function Inventory() {
 
   const handleEdit = (item: any) => {
     setEditItem({ ...item });
+    // Small timeout to let state settle before opening sheet
+    setTimeout(() => editSheetRef.current?.present?.() ?? editSheetRef.current?.expand?.(), 50);
   };
 
   const handleSaveEdit = async () => {
@@ -179,6 +182,7 @@ export default function Inventory() {
         prev.map((i) => (i.id === editItem.id ? editItem : i))
       );
       setEditItem(null);
+      editSheetRef.current?.dismiss?.() ?? editSheetRef.current?.close?.();
     } catch (e: any) {
       Alert.alert('Error', e.message || 'Failed to update medicine.');
     } finally {
@@ -189,7 +193,7 @@ export default function Inventory() {
   const renderItem = ({ item }: { item: any }) => {
     const isLow = item.quantity < 50;
     return (
-      <View style={[styles.tableRow, { borderBottomColor: theme.border }]}>
+      <Pressable style={({pressed})=>[styles.tableRow, pressed && {opacity: 0.5}, { borderBottomColor: theme.border }]} onPress={() => handleEdit(item)}>
         <View style={styles.colMed}>
           <Text style={[styles.medName, { color: theme.text.primary }]}>{item.name}</Text>
           <Text style={[styles.medStrength, { color: theme.textDim }]}>{item.strength}</Text>
@@ -197,22 +201,8 @@ export default function Inventory() {
         <Text style={[styles.colQty, { color: theme.text.primary }, isLow && { color: theme.warning }]}>
           {item.quantity}
         </Text>
-        <Text style={[styles.colPrice, { color: primaryColor }]}>${item.price.toFixed(2)}</Text>
-        <View style={styles.colActions}>
-          <Pressable
-            style={[styles.iconBtn, { backgroundColor: theme.patientSecondary }]}
-            onPress={() => handleEdit(item)}
-          >
-            <Ionicons name="pencil-outline" size={13} color={theme.patientPrimary} />
-          </Pressable>
-          <Pressable
-            style={[styles.iconBtn, { backgroundColor: theme.errorBg }]}
-            onPress={() => handleDelete(item.id, item.name)}
-          >
-            <Ionicons name="trash-outline" size={13} color={theme.error} />
-          </Pressable>
-        </View>
-      </View>
+        <Text style={[styles.colPrice, { color: primaryColor }]}>{item.price.toFixed(2)}</Text>
+      </Pressable>
     );
   };
 
@@ -222,19 +212,27 @@ export default function Inventory() {
       <View style={[styles.header, { borderBottomColor: theme.border, backgroundColor: theme.card }]}>
         <View style={styles.headerLeft}>
           <Pressable
-            style={[styles.backBtn, { backgroundColor: theme.surfaceSecondary }]}
+            style={({pressed})=>[styles.backBtn, pressed && {opacity: 0.5}, { backgroundColor: theme.surfaceSecondary }]}
             onPress={() => router.push('/(pharmacy)/(tabs)/dashboard')}
           >
             <Ionicons name="arrow-back" size={18} color={theme.text.primary} />
           </Pressable>
           <Text style={[styles.headerTitle, { color: theme.text.primary }]}>Inventory</Text>
         </View>
-        <Pressable
-          style={[styles.fabSmall, { backgroundColor: primaryColor }]}
-          onPress={() => setShowAddForm((v) => !v)}
-        >
-          <Ionicons name="add" size={22} color="#fff" />
-        </Pressable>
+        <View style={{flexDirection: 'row', gap: 10, alignItems: 'center'}}>
+          <Pressable
+            style={({pressed})=>[styles.fabSmall, pressed && {opacity: 0.5}, { backgroundColor: primaryColor }]}
+            onPress={() => setShowAddForm((v) => !v)}
+          >
+            { showAddForm ? 
+              <Ionicons name="chevron-up" size={22} color="#fff" /> :
+              <Ionicons name="add" size={22} color="#fff" />
+            }
+          </Pressable>
+          <Pressable style={({pressed})=>[styles.uploadBtn, pressed && {opacity: 0.5}, { borderColor: theme.border }]} onPress={() => router.push('/(pharmacy)/upload-inventory')}>
+            <Ionicons name="cloud-upload-outline" size={18} color={theme.textMuted} />
+          </Pressable>
+        </View>
       </View>
 
       {/* Add New Medicine inline form */}
@@ -275,7 +273,7 @@ export default function Inventory() {
               onChangeText={setNewPrice}
             />
           </View>
-          <Pressable style={[styles.addBtn, { backgroundColor: primaryColor }]} onPress={handleAddMedicine} disabled={saving}>
+          <Pressable style={({pressed})=>[styles.addBtn, pressed && {opacity: 0.5}, { backgroundColor: primaryColor }]} onPress={handleAddMedicine} disabled={saving}>
             {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.addBtnText}>Add Medicine</Text>}
           </Pressable>
         </View>
@@ -293,17 +291,13 @@ export default function Inventory() {
             onChangeText={setSearchQuery}
           />
         </View>
-        <Pressable style={[styles.uploadBtn, { borderColor: theme.border }]} onPress={() => router.push('/(pharmacy)/upload-inventory')}>
-          <Ionicons name="cloud-upload-outline" size={18} color={theme.textMuted} />
-        </Pressable>
       </View>
 
       {/* Table Header */}
       <View style={[styles.tableHeader, { backgroundColor: theme.surfaceSecondary }]}>
         <Text style={[styles.thMed, { color: theme.textDim }]}>MEDICINE</Text>
         <Text style={[styles.thQty, { color: theme.textDim }]}>QTY</Text>
-        <Text style={[styles.thPrice, { color: theme.textDim }]}>PRICE</Text>
-        <Text style={[styles.thPrice, { color: theme.textDim }]}>ACTIONS</Text>
+        <Text style={[styles.thPrice, { color: theme.textDim }]}>PRICE ($)</Text>
       </View>
 
       {/* Table List */}
@@ -317,7 +311,6 @@ export default function Inventory() {
               </View>
               <Skeleton width={30} height={16} style={{ flex: 1 }} />
               <Skeleton width={45} height={16} style={{ flex: 1 }} />
-              <Skeleton width={40} height={20} borderRadius={RADIUS.md} />
             </View>
           ))}
         </View>
@@ -337,52 +330,83 @@ export default function Inventory() {
         />
       )}
 
-      {/* Edit Modal */}
-      <Modal visible={!!editItem} transparent animationType="slide" onRequestClose={() => setEditItem(null)}>
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalCard, { backgroundColor: theme.card }]}>
-            <Text style={[styles.modalTitle, { color: theme.text.primary }]}>Edit Medicine</Text>
-            <TextInput
-              style={[styles.modalInput, { borderColor: theme.border, backgroundColor: theme.surfaceSecondary, color: theme.text.primary }]}
-              placeholder="Medicine Name"
-              placeholderTextColor={theme.text.muted}
-              value={editItem?.name || ''}
-              onChangeText={(v) => setEditItem((p: any) => ({ ...p, name: v }))}
-            />
-            <TextInput
-              style={[styles.modalInput, { borderColor: theme.border, backgroundColor: theme.surfaceSecondary, color: theme.text.primary }]}
-              placeholder="Strength"
-              placeholderTextColor={theme.text.muted}
-              value={editItem?.strength || ''}
-              onChangeText={(v) => setEditItem((p: any) => ({ ...p, strength: v }))}
-            />
-            <TextInput
-              style={[styles.modalInput, { borderColor: theme.border, backgroundColor: theme.surfaceSecondary, color: theme.text.primary }]}
-              placeholder="Quantity"
-              placeholderTextColor={theme.text.muted}
-              keyboardType="numeric"
-              value={editItem ? String(editItem.quantity) : ''}
-              onChangeText={(v) => setEditItem((p: any) => ({ ...p, quantity: parseInt(v) || 0 }))}
-            />
-            <TextInput
-              style={[styles.modalInput, { borderColor: theme.border, backgroundColor: theme.surfaceSecondary, color: theme.text.primary }]}
-              placeholder="Price ($/unit)"
-              placeholderTextColor={theme.text.muted}
-              keyboardType="decimal-pad"
-              value={editItem ? String(editItem.price) : ''}
-              onChangeText={(v) => setEditItem((p: any) => ({ ...p, price: parseFloat(v) || 0.0 }))}
-            />
-            <View style={styles.modalActions}>
-              <Pressable style={[styles.modalBtn, { backgroundColor: theme.surfaceSecondary }]} onPress={() => setEditItem(null)}>
-                <Text style={{ color: theme.text.primary }}>Cancel</Text>
-              </Pressable>
-              <Pressable style={[styles.modalBtn, { backgroundColor: primaryColor }]} onPress={handleSaveEdit} disabled={saving}>
-                {saving ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontWeight: '600' }}>Save</Text>}
-              </Pressable>
-            </View>
+      {/* Edit Item — Bottom Sheet */}
+      <AppBottomSheet
+        ref={editSheetRef}
+        snapPoints={['65%']}
+        title="Edit Medicine"
+        rightBtn={
+          <Pressable
+            style={({pressed})=>[styles.iconBtn, pressed && {opacity: 0.5}, { backgroundColor: theme.errorBg }]}
+            onPress={() => {
+              if (editItem) {
+                handleDelete(editItem.id, editItem.name);
+                editSheetRef.current?.dismiss?.();
+              }
+            }}
+          >
+            <Ionicons name="trash-outline" size={15} color={theme.error} />
+          </Pressable>
+        }
+        onClose={() => setEditItem(null)}
+      >
+        <View
+          style={styles.editSheetContent}
+        >
+          <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>MEDICINE</Text>
+          <TextInput
+            style={[styles.modalInput, { borderColor: theme.border, backgroundColor: theme.surfaceSecondary, color: theme.text.primary }]}
+            placeholder="Medicine Name"
+            placeholderTextColor={theme.text.muted}
+            value={editItem?.name || ''}
+            onChangeText={(v) => setEditItem((p: any) => ({ ...p, name: v }))}
+          />
+          <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>STRENGTH</Text>
+          <TextInput
+            style={[styles.modalInput, { borderColor: theme.border, backgroundColor: theme.surfaceSecondary, color: theme.text.primary }]}
+            placeholder="Strength (e.g. 500mg)"
+            placeholderTextColor={theme.text.muted}
+            value={editItem?.strength || ''}
+            onChangeText={(v) => setEditItem((p: any) => ({ ...p, strength: v }))}
+          />
+          <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>QUANTITY</Text>
+          <TextInput
+            style={[styles.modalInput, { borderColor: theme.border, backgroundColor: theme.surfaceSecondary, color: theme.text.primary }]}
+            placeholder="Quantity"
+            placeholderTextColor={theme.text.muted}
+            keyboardType="numeric"
+            value={editItem ? String(editItem.quantity) : ''}
+            onChangeText={(v) => setEditItem((p: any) => ({ ...p, quantity: parseInt(v) || 0 }))}
+          />
+          <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>PRICE ($)</Text>
+          <TextInput
+            style={[styles.modalInput, { borderColor: theme.border, backgroundColor: theme.surfaceSecondary, color: theme.text.primary }]}
+            placeholder="Price ($/unit)"
+            placeholderTextColor={theme.text.muted}
+            keyboardType="decimal-pad"
+            value={editItem ? String(editItem.price) : ''}
+            onChangeText={(v) => setEditItem((p: any) => ({ ...p, price: parseFloat(v) || 0.0 }))}
+          />
+          <View style={styles.modalActions}>
+            <Pressable
+              style={({pressed})=>[styles.modalBtn, pressed && {opacity: 0.5}, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border, borderWidth: 1 }]}
+              onPress={() => { setEditItem(null); editSheetRef.current?.dismiss?.() ?? editSheetRef.current?.close?.(); }}
+            >
+              <Text style={{ color: theme.text.primary }}>Cancel</Text>
+            </Pressable>
+            <Pressable
+              style={({pressed})=>[styles.modalBtn, pressed && {opacity: 0.5}, { backgroundColor: primaryColor }]}
+              onPress={handleSaveEdit}
+              disabled={saving}
+            >
+              {saving
+                ? <ActivityIndicator color="#fff" />
+                : <Text style={{ color: '#fff', fontWeight: '600' }}>Save</Text>
+              }
+            </Pressable>
           </View>
         </View>
-      </Modal>
+      </AppBottomSheet>
     </SafeAreaView>
   );
 }
@@ -480,23 +504,25 @@ const styles = StyleSheet.create({
   medStrength: { fontSize: FONT_SIZE.sm, marginTop: 2 },
   colQty: { width: 50, fontSize: FONT_SIZE.lg, fontWeight: '700', textAlign: 'center' },
   colPrice: { width: 75, fontSize: FONT_SIZE.lg, fontWeight: '600', textAlign: 'center' },
-  colActions: { width: 75, flexDirection: 'row', justifyContent: 'center', gap: 6 },
   iconBtn: {
-    width: 26,
-    height: 26,
-    borderRadius: RADIUS.md,
+    width: 36,
+    height: 36,
+    borderRadius: RADIUS.pill,
     justifyContent: 'center',
     alignItems: 'center',
   },
 
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'center',
-    padding: SPACING.xl,
+  // Bottom sheet edit form
+  editSheetContent: {
+    paddingHorizontal: SPACING.xl,
+    paddingTop: SPACING.sm,
+    gap: 12,
   },
-  modalCard: { borderRadius: RADIUS.xl, padding: SPACING.xl, gap: 12 },
-  modalTitle: { fontSize: FONT_SIZE.title, fontWeight: '700', marginBottom: 6 },
+  fieldLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
   modalInput: {
     height: 48,
     borderWidth: 1,
@@ -504,10 +530,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     fontSize: FONT_SIZE.lg,
   },
-  modalActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 10 },
+  modalActions: { flexDirection: 'row', gap: 10, marginTop: 10 },
   modalBtn: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: RADIUS.md,
+    flex: 1,
+    height: 46,
+    borderRadius: RADIUS.pill,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

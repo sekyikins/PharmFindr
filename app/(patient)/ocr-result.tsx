@@ -77,7 +77,7 @@ export default function OcrResult() {
       {/* ── Header ── */}
       <View style={[styles.header, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
         <Pressable
-          style={[styles.backBtn, { backgroundColor: theme.surfaceSecondary }]}
+          style={({pressed})=>[styles.backBtn, pressed && { opacity: 0.5 }, { backgroundColor: theme.surfaceSecondary }]}
           onPress={() => router.back()}
         >
           <Ionicons name="arrow-back" size={18} color={theme.text.primary} />
@@ -166,12 +166,12 @@ export default function OcrResult() {
 
         {/* ── Action Buttons ── */}
         <View style={styles.actionContainer}>
-          <Pressable style={[styles.primaryBtn, { backgroundColor: primaryColor }]} onPress={handleContinueToAI}>
+          <Pressable style={({pressed})=>[styles.primaryBtn, pressed && { opacity: 0.5 }, { backgroundColor: primaryColor }]} onPress={handleContinueToAI}>
             <Text style={styles.primaryBtnText}>Continue to AI</Text>
           </Pressable>
 
           <Pressable
-            style={[styles.secondaryBtn, { borderColor: primaryColor, backgroundColor: theme.card }]}
+            style={({pressed})=>[styles.secondaryBtn, pressed && { opacity: 0.5 }, { borderColor: primaryColor, backgroundColor: theme.card }]}
             onPress={handleFindAvailability}
           >
             <Text style={[styles.secondaryBtnText, { color: primaryColor }]}>Find These Medicines Nearby</Text>

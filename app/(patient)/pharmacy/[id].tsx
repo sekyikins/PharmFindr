@@ -51,7 +51,7 @@ export default function PharmacyDetail() {
           markers={[{ id, name, address, latitude: lat, longitude: lon }]}
           onSelectMarker={() => {}}
         />
-        <Pressable style={[styles.backBtn, { backgroundColor: theme.card }]} onPress={() => router.back()}>
+        <Pressable style={({pressed})=>[styles.backBtn, pressed && {opacity: 0.5}, { backgroundColor: theme.card }]} onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={18} color={theme.text.primary} />
         </Pressable>
       </View>
@@ -89,7 +89,7 @@ export default function PharmacyDetail() {
         </View>
 
         <Pressable
-          style={[styles.primaryBtn, { backgroundColor: primaryColor }]}
+          style={({pressed})=>[styles.primaryBtn, pressed && {opacity: 0.5}, { backgroundColor: primaryColor }]}
           onPress={() =>
             router.push({
               pathname: '/(patient)/reservation/[id]',
@@ -102,7 +102,7 @@ export default function PharmacyDetail() {
 
         <View style={styles.secondaryRow}>
           <Pressable
-            style={[styles.secondaryBtn, { borderColor: primaryColor, backgroundColor: theme.card }]}
+            style={({pressed})=>[styles.secondaryBtn, pressed && {opacity: 0.5}, { borderColor: primaryColor, backgroundColor: theme.card }]}
             onPress={() => {
               if (!hasValidCoords) return;
               router.push({
@@ -114,7 +114,7 @@ export default function PharmacyDetail() {
             <Text style={[styles.secondaryBtnText, { color: primaryColor }]}>Navigate</Text>
           </Pressable>
           <Pressable
-            style={[styles.secondaryBtn, { borderColor: primaryColor, backgroundColor: theme.card }]}
+            style={({pressed})=>[styles.secondaryBtn, pressed && {opacity: 0.5}, { borderColor: primaryColor, backgroundColor: theme.card }]}
             onPress={() => phone !== 'N/A' && Linking.openURL('tel:' + phone)}
           >
             <Text style={[styles.secondaryBtnText, { color: primaryColor }]}>Call Pharmacy</Text>

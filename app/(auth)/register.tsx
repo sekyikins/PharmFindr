@@ -83,8 +83,10 @@ export default function Register() {
     setErrorMsg(null);
 
     try {
-      await signUp(phone || 'N/A', email, password, role, fullName);
-      router.replace(isPharmacy ? '/(pharmacy)/(tabs)/dashboard' : '/(patient)/(tabs)/home');
+      await signUp(phone || '', email, password, 'user', fullName);
+      // Email confirmation is disabled — user is active immediately.
+      // DB trigger creates user_roles + app_users rows on signUp.
+      router.replace('/(patient)/(tabs)/home');
     } catch (e: any) {
       setErrorMsg(e.message || 'Registration failed. Please try again.');
     } finally {
@@ -100,8 +102,9 @@ export default function Register() {
         {/* ── Header ── */}
         <View style={{ backgroundColor: activeColor }}>
           <SafeAreaView edges={['top']} style={styles.heroInner}>
-            <Pressable onPress={() => router.back()} style={styles.backBtn}>
+            <Pressable onPress={() => router.back()} style={({pressed}) => [styles.backBtn, pressed && { opacity: 0.5 }]}>
               <Ionicons name='arrow-back' size={20} color="#ffffff" />
+              <Text style={styles.backText}>Back to Login</Text>
             </Pressable>
             <Text style={styles.heroTitle}>Create Account</Text>
             <Text style={styles.heroSubtitle}>Join thousands managing their health smarter.</Text>
@@ -169,7 +172,7 @@ export default function Register() {
           />
 
           <Pressable
-            style={[styles.primaryBtn, { backgroundColor: activeColor }]}
+            style={({pressed}) => [styles.primaryBtn, pressed && { opacity: 0.5 }, { backgroundColor: activeColor }]}
             onPress={handleRegister}
             disabled={loading}
           >
@@ -202,13 +205,20 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
   },
   backBtn: {
-    width: 46,
-    height: 46,
+    flexDirection: "row",
+    padding: 10,
+    alignSelf: "flex-start",
     borderRadius: 9999,
     backgroundColor: 'rgba(255,255,255,0.22)',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 8,
+  },
+  backText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#fff',
+    marginLeft: 8,
   },
   heroTitle: {
     fontSize: 26,
@@ -221,9 +231,7 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.85)',
   },
   form: {
-    paddingHorizontal: 24,
-    paddingTop: 24,
-    paddingBottom: 48,
+    padding: 24,
     backgroundColor: '#ffffff',
   },
   errorBox: {

@@ -104,8 +104,8 @@ export default function SearchMedicines() {
 
       {/* Search Bar */}
       <View style={[styles.searchWrapper, { backgroundColor: theme.card }]}>
-        <View style={[styles.searchBar, { backgroundColor: theme.surfaceSecondary }]}>
-          <Ionicons name="search-outline" size={16} color={theme.text.muted} style={{ marginRight: 8 }} />
+        <View style={[styles.searchBar, { backgroundColor: theme.surfaceSecondary, borderWidth: 1, borderColor: theme.border }]}>
+          <Ionicons name="search" size={18} color={theme.text.muted} style={{ marginRight: 8 }} />
           <TextInput
             style={[styles.searchInput, { color: theme.text.primary }]}
             placeholder="Search medicine name..."
@@ -118,7 +118,7 @@ export default function SearchMedicines() {
           />
           {query.length > 0 && (
             <Pressable onPress={() => { setQuery(''); setResults([]); setSearched(false); }}>
-              <Ionicons name="close-outline" size={18} color={theme.text.muted} />
+              <Ionicons name="close" size={20} color={theme.text.muted} />
             </Pressable>
           )}
         </View>
@@ -158,7 +158,7 @@ export default function SearchMedicines() {
           }
           renderItem={({ item }) => (
             <Pressable
-              style={[styles.medicineCard, { backgroundColor: theme.card, borderColor: theme.border }]}
+              style={({pressed})=>[styles.medicineCard, { backgroundColor: theme.card, borderColor: theme.border }, pressed && {opacity: 0.5}]}
               onPress={() =>
                 router.push({
                   pathname: '/(patient)/pharmacies',
@@ -199,12 +199,12 @@ export default function SearchMedicines() {
                 {RECENT_SEARCHES.map((term) => (
                   <Pressable
                     key={term}
-                    style={[styles.recentRow, { borderBottomColor: theme.border }]}
+                    style={({pressed})=>[styles.recentRow, { borderBottomColor: theme.border }, pressed && {opacity: 0.7}]}
                     onPress={() => handleChip(term)}
                   >
-                    <Ionicons name="time-outline" size={16} color={theme.text.muted} style={{ marginRight: 12 }} />
+                    <Ionicons name="time-outline" size={18} color={theme.text.muted} style={{ marginRight: 12 }} />
                     <Text style={[styles.recentText, { color: theme.text.primary }]}>{term}</Text>
-                    <Ionicons name="arrow-forward-outline" size={14} color={theme.textDim} />
+                    <Ionicons name="arrow-forward-outline" size={18} color={theme.textDim} />
                   </Pressable>
                 ))}
               </View>
@@ -216,7 +216,7 @@ export default function SearchMedicines() {
                   {['Paracetamol', 'Ibuprofen', 'Omeprazole', 'Cetirizine', 'Aspirin', 'Metformin'].map((chip) => (
                     <Pressable
                       key={chip}
-                      style={[styles.chip, { backgroundColor: theme.patientSecondary }]}
+                      style={({pressed})=>[styles.chip, { backgroundColor: theme.patientSecondary }, pressed && {opacity: 0.7}]}
                       onPress={() => handleChip(chip)}
                     >
                       <Text style={[styles.chipText, { color: primaryColor }]}>{chip}</Text>
@@ -253,7 +253,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: { fontSize: FONT_SIZE.xxl, fontWeight: '700' },
 
-  searchWrapper: { padding: SPACING.lg },
+  searchWrapper: { padding: SPACING.lg, paddingBottom: 0 },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -261,11 +261,11 @@ const styles = StyleSheet.create({
     height: 48,
     paddingHorizontal: SPACING.lg,
   },
-  searchInput: { flex: 1, fontSize: FONT_SIZE.xl },
+  searchInput: { flex: 1, fontSize: FONT_SIZE.md },
 
   section: { paddingHorizontal: SPACING.xl, paddingTop: SPACING.lg },
   sectionLabel: {
-    fontSize: FONT_SIZE.xs,
+    fontSize: FONT_SIZE.sm,
     fontWeight: '700',
     letterSpacing: 0.8,
     textTransform: 'uppercase',
@@ -278,11 +278,11 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderBottomWidth: 1,
   },
-  recentText: { flex: 1, fontSize: FONT_SIZE.xl },
+  recentText: { flex: 1, fontSize: FONT_SIZE.body },
 
   chipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
   chip: { borderRadius: RADIUS.pill, paddingHorizontal: 14, paddingVertical: 7 },
-  chipText: { fontSize: FONT_SIZE.body, fontWeight: '600' },
+  chipText: { fontSize: FONT_SIZE.md, fontWeight: '600' },
 
   listContent: { padding: SPACING.lg, gap: 10 },
   medicineCard: {
@@ -301,11 +301,11 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   medBody: { flex: 1 },
-  medName: { fontSize: FONT_SIZE.xl, fontWeight: '600', marginBottom: 2 },
-  medSub: { fontSize: FONT_SIZE.md },
+  medName: { fontSize: FONT_SIZE.md, fontWeight: '500', marginBottom: 2 },
+  medSub: { fontSize: FONT_SIZE.sm },
   priceCol: { alignItems: 'flex-end' },
-  priceText: { fontSize: FONT_SIZE.lg, fontWeight: '700' },
+  priceText: { fontSize: FONT_SIZE.md, fontWeight: '600' },
   qtyText: { fontSize: FONT_SIZE.sm, marginTop: 2 },
 
-  emptyText: { textAlign: 'center', marginTop: 40, fontSize: FONT_SIZE.lg },
+  emptyText: { textAlign: 'center', marginTop: 40, fontSize: FONT_SIZE.md },
 });

@@ -123,7 +123,7 @@ export default function PharmacyReservationDetails() {
             👤 {patient?.full_name || 'Patient'}
           </Text>
           {patient?.phone && (
-            <Pressable onPress={() => Linking.openURL(`tel:${patient.phone}`)}>
+            <Pressable style={({pressed})=>[pressed && {opacity: 0.5}]} onPress={() => Linking.openURL(`tel:${patient.phone}`)}>
               <Text style={[styles.phoneLink, { color: theme.pharmacy.primary }]}>
                 📞 {patient.phone} (Call Patient)
               </Text>

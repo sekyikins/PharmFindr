@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   StyleSheet,
   Text,
@@ -7,7 +7,6 @@ import {
   TextInput,
   Pressable,
   Alert,
-  Modal,
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -16,6 +15,7 @@ import { useRouter } from 'expo-router';
 import { useAuthStore } from '@/store/authStore';
 import { useThemeContext } from '@/hooks/useThemeContext';
 import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
+import AppBottomSheet from '@/components/ui/AppBottomSheet';
 
 export default function HealthProfile() {
   const router = useRouter();
@@ -26,7 +26,7 @@ export default function HealthProfile() {
   const [weight, setWeight] = useState('');
   const [height, setHeight] = useState('');
   const [gender, setGender] = useState('Prefer not to say');
-  const [genderModalVisible, setGenderModalVisible] = useState(false);
+  const genderSheetRef = useRef<any>(null);
 
   const [allergiesText, setAllergiesText] = useState('');
   const [conditionsText, setConditionsText] = useState('');
@@ -83,7 +83,7 @@ export default function HealthProfile() {
         current_medications: hasMedications ? splitTags(medicationsText) : [],
       });
 
-      Alert.alert('Success', 'Health & Safety parameters updated successfully!', [
+      Alert.alert('Success', 'Health parameters updated successfully!', [
         { text: 'OK', onPress: () => router.back() },
       ]);
     } catch (e: any) {
@@ -100,12 +100,12 @@ export default function HealthProfile() {
       {/* Header */}
       <View style={[styles.header, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
         <Pressable
-          style={[styles.navBtn, { backgroundColor: theme.surfaceSecondary }]}
+          style={({pressed})=>[styles.navBtn, pressed && {opacity: 0.5}, { backgroundColor: theme.surfaceSecondary }]}
           onPress={() => router.back()}
         >
           <Ionicons name="arrow-back" size={18} color={theme.text.primary} />
         </Pressable>
-        <Text style={[styles.headerTitle, { color: theme.text.primary }]}>Health & Safety Parameters</Text>
+        <Text style={[styles.headerTitle, { color: theme.text.primary }]}>Health Parameters</Text>
         <View style={{ width: 15 }} />
       </View>
 
@@ -163,11 +163,11 @@ export default function HealthProfile() {
           <View style={styles.col}>
             <Text style={[styles.label, { color: theme.textDim }]}>GENDER</Text>
             <Pressable
-              style={[
-                styles.dropdownTrigger,
+              style={({pressed})=>[
+                styles.dropdownTrigger, pressed && {opacity: 0.5}, 
                 { backgroundColor: theme.card, borderColor: theme.border },
               ]}
-              onPress={() => setGenderModalVisible(true)}
+              onPress={() => genderSheetRef.current?.present?.() ?? genderSheetRef.current?.expand?.()}
             >
               <Text style={[styles.dropdownValue, { color: theme.text.primary }]}>
                 {gender || 'Select Gender'}
@@ -186,13 +186,13 @@ export default function HealthProfile() {
             <Text style={[styles.label, { color: theme.textDim, marginBottom: 0 }]}>KNOWN DRUG ALLERGIES?</Text>
             <View style={[styles.toggleRow, { backgroundColor: theme.surfaceSecondary }]}>
               <Pressable
-                style={[styles.toggleSegment, !hasAllergies && [styles.toggleActiveSegment, { backgroundColor: theme.card }]]}
+                style={({pressed})=>[styles.toggleSegment, pressed && {opacity: 0.5}, !hasAllergies && [styles.toggleActiveSegment, { backgroundColor: theme.card }]]}
                 onPress={() => setHasAllergies(false)}
               >
                 <Text style={[styles.toggleSegmentText, { color: !hasAllergies ? theme.text.primary : theme.textDim }]}>No</Text>
               </Pressable>
               <Pressable
-                style={[styles.toggleSegment, hasAllergies && [styles.toggleActiveSegment, { backgroundColor: primaryColor }]]}
+                style={({pressed})=>[styles.toggleSegment, pressed && {opacity: 0.5}, hasAllergies && [styles.toggleActiveSegment, { backgroundColor: primaryColor }]]}
                 onPress={() => setHasAllergies(true)}
               >
                 <Text style={[styles.toggleSegmentText, { color: hasAllergies ? '#fff' : theme.textDim }]}>Yes</Text>
@@ -217,13 +217,13 @@ export default function HealthProfile() {
             <Text style={[styles.label, { color: theme.textDim, marginBottom: 0 }]}>EXISTING MEDICAL CONDITIONS?</Text>
             <View style={[styles.toggleRow, { backgroundColor: theme.surfaceSecondary }]}>
               <Pressable
-                style={[styles.toggleSegment, !hasConditions && [styles.toggleActiveSegment, { backgroundColor: theme.card }]]}
+                style={({pressed})=>[styles.toggleSegment, pressed && {opacity: 0.5}, !hasConditions && [styles.toggleActiveSegment, { backgroundColor: theme.card }]]}
                 onPress={() => setHasConditions(false)}
               >
                 <Text style={[styles.toggleSegmentText, { color: !hasConditions ? theme.text.primary : theme.textDim }]}>No</Text>
               </Pressable>
               <Pressable
-                style={[styles.toggleSegment, hasConditions && [styles.toggleActiveSegment, { backgroundColor: primaryColor }]]}
+                style={({pressed})=>[styles.toggleSegment, pressed && {opacity: 0.5}, hasConditions && [styles.toggleActiveSegment, { backgroundColor: primaryColor }]]}
                 onPress={() => setHasConditions(true)}
               >
                 <Text style={[styles.toggleSegmentText, { color: hasConditions ? '#fff' : theme.textDim }]}>Yes</Text>
@@ -248,13 +248,13 @@ export default function HealthProfile() {
             <Text style={[styles.label, { color: theme.textDim, marginBottom: 0 }]}>TAKING CURRENT MEDICATIONS?</Text>
             <View style={[styles.toggleRow, { backgroundColor: theme.surfaceSecondary }]}>
               <Pressable
-                style={[styles.toggleSegment, !hasMedications && [styles.toggleActiveSegment, { backgroundColor: theme.card }]]}
+                style={({pressed})=>[styles.toggleSegment, pressed && {opacity: 0.5}, !hasMedications && [styles.toggleActiveSegment, { backgroundColor: theme.card }]]}
                 onPress={() => setHasMedications(false)}
               >
                 <Text style={[styles.toggleSegmentText, { color: !hasMedications ? theme.text.primary : theme.textDim }]}>No</Text>
               </Pressable>
               <Pressable
-                style={[styles.toggleSegment, hasMedications && [styles.toggleActiveSegment, { backgroundColor: primaryColor }]]}
+                style={({pressed})=>[styles.toggleSegment, pressed && {opacity: 0.5}, hasMedications && [styles.toggleActiveSegment, { backgroundColor: primaryColor }]]}
                 onPress={() => setHasMedications(true)}
               >
                 <Text style={[styles.toggleSegmentText, { color: hasMedications ? '#fff' : theme.textDim }]}>Yes</Text>
@@ -274,7 +274,7 @@ export default function HealthProfile() {
         </View>
 
         <Pressable
-          style={[styles.saveBtn, { backgroundColor: primaryColor }]}
+          style={({pressed})=>[styles.saveBtn, pressed && {opacity: 0.5}, { backgroundColor: primaryColor }]}
           onPress={handleSave}
           disabled={saving}
         >
@@ -286,38 +286,40 @@ export default function HealthProfile() {
         </Pressable>
       </ScrollView>
 
-      {/* Gender Dropdown Modal */}
-      <Modal visible={genderModalVisible} transparent animationType="fade" onRequestClose={() => setGenderModalVisible(false)}>
-        <Pressable style={styles.modalOverlay} onPress={() => setGenderModalVisible(false)}>
-          <View style={[styles.dropdownModalCard, { backgroundColor: theme.card }]}>
-            <Text style={[styles.dropdownModalTitle, { color: theme.text.primary }]}>Select Gender</Text>
-            {genderOptions.map((g) => (
-              <Pressable
-                key={g}
+      {/* Gender Picker — Bottom Sheet */}
+      <AppBottomSheet ref={genderSheetRef} snapPoints={['38%']} title="Select Gender">
+        <View style={styles.genderOptions}>
+          {genderOptions.map((g) => (
+            <Pressable
+              key={g}
+              style={({ pressed }) => [
+                styles.genderOption,
+                { borderBottomColor: theme.border },
+                gender === g && { backgroundColor: theme.patientSecondary + '66' },
+                pressed && { backgroundColor: theme.surfaceSecondary },
+              ]}
+              onPress={() => {
+                setGender(g);
+                genderSheetRef.current?.dismiss?.() ?? genderSheetRef.current?.close?.();
+              }}
+            >
+              <Text
                 style={[
-                  styles.dropdownOption,
-                  { borderBottomColor: theme.border },
-                  gender === g && { backgroundColor: theme.patientSecondary + '66' },
+                  styles.genderOptionText,
+                  { color: gender === g ? primaryColor : theme.text.primary,
+                    fontWeight: gender === g ? '700' : '400' },
                 ]}
-                onPress={() => {
-                  setGender(g);
-                  setGenderModalVisible(false);
-                }}
               >
-                <Text
-                  style={[
-                    styles.dropdownOptionText,
-                    { color: gender === g ? primaryColor : theme.text.primary, fontWeight: gender === g ? '700' : '400' },
-                  ]}
-                >
-                  {g}
-                </Text>
-                {gender === g ? <Ionicons name="checkmark" size={18} color={primaryColor} /> : null}
-              </Pressable>
-            ))}
-          </View>
-        </Pressable>
-      </Modal>
+                {g}
+              </Text>
+              {gender === g
+                ? <Ionicons name="checkmark-circle" size={20} color={primaryColor} />
+                : <Ionicons name="ellipse-outline" size={20} color={theme.textDim} />
+              }
+            </Pressable>
+          ))}
+        </View>
+      </AppBottomSheet>
     </SafeAreaView>
   );
 }
@@ -408,38 +410,25 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.pill,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 32,
-    marginBottom: 24,
+    marginTop: 12,
   },
   saveBtnText: { color: '#fff', fontSize: FONT_SIZE.lg, fontWeight: '700' },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
+  // Bottom sheet gender option rows
+  genderOptions: {
+    paddingHorizontal: SPACING.xl,
+    marginTop: SPACING.sm,
   },
-  dropdownModalCard: {
-    width: '85%',
-    borderRadius: RADIUS.xl,
-    padding: 20,
-    elevation: 8,
-  },
-  dropdownModalTitle: {
-    fontSize: FONT_SIZE.xl,
-    fontWeight: '700',
-    marginBottom: 14,
-  },
-  dropdownOption: {
+  genderOption: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
-    paddingHorizontal: 10,
+    paddingVertical: SPACING.lg,
+    paddingHorizontal: SPACING.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderRadius: RADIUS.md,
   },
-  dropdownOptionText: {
+  genderOptionText: {
     fontSize: FONT_SIZE.body,
+    flex: 1,
   },
 });

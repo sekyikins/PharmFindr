@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   StyleSheet,
   Text,
@@ -20,6 +20,9 @@ import { useAuthStore } from '@/store/authStore';
 import { useThemeContext } from '@/hooks/useThemeContext';
 import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
 import { supabase } from '@/lib/supabase';
+import { BottomSheetModal } from '@gorhom/bottom-sheet';
+import AppBottomSheet from '@/components/ui/AppBottomSheet';
+import AvatarPickerSheet from '@/components/ui/AvatarPickerSheet';
 
 export default function EditAccount() {
   const router = useRouter();
@@ -31,12 +34,13 @@ export default function EditAccount() {
   const [username, setUsername] = useState(profile?.full_name ? `@${profile.full_name.toLowerCase().replace(/\s+/g, '')}` : '');
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
-
-  // Full-screen Avatar Modal State
   const [avatarModalVisible, setAvatarModalVisible] = useState(false);
 
-  // Secure Password Change Modal State
-  const [passwordModalVisible, setPasswordModalVisible] = useState(false);
+  // Avatar picker sheet ref
+  const avatarSheetRef = useRef<BottomSheetModal>(null);
+
+  // Secure Password Change Bottom Sheet State
+  const passwordSheetRef = useRef<BottomSheetModal>(null);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -47,7 +51,7 @@ export default function EditAccount() {
       setFullName(profile.full_name ?? '');
       setPhone(profile.phone ?? '');
       if (profile.full_name) {
-        setUsername(`@${profile.full_name.toLowerCase().replace(/\s+/g, '')}`);
+        setUsername(profile.full_name.toLowerCase().replace(/\s+/g, ''));
       }
     }
   }, [profile]);
@@ -63,10 +67,12 @@ export default function EditAccount() {
   // Pick/Take Avatar
   const handlePickAvatar = async () => {
     if (profile?.avatar_url) {
+      // Has photo: open avatar viewer modal first
       setAvatarModalVisible(true);
       return;
     }
-    showAvatarPickerOptions();
+    // No photo: open picker sheet directly
+    avatarSheetRef.current?.present();
   };
 
   const handleShareAvatar = async () => {
@@ -82,89 +88,8 @@ export default function EditAccount() {
   };
 
   const showAvatarPickerOptions = () => {
-    const options: any[] = [
-      {
-        text: 'Camera',
-        onPress: async () => {
-          const perm = await ImagePicker.requestCameraPermissionsAsync();
-          if (!perm.granted) {
-            Alert.alert('Permission Denied', 'Camera permission is required.', [
-              { text: 'OK' },
-              { text: 'Cancel', style: 'cancel' },
-            ]);
-            return;
-          }
-          const result = await ImagePicker.launchCameraAsync({
-            allowsEditing: true,
-            aspect: [1, 1],
-            quality: 0.8,
-          });
-          if (!result.canceled && result.assets?.[0]?.uri) {
-            setUploadingAvatar(true);
-            await uploadAvatar(result.assets[0].uri);
-            setUploadingAvatar(false);
-            setAvatarModalVisible(false);
-          }
-        },
-      },
-      {
-        text: 'Choose from Gallery',
-        onPress: async () => {
-          const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-          if (!perm.granted) {
-            Alert.alert('Permission Denied', 'Media library permission is required.');
-            return;
-          }
-          const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ['images'],
-            allowsEditing: true,
-            aspect: [1, 1],
-            quality: 0.8,
-            legacy: true,
-          });
-          if (!result.canceled && result.assets?.[0]?.uri) {
-            setUploadingAvatar(true);
-            await uploadAvatar(result.assets[0].uri);
-            setUploadingAvatar(false);
-            setAvatarModalVisible(false);
-          }
-        },
-      },
-    ];
-
-    if (profile?.avatar_url) {
-      options.push({
-        text: 'Remove Photo',
-        style: 'destructive',
-        onPress: handleRemoveAvatar,
-      });
-    }
-
-    // Cancel must ALWAYS be the last element
-    options.push({ text: 'Cancel', style: 'cancel' });
-
-    Alert.alert('Profile Picture', 'Select an option', options, { cancelable: true });
-  };
-
-  const handleRemoveAvatar = async () => {
-    Alert.alert(
-      'Remove Photo',
-      'Are you sure you want to remove your profile picture?',
-      [
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: async () => {
-            setUploadingAvatar(true);
-            await updateProfile({ avatar_url: null });
-            setUploadingAvatar(false);
-            setAvatarModalVisible(false);
-          },
-        },
-        { text: 'Cancel', style: 'cancel' },
-      ],
-      { cancelable: true }
-    );
+    setAvatarModalVisible(false);
+    avatarSheetRef.current?.present();
   };
 
   const handleSaveAccount = async () => {
@@ -227,7 +152,7 @@ export default function EditAccount() {
       if (updateErr) throw updateErr;
 
       Alert.alert('Success', 'Your password has been changed securely!');
-      setPasswordModalVisible(false);
+      passwordSheetRef.current?.dismiss();
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
@@ -242,7 +167,7 @@ export default function EditAccount() {
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
       {/* ── Header ── */}
       <View style={[styles.header, { borderBottomColor: theme.border, backgroundColor: theme.card }]}>
-        <Pressable style={[styles.circleBtn, { backgroundColor: theme.surfaceSecondary }]} onPress={() => router.back()}>
+        <Pressable style={({pressed})=>[styles.circleBtn, pressed && { opacity: 0.5 }, { backgroundColor: theme.surfaceSecondary }]} onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={20} color={theme.text.primary} />
         </Pressable>
         <Text style={[styles.headerTitle, { color: theme.text.primary }]}>Edit Account</Text>
@@ -252,7 +177,7 @@ export default function EditAccount() {
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* ── Expanded Avatar Section ── */}
         <View style={styles.avatarSection}>
-          <Pressable style={styles.avatarWrapper} onPress={handlePickAvatar} disabled={uploadingAvatar}>
+          <Pressable style={({pressed})=>[styles.avatarWrapper, pressed && { opacity: 0.5 }]} onPress={handlePickAvatar} disabled={uploadingAvatar}>
             <View style={[styles.avatarCircle, { backgroundColor: primaryColor }]}>
               {profile?.avatar_url ? (
                 <Image source={{ uri: profile.avatar_url }} style={styles.avatarImage} />
@@ -274,10 +199,10 @@ export default function EditAccount() {
         </View>
 
         {/* ── Form Fields ── */}
-        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
+        <View style={styles.card}>
           <Text style={[styles.sectionHeading, { color: theme.text.primary }]}>Personal Details</Text>
 
-          <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>FULL NAME</Text>
+          <Text style={[styles.fieldLabel, { color: theme.text }]}>FULL NAME</Text>
           <View style={[styles.inputRow, { backgroundColor: theme.surface, borderColor: theme.border }]}>
             <Ionicons name="person-outline" size={18} color={theme.textDim} style={styles.inputIcon} />
             <TextInput
@@ -289,7 +214,7 @@ export default function EditAccount() {
             />
           </View>
 
-          <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>PHONE NUMBER</Text>
+          <Text style={[styles.fieldLabel, { color: theme.text }]}>PHONE NUMBER</Text>
           <View style={[styles.inputRow, { backgroundColor: theme.surface, borderColor: theme.border }]}>
             <Ionicons name="call-outline" size={18} color={theme.textDim} style={styles.inputIcon} />
             <TextInput
@@ -303,7 +228,7 @@ export default function EditAccount() {
           </View>
           <Text style={[styles.hintText, { color: theme.textDim }]}>Phone number verification coming soon</Text>
 
-          <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>USERNAME</Text>
+          <Text style={[styles.fieldLabel, { color: theme.text }]}>USERNAME</Text>
           <View style={[styles.inputRow, { backgroundColor: theme.surface, borderColor: theme.border }]}>
             <Ionicons name="at-outline" size={18} color={theme.textDim} style={styles.inputIcon} />
             <TextInput
@@ -318,12 +243,12 @@ export default function EditAccount() {
         </View>
 
         {/* ── Security Card ── */}
-        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border, marginTop: 16 }]}>
+        <View style={[styles.card, { marginTop: 8 }]}>
           <Text style={[styles.sectionHeading, { color: theme.text.primary }]}>Security</Text>
 
           <Pressable
-            style={[styles.securityRow, { backgroundColor: theme.surfaceSecondary }]}
-            onPress={() => setPasswordModalVisible(true)}
+            style={({pressed})=>[styles.securityRow, pressed && {opacity: 0.5}, { backgroundColor: theme.surfaceSecondary }]}
+            onPress={() => passwordSheetRef.current?.present()}
           >
             <View style={styles.securityRowLeft}>
               <View style={[styles.securityIconCircle, { backgroundColor: primaryColor + '20' }]}>
@@ -340,7 +265,7 @@ export default function EditAccount() {
 
         {/* ── Save Button ── */}
         <Pressable
-          style={[styles.saveBtn, { backgroundColor: primaryColor }]}
+          style={({pressed})=>[styles.saveBtn, pressed && {opacity: 0.5}, { backgroundColor: primaryColor }]}
           onPress={handleSaveAccount}
           disabled={saving}
         >
@@ -354,17 +279,17 @@ export default function EditAccount() {
           {/* WhatsApp Header */}
           <SafeAreaView edges={['top']} style={styles.waHeader}>
             <View style={styles.waHeaderLeft}>
-              <Pressable style={styles.waBackBtn} onPress={() => setAvatarModalVisible(false)}>
+              <Pressable style={({pressed})=>[styles.waBackBtn, pressed && { opacity: 0.5 }]} onPress={() => setAvatarModalVisible(false)}>
                 <Ionicons name="arrow-back" size={24} color="#ffffff" />
               </Pressable>
               <Text style={styles.waHeaderTitle}>Profile picture</Text>
             </View>
 
             <View style={styles.waHeaderRight}>
-              <Pressable style={styles.waIconBtn} onPress={showAvatarPickerOptions}>
+              <Pressable style={({pressed})=>[styles.waIconBtn, pressed && { opacity: 0.5 }]} onPress={showAvatarPickerOptions}>
                 <Ionicons name="pencil-outline" size={22} color="#ffffff" />
               </Pressable>
-              <Pressable style={styles.waIconBtn} onPress={handleShareAvatar}>
+              <Pressable style={({pressed})=>[styles.waIconBtn, pressed && { opacity: 0.5 }]} onPress={handleShareAvatar}>
                 <Ionicons name="share-social-outline" size={22} color="#ffffff" />
               </Pressable>
             </View>
@@ -386,68 +311,96 @@ export default function EditAccount() {
         </View>
       </Modal>
 
-      {/* ══ 2. SECURE PASSWORD CHANGE MODAL ══ */}
-      <Modal visible={passwordModalVisible} transparent animationType="slide" onRequestClose={() => setPasswordModalVisible(false)}>
-        <Pressable style={styles.passwordModalOverlay} onPress={() => setPasswordModalVisible(false)}>
-          <Pressable style={[styles.passwordCard, { backgroundColor: theme.card }]} onPress={(e) => e.stopPropagation()}>
-            <View style={styles.passwordHeader}>
-              <Ionicons name="shield-checkmark" size={24} color={primaryColor} />
-              <Text style={[styles.passwordTitle, { color: theme.text.primary }]}>Secure Password Change</Text>
-            </View>
-            <Text style={[styles.passwordSub, { color: theme.textMuted }]}>
-              Please enter your current password to verify identity.
-            </Text>
+      {/* ══ 2. SECURE PASSWORD CHANGE — Bottom Sheet ══ */}
+      <AppBottomSheet ref={passwordSheetRef} title="Change Password">
+        <View style={styles.passwordSheetContent}>
+          <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>CURRENT PASSWORD</Text>
+          <TextInput
+            style={[styles.modalInput, { backgroundColor: theme.surface, color: theme.text.primary, borderColor: theme.border }]}
+            value={currentPassword}
+            onChangeText={setCurrentPassword}
+            placeholder="Enter current password"
+            placeholderTextColor={theme.textDim}
+            secureTextEntry
+          />
 
-            <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>CURRENT PASSWORD</Text>
-            <TextInput
-              style={[styles.modalInput, { backgroundColor: theme.surface, color: theme.text.primary, borderColor: theme.border }]}
-              value={currentPassword}
-              onChangeText={setCurrentPassword}
-              placeholder="Enter current password"
-              placeholderTextColor={theme.textDim}
-              secureTextEntry
-            />
+          <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>NEW PASSWORD</Text>
+          <TextInput
+            style={[styles.modalInput, { backgroundColor: theme.surface, color: theme.text.primary, borderColor: theme.border }]}
+            value={newPassword}
+            onChangeText={setNewPassword}
+            placeholder="Minimum 6 characters"
+            placeholderTextColor={theme.textDim}
+            secureTextEntry
+          />
 
-            <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>NEW PASSWORD</Text>
-            <TextInput
-              style={[styles.modalInput, { backgroundColor: theme.surface, color: theme.text.primary, borderColor: theme.border }]}
-              value={newPassword}
-              onChangeText={setNewPassword}
-              placeholder="Minimum 6 characters"
-              placeholderTextColor={theme.textDim}
-              secureTextEntry
-            />
+          <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>CONFIRM NEW PASSWORD</Text>
+          <TextInput
+            style={[styles.modalInput, { backgroundColor: theme.surface, color: theme.text.primary, borderColor: theme.border }]}
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            placeholder="Re-enter new password"
+            placeholderTextColor={theme.textDim}
+            secureTextEntry
+          />
 
-            <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>CONFIRM NEW PASSWORD</Text>
-            <TextInput
-              style={[styles.modalInput, { backgroundColor: theme.surface, color: theme.text.primary, borderColor: theme.border }]}
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              placeholder="Re-enter new password"
-              placeholderTextColor={theme.textDim}
-              secureTextEntry
-            />
+          <View style={styles.passwordActionRow}>
+            <Pressable
+              style={({pressed})=>[styles.modalBtnCancel, pressed && {opacity: 0.5}, { borderColor: theme.border }]}
+              onPress={() => passwordSheetRef.current?.dismiss()}
+            >
+              <Text style={[styles.modalBtnCancelText, { color: theme.text.primary }]}>Cancel</Text>
+            </Pressable>
+            <Pressable
+              style={({pressed})=>[styles.modalBtnSave, pressed && {opacity: 0.5}, { backgroundColor: primaryColor }]}
+              onPress={handleChangePasswordSubmit}
+              disabled={changingPassword}
+            >
+              {changingPassword
+                ? <ActivityIndicator color="#ffffff" />
+                : <Text style={styles.modalBtnSaveText}>Update</Text>
+              }
+            </Pressable>
+          </View>
+        </View>
+      </AppBottomSheet>
 
-            <View style={styles.passwordActionRow}>
-              <Pressable style={[styles.modalBtnCancel, { borderColor: theme.border }]} onPress={() => setPasswordModalVisible(false)}>
-                <Text style={[styles.modalBtnCancelText, { color: theme.text.primary }]}>Cancel</Text>
-              </Pressable>
-
-              <Pressable
-                style={[styles.modalBtnSave, { backgroundColor: primaryColor }]}
-                onPress={handleChangePasswordSubmit}
-                disabled={changingPassword}
-              >
-                {changingPassword ? (
-                  <ActivityIndicator color="#ffffff" />
-                ) : (
-                  <Text style={styles.modalBtnSaveText}>Update Password</Text>
-                )}
-              </Pressable>
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
+      {/* ══ 3. AVATAR PICKER — Bottom Sheet ══ */}
+      <AvatarPickerSheet
+        ref={avatarSheetRef}
+        hasPhoto={!!profile?.avatar_url}
+        onCamera={async () => {
+          const perm = await ImagePicker.requestCameraPermissionsAsync();
+          if (!perm.granted) {
+            Alert.alert('Permission Denied', 'Camera permission is required.');
+            return;
+          }
+          const result = await ImagePicker.launchCameraAsync({ allowsEditing: true, aspect: [1, 1], quality: 0.8 });
+          if (!result.canceled && result.assets?.[0]?.uri) {
+            setUploadingAvatar(true);
+            await uploadAvatar(result.assets[0].uri);
+            setUploadingAvatar(false);
+          }
+        }}
+        onGallery={async () => {
+          const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+          if (!perm.granted) {
+            Alert.alert('Permission Denied', 'Media library permission is required.');
+            return;
+          }
+          const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.8, legacy: true });
+          if (!result.canceled && result.assets?.[0]?.uri) {
+            setUploadingAvatar(true);
+            await uploadAvatar(result.assets[0].uri);
+            setUploadingAvatar(false);
+          }
+        }}
+        onRemove={async () => {
+          setUploadingAvatar(true);
+          await updateProfile({ avatar_url: null });
+          setUploadingAvatar(false);
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -475,13 +428,12 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: SPACING.xl,
-    paddingBottom: 40,
   },
 
   // Avatar Section
   avatarSection: {
     alignItems: 'center',
-    marginVertical: 20,
+    marginBottom: 20,
   },
   avatarWrapper: {
     position: 'relative',
@@ -520,20 +472,17 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
   },
   avatarSubtext: {
-    fontSize: FONT_SIZE.sm,
+    fontSize: FONT_SIZE.md,
     marginTop: 8,
   },
 
   // Form Card
   card: {
-    borderRadius: RADIUS.xl,
-    padding: SPACING.lg,
-    borderWidth: 1,
+    marginBottom: 16,
   },
   sectionHeading: {
     fontSize: FONT_SIZE.xl,
     fontWeight: '700',
-    marginBottom: 12,
   },
   fieldLabel: {
     fontSize: 11,
@@ -558,7 +507,7 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZE.body,
   },
   hintText: {
-    fontSize: FONT_SIZE.xs,
+    fontSize: FONT_SIZE.sm,
     marginTop: 4,
     marginLeft: 4,
   },
@@ -702,19 +651,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
-  // Secure Password Modal
-  passwordModalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  passwordCard: {
-    width: '94%',
-    borderRadius: RADIUS.xl,
-    padding: 22,
-    elevation: 10,
+  // Password bottom sheet
+  passwordSheetContent: {
+    paddingHorizontal: SPACING.xl,
   },
   passwordHeader: {
     flexDirection: 'row',

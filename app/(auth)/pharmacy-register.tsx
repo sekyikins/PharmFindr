@@ -1,10 +1,3 @@
-/**
- * Pharmacy Registration - 4-step wizard
- * Step 1: Phone number
- * Step 2: OTP verification
- * Step 3: Pharmacy details (email + name)
- * Step 4: Location (map pin)
- */
 import React, { useState, useRef, useEffect } from 'react';
 import {
   StyleSheet, Text, View, TextInput, Pressable,
@@ -13,10 +6,14 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Path } from 'react-native-svg';
-import MapComponent from '@/components/MapComponent';
+import MapComponent, { type KnownPharmacy, type RegisteredPharmacy } from '@/components/MapComponent';
 import { useAuthStore } from '@/store/authStore';
 import { supabase } from '@/lib/supabase';
 import { getCurrentLocation } from '@/lib/location';
+import { searchNearbyPharmacies } from '@/lib/osm';
+import { validateGhanaPhone, sendArkeselOtp, verifyArkeselOtp } from '@/lib/arkeselSms';
+import { PHARMACY_PASS } from '@/lib/authConstants';
+import OtpInput, { type OtpInputHandle } from '@/components/ui/OtpInput';
 
 const GREEN = '#10b981';
 const INPUT_BG = '#f8fafc';
@@ -79,6 +76,7 @@ function Hero({ step, onBack }: { step: 1|2|3|4; onBack: () => void }) {
         <SafeAreaView edges={['top']} style={hero.safe}>
           <Pressable onPress={onBack} style={hero.back}>
             <Ionicons name='arrow-back' size={20} color="#fff" />
+            <Text style={hero.backText}>Back to Login</Text>
           </Pressable>
           <Text style={hero.title}>Register Pharmacy</Text>
           <Text style={hero.sub}>Join the PharmFindr network</Text>
@@ -95,7 +93,8 @@ function Hero({ step, onBack }: { step: 1|2|3|4; onBack: () => void }) {
 }
 const hero = StyleSheet.create({
   safe: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 28 },
-  back: { width: 42, height: 42, borderRadius: 9999, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center', marginBottom:8 },
+  back: { flexDirection: "row", padding: 10, alignSelf: 'flex-start', borderRadius: 9999, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center', marginBottom:8 },
+  backText: { fontSize: 14, fontWeight: '600', color: '#fff', marginLeft: 8 },
   title: { fontSize: 22, fontWeight: '700', color: '#fff', marginBottom: 2 },
   sub: { fontSize: 13, color: 'rgba(255,255,255,0.85)', marginBottom: 8 },
 });
@@ -135,7 +134,7 @@ function PrimaryBtn({ label, onPress, loading, color = GREEN }: {
   label: string; onPress: () => void; loading?: boolean; color?: string;
 }) {
   return (
-    <Pressable style={[btn.base, { backgroundColor: color }]} onPress={onPress} disabled={loading}>
+    <Pressable style={({pressed})=>[btn.base, { backgroundColor: color }, pressed && { opacity: 0.5 }]} onPress={onPress} disabled={loading}>
       {loading ? <ActivityIndicator color="#fff" /> : <Text style={btn.text}>{label}</Text>}
     </Pressable>
   );
@@ -145,7 +144,7 @@ const btn = StyleSheet.create({
   text: { color: '#fff', fontSize: 15, fontWeight: '600' },
 });
 
-import { validateGhanaPhone, sendArkeselOtp, verifyArkeselOtp } from '@/lib/arkeselSms';
+
 
 // ══ STEP 1: Phone Number ══════════════════════════════════════════════════
 function Step1Phone({ onNext, onBack }: { onNext: (phone: string, formatted: string) => void; onBack: () => void }) {
@@ -227,47 +226,41 @@ function Step1Phone({ onNext, onBack }: { onNext: (phone: string, formatted: str
 function Step2Verify({ phone, formattedPhone, onNext, onBack }: {
   phone: string; formattedPhone: string; onNext: () => void; onBack: () => void;
 }) {
-  const [code, setCode] = useState(['', '', '', '', '', '']);
-  const [resending, setResending] = useState(false);
-  const [resendMsg, setResendMsg] = useState<string | null>(null);
+  const otpRef = useRef<OtpInputHandle>(null);
+  const [pendingCode, setPendingCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const inputs = useRef<Array<TextInput | null>>([]);
-
-  const handleChange = (val: string, idx: number) => {
-    const next = [...code];
-    next[idx] = val.slice(-1);
-    setCode(next);
-    if (val && idx < 5) inputs.current[idx + 1]?.focus();
-  };
 
   const handleResend = async () => {
-    setResending(true);
     setErr(null);
-    setResendMsg(null);
     const result = await sendArkeselOtp(formattedPhone);
-    setResending(false);
-    if (result.success) {
-      setResendMsg(`A new OTP has been sent to ${phone}.`);
-    } else {
+    if (!result.success) {
       setErr(result.error || 'Failed to resend OTP. Please try again.');
     }
   };
 
-  const handleVerify = async () => {
-    const otp = code.join('');
-    if (otp.length < 6) { setErr('Please enter the 6-digit code.'); return; }
+  const handleVerify = async (code: string) => {
+    if (code.length < 6) { setErr('Please enter the 6-digit code.'); return; }
     setLoading(true);
     setErr(null);
 
     // Verify with Arkesel's server-side OTP service
-    const result = await verifyArkeselOtp(formattedPhone, otp);
+    const result = await verifyArkeselOtp(formattedPhone, code);
     setLoading(false);
+
     if (result.success) {
-      onNext();
+      otpRef.current?.showSuccess();
+      // Brief pause so success state is visible before advancing
+      setTimeout(onNext, 600);
     } else {
       setErr(result.error || 'Invalid verification code.');
+      otpRef.current?.shake();
     }
+  };
+
+  const handleComplete = (code: string) => {
+    setPendingCode(code);
+    handleVerify(code);
   };
 
   return (
@@ -282,47 +275,43 @@ function Step2Verify({ phone, formattedPhone, onNext, onBack }: {
         </Text>
         <View style={{ backgroundColor: '#ecfdf5', borderWidth: 1, borderColor: '#10b981', borderRadius: 12, padding: 12, marginBottom: 16, flexDirection: 'row', alignItems: 'center' }}>
           <Ionicons name="checkmark-circle" size={18} color="#059669" style={{ marginRight: 8 }} />
-          <Text style={{ color: '#047857', fontSize: 13, flex: 1 }}>{resendMsg || `OTP sent successfully to ${phone}.`}</Text>
+          <Text style={{ color: '#047857', fontSize: 13, flex: 1 }}>OTP sent successfully to {phone}.</Text>
         </View>
         {err && <View style={s.errBox}><Text style={s.errText}>{err}</Text></View>}
 
-        {/* OTP boxes */}
-        <View style={otp.row}>
-          {code.map((digit, i) => (
-            <TextInput
-              key={i}
-              ref={r => { inputs.current[i] = r; }}
-              style={[otp.box, digit ? otp.boxFilled : {}]}
-              value={digit}
-              onChangeText={v => handleChange(v, i)}
-              keyboardType="number-pad"
-              maxLength={1}
-              textAlign="center"
-            />
-          ))}
-        </View>
+        {/* OTP Input Component */}
+        <OtpInput
+          ref={otpRef}
+          accentColor={GREEN}
+          onComplete={handleComplete}
+          onResend={handleResend}
+          disabled={loading}
+        />
 
-        <PrimaryBtn label="Verify & Continue" onPress={handleVerify} loading={loading} />
+        <PrimaryBtn
+          label="Verify & Continue"
+          onPress={() => handleVerify(pendingCode)}
+          loading={loading}
+        />
 
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 20, alignItems: 'center' }}>
-          <Pressable style={{ flexDirection: 'row', alignItems: 'center' }} onPress={onBack}>
+        <View style={{ marginTop: 16, alignItems: 'flex-start' }}>
+          <Pressable style={({ pressed }) => [
+              pressed && { opacity: 0.5 },
+              {
+                flexDirection: 'row',
+                alignItems: 'center',
+              },
+            ]}
+            onPress={onBack}
+          >
             <Ionicons name='chevron-back' size={18} color={LABEL_COLOR} />
             <Text style={{ color: LABEL_COLOR, fontSize: 13, fontWeight: '500' }}>Change Number</Text>
-          </Pressable>
-
-          <Pressable onPress={handleResend} disabled={resending}>
-            {resending ? <ActivityIndicator size="small" color={GREEN} /> : <Text style={{ color: GREEN, fontSize: 13, fontWeight: '700' }}>Resend OTP</Text>}
           </Pressable>
         </View>
       </View>
     </ScrollView>
   );
 }
-const otp = StyleSheet.create({
-  row: { flexDirection: 'row', gap: 10, justifyContent: 'center', marginTop: 12 },
-  box: { width: 46, height: 58, borderRadius: 14, borderWidth: 1.5, borderColor: '#e2e8f0', backgroundColor: INPUT_BG, fontSize: 22, fontWeight: '700', color: TEXT_PRIMARY },
-  boxFilled: { borderColor: GREEN, backgroundColor: GREEN + '20' },
-});
 
 // ══ STEP 3: Pharmacy Details ══════════════════════════════════════════════
 function Step3Details({ onNext, onBack }: { onNext: (email: string, name: string) => void; onBack: () => void }) {
@@ -346,10 +335,10 @@ function Step3Details({ onNext, onBack }: { onNext: (email: string, name: string
         <Text style={s.secTitle}>Pharmacy details</Text>
         <Text style={s.secSub}>Tell us a bit about your pharmacy.</Text>
         {err && <View style={s.errBox}><Text style={s.errText}>{err}</Text></View>}
-        <FieldLabel>EMAIL ADDRESS</FieldLabel>
+        <FieldLabel children="EMAIL ADDRESS" />
         <InputRow icon="mail-outline" placeholder="pharmacy@example.com" value={email} onChange={setEmail} keyboard="email-address" />
+        <View style={{ marginBottom: 16 }} />
         <FieldLabel children="PHARMACY NAME" />
-        <View style={{ marginTop: 16 }} />
         <InputRow icon="shield-checkmark-outline" placeholder="e.g. City Care Pharmacy" value={pharmName} onChange={setPharmName} />
         <PrimaryBtn label="Continue" onPress={handleContinue} loading={loading} />
       </View>
@@ -360,53 +349,114 @@ function Step3Details({ onNext, onBack }: { onNext: (email: string, name: string
 // ══ STEP 4: Location ══════════════════════════════════════════════════════
 function Step4Location({ phone, formattedPhone, email, pharmName, onDone, onBack }: {
   phone: string; formattedPhone: string; email: string; pharmName: string;
-  onDone: () => void; onBack: () => void;
+  onDone: (locationAddr: string) => void; onBack: () => void;
 }) {
   const [pin, setPin] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [selectedKnownPharmacy, setSelectedKnownPharmacy] = useState<KnownPharmacy | null>(null);
   const [initialCoords, setInitialCoords] = useState<{ latitude: number; longitude: number } | null>(null);
-  const [search, setSearch] = useState('');
+  const [address, setAddress] = useState('');
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
+  // OSM pharmacies not yet in PharmaFindr (green pins)
+  const [knownPharmacies, setKnownPharmacies] = useState<KnownPharmacy[]>([]);
+  // Already registered in PharmaFindr (brown pins — not selectable)
+  const [registeredPharmacies, setRegisteredPharmacies] = useState<RegisteredPharmacy[]>([]);
+  const [mapDataLoading, setMapDataLoading] = useState(true);
 
   const { signUp } = useAuthStore();
 
   useEffect(() => {
-    async function getInitialLocation() {
+    async function loadMapData() {
+      setMapDataLoading(true);
       try {
         const coords = await getCurrentLocation();
         setInitialCoords(coords);
-        setPin(coords); // drop pin at current location initially
+        setPin(coords);
+
+        // 1. Fetch all registered Supabase pharmacies
+        const { data: regPharms } = await supabase
+          .from('pharmacies')
+          .select('id, name, latitude, longitude');
+
+        const registered: RegisteredPharmacy[] = (regPharms ?? []).filter(
+          (p: any) => p.latitude != null && p.longitude != null
+        ).map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          latitude: p.latitude,
+          longitude: p.longitude,
+        }));
+        setRegisteredPharmacies(registered);
+
+        // Build a set of registered positions for fast lookup
+        const registeredKeys = new Set(
+          registered.map(p => `${Math.round(p.latitude * 1000)},${Math.round(p.longitude * 1000)}`)
+        );
+
+        // 2. Fetch OSM pharmacies nearby
+        const osmPharms = await searchNearbyPharmacies(coords, 5000);
+
+        // 3. Filter out any that are already registered (approximate match)
+        const unregistered: KnownPharmacy[] = osmPharms
+          .filter(p => !registeredKeys.has(
+            `${Math.round(p.latitude * 1000)},${Math.round(p.longitude * 1000)}`
+          ))
+          .map(p => ({
+            id: p.id,
+            name: p.name,
+            latitude: p.latitude,
+            longitude: p.longitude,
+          }));
+
+        setKnownPharmacies(unregistered);
       } catch (e: any) {
-        console.warn('Could not get device location on mount:', e);
+        console.warn('Could not load map data:', e.message);
+        // Still allow the map to render without pharmacy pins
+      } finally {
+        setMapDataLoading(false);
       }
     }
-    getInitialLocation();
+    loadMapData();
   }, []);
 
   const [scrollEnabled, setScrollEnabled] = useState(true);
 
+  const handleSelectKnownPharmacy = (pharm: KnownPharmacy) => {
+    setSelectedKnownPharmacy(pharm);
+    setPin({ latitude: pharm.latitude, longitude: pharm.longitude });
+    setAddress(pharm.name);
+  };
+
   const handleConfirm = async () => {
+    if (!pin) {
+      setErr('Please select a location on the map.');
+      return;
+    }
     setLoading(true);
     setErr(null);
     try {
-      const user = await signUp(formattedPhone, email, 'PharmacyPass123!', 'pharmacy', pharmName);
+      const user = await signUp(formattedPhone, email, PHARMACY_PASS, 'pharmacy', pharmName);
       if (!user) throw new Error('Registration failed.');
+
+      const locationAddr = (selectedKnownPharmacy?.name ?? address.trim()) || 'Custom location on map';
 
       const { error } = await supabase.from('pharmacies').upsert({
         owner_id: user.id,
         name: pharmName,
         phone: formattedPhone,
-        email: email.trim() || undefined,
-        address: search.trim() || 'Custom dropped pin on map',
-        latitude: pin?.latitude ?? 5.6037,
-        longitude: pin?.longitude ?? -0.187,
+        email: email.trim() || null,
+        address: locationAddr,
+        latitude: pin.latitude,
+        longitude: pin.longitude,
         verified: false,
-      });
+      }, { onConflict: 'owner_id' });
 
       if (error) {
-        console.warn('Pharmacy record insert warning:', error.message);
+        console.warn('Pharmacy insert warning:', error.message);
       }
-      onDone();
+
+      onDone(locationAddr);
     } catch (e: any) {
       setErr(e.message || 'Failed to register pharmacy.');
     } finally {
@@ -414,8 +464,16 @@ function Step4Location({ phone, formattedPhone, email, pharmName, onDone, onBack
     }
   };
 
+  const displayName = selectedKnownPharmacy
+    ? selectedKnownPharmacy.name
+    : pin
+    ? pharmName
+    : null;
+
+  const displayType = selectedKnownPharmacy ? 'Claimed pharmacy location' : 'Custom pin location';
+
   return (
-    <ScrollView 
+    <ScrollView
       contentContainerStyle={s.scroll}
       showsVerticalScrollIndicator={false}
       showsHorizontalScrollIndicator={false}
@@ -424,54 +482,79 @@ function Step4Location({ phone, formattedPhone, email, pharmName, onDone, onBack
       <Hero step={4} onBack={onBack} />
       <View style={s.form}>
         <Text style={s.secTitle}>Select your location</Text>
-        <Text style={s.secSub}>Tap a pharmacy pin to claim it, or tap the map to drop your own pin.</Text>
+        <Text style={s.secSub}>
+          Tap a{' '}<Text style={{ color: '#10b981', fontWeight: '700' }}>green pin</Text>{' '}to claim a recognised pharmacy,
+          or tap the map to drop a{' '}<Text style={{ color: '#2563eb', fontWeight: '700' }}>custom pin</Text>.
+          {' '}Expand the map for easier selection.
+        </Text>
         {err && <View style={s.errBox}><Text style={s.errText}>{err}</Text></View>}
-        {/* Search */}
+
+        {/* Address search */}
         <View style={map.searchRow}>
           <Ionicons name="search-outline" size={16} color={PLACEHOLDER_COLOR} style={{ marginRight: 10 }} />
           <TextInput
             style={[f.input, { height: '100%' }]}
-            placeholder="Search address or pharmacy name..."
+            placeholder="Address or landmark (optional)"
             placeholderTextColor={PLACEHOLDER_COLOR}
-            value={search}
-            onChangeText={setSearch}
+            value={address}
+            onChangeText={setAddress}
           />
         </View>
+
         {/* Legend */}
         <View style={map.legend}>
-          <View style={[map.dot, { backgroundColor: GREEN }]} />
-          <Text style={map.legendText}>Known pharmacy</Text>
-          <View style={[map.dot, { backgroundColor: '#2563eb', marginLeft: 16 }]} />
+          <View style={[map.dot, { backgroundColor: '#10b981' }]} />
+          <Text style={map.legendText}>Available</Text>
+          <View style={[map.dot, { backgroundColor: '#92400e', marginLeft: 14 }]} />
+          <Text style={map.legendText}>Registered</Text>
+          <View style={[map.dot, { backgroundColor: '#2563eb', marginLeft: 14 }]} />
           <Text style={map.legendText}>Custom pin</Text>
         </View>
+
         {/* Map */}
         <View style={map.container}>
-          {initialCoords ? (
-            <MapComponent pin={pin} onPressMap={setPin} initialCoords={initialCoords} setScrollEnabled={setScrollEnabled} />
-          ) : (
+          {mapDataLoading ? (
             <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f1f5f9' }}>
               <ActivityIndicator color={GREEN} />
-              <Text style={{ marginTop: 8, color: '#62748e', fontSize: 12 }}>Getting your GPS location...</Text>
+              <Text style={{ marginTop: 8, color: '#62748e', fontSize: 12 }}>Loading map data...</Text>
             </View>
+          ) : (
+            <MapComponent
+              pin={pin}
+              onPressMap={(coord) => {
+                setPin(coord);
+                setSelectedKnownPharmacy(null);
+                setAddress('');
+              }}
+              onSelectKnownPharmacy={handleSelectKnownPharmacy}
+              initialCoords={initialCoords}
+              setScrollEnabled={setScrollEnabled}
+              knownPharmacies={knownPharmacies}
+              registeredPharmacies={registeredPharmacies}
+            />
           )}
         </View>
+
         {/* Selected location card */}
-        {pin && (
-          <View style={map.card}>
-            <View style={[map.cardIcon, { backgroundColor: GREEN + '22' }]}>
-              <Ionicons name="location" size={20} color={GREEN} />
+        {displayName && (
+          <View style={[map.card, selectedKnownPharmacy ? { borderColor: '#10b981' + '66' } : { borderColor: '#2563eb44' }]}>
+            <View style={[map.cardIcon, { backgroundColor: (selectedKnownPharmacy ? '#10b981' : '#2563eb') + '22' }]}>
+              <Ionicons name="location" size={20} color={selectedKnownPharmacy ? '#10b981' : '#2563eb'} />
             </View>
             <View style={{ flex: 1, marginLeft: 12 }}>
-              <Text style={map.cardTitle}>{pharmName}</Text>
-              <Text style={map.cardSub}>
-                Coordinates {Math.round(pin.latitude * 1000) / 1000}, {Math.round(pin.longitude * 1000) / 1000} · Pin dropped on map
-              </Text>
+              <Text style={map.cardTitle}>{displayName}</Text>
+              <Text style={map.cardSub}>{displayType}</Text>
             </View>
-            <Pressable onPress={() => setPin(null)}>
+            <Pressable 
+              style={({ pressed }) => [
+                pressed && { opacity: 0.5 },
+              ]}
+              onPress={() => { setPin(null); setSelectedKnownPharmacy(null); setAddress(''); }}>
               <Ionicons name="close-circle" size={22} color={PLACEHOLDER_COLOR} />
             </Pressable>
           </View>
         )}
+
         <PrimaryBtn label="Confirm Location" onPress={handleConfirm} loading={loading} />
       </View>
     </ScrollView>
@@ -490,7 +573,48 @@ const map = StyleSheet.create({
 });
 
 // ══ Success Screen ════════════════════════════════════════════════════════
-function SuccessScreen({ onDone }: { onDone: () => void }) {
+function SuccessScreen({
+  phone, email, pharmName, locationAddr, onGoToLogin, onGoToDashboard,
+}: {
+  phone: string;
+  email: string;
+  pharmName: string;
+  locationAddr: string;
+  onGoToLogin: () => void;
+  onGoToDashboard: () => void;
+}) {
+  // Since email confirmation is disabled, the user is verified immediately.
+  // Poll the Supabase session to confirm the account is active.
+  const [verified, setVerified] = useState(false);
+
+  useEffect(() => {
+    // Check immediately
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) setVerified(true);
+    });
+
+    // Also poll every 2 seconds for up to 30 seconds in case of slight delay
+    let attempts = 0;
+    const interval = setInterval(async () => {
+      attempts++;
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        setVerified(true);
+        clearInterval(interval);
+      }
+      if (attempts >= 15) clearInterval(interval); // stop after ~30s
+    }, 2000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const summaryRows: [string, string][] = [
+    ['Phone', phone],
+    ['Email', email || '—'],
+    ['Pharmacy Name', pharmName],
+    ['Location', locationAddr],
+    ['Status', verified ? 'Verified ✓' : 'Pending Verification'],
+  ];
+
   return (
     <View style={{ flex: 1 }}>
       <View style={{ backgroundColor: GREEN }}>
@@ -504,28 +628,55 @@ function SuccessScreen({ onDone }: { onDone: () => void }) {
           <Path d={`M0,20 Q${width / 2},0 ${width},20 L${width},20 L0,20 Z`} fill="#ffffff" />
         </Svg>
       </View>
-      <View style={[s.form, { alignItems: 'center' }]}>
+      <ScrollView contentContainerStyle={[s.form, { alignItems: 'center' }]}>
         <View style={succ.iconCircle}>
           <Ionicons name="checkmark-circle" size={52} color={GREEN} />
         </View>
         <Text style={succ.title}>You're All Set!</Text>
         <Text style={succ.body}>
-          Your pharmacy has been registered on PharmFindr. Our team will verify it within 24 hours.
+          Your pharmacy has been registered on PharmFindr.
+          {verified
+            ? ' Your account is active — you can go to your dashboard now.'
+            : ' Our team will verify it shortly.'}
         </Text>
+
         <View style={succ.summaryBox}>
           <Text style={[f.label, { marginBottom: 12 }]}>REGISTRATION SUMMARY</Text>
-          {[['Phone', '+1'], ['Email', 'k'], ['Pharmacy Name', 'k'], ['Location', '45 Wellness Blvd'], ['Status', 'Pending Verification']].map(([k, v]) => (
+          {summaryRows.map(([k, v]) => (
             <View key={k} style={succ.row}>
               <Text style={succ.rowKey}>{k}</Text>
-              <Text style={[succ.rowVal, k === 'Status' && { color: '#f59e0b', fontWeight: '600' }]}>{v}</Text>
+              <Text style={[
+                succ.rowVal,
+                k === 'Status' && { color: verified ? '#10b981' : '#f59e0b', fontWeight: '600' },
+              ]}>{v}</Text>
             </View>
           ))}
         </View>
-        <Pressable style={[btn.base, { backgroundColor: GREEN, width: '100%', marginTop: 24 }]} onPress={onDone}>
-          <Text style={btn.text}>Go to Dashboard</Text>
-        </Pressable>
-        <Text style={{ fontSize: 12, color: LABEL_COLOR, marginTop: 12 }}>You can log in once your account is verified.</Text>
-      </View>
+
+        {verified ? (
+          <Pressable
+            style={({pressed})=>[btn.base, pressed && { opacity: 0.5 }, { backgroundColor: GREEN, width: '100%', marginTop: 24 }]}
+            onPress={onGoToDashboard}
+          >
+            <Text style={btn.text}>Go to Dashboard</Text>
+          </Pressable>
+        ) : (
+          <>
+            <Pressable
+              style={({pressed})=>[btn.base, pressed && { opacity: 0.5 }, { backgroundColor: GREEN, width: '100%', marginTop: 24 }]}
+              onPress={onGoToLogin}
+            >
+              <Text style={btn.text}>Go to Login</Text>
+            </Pressable>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 14, gap: 8 }}>
+              <ActivityIndicator size="small" color={GREEN} />
+              <Text style={{ fontSize: 12, color: LABEL_COLOR }}>
+                Waiting for account activation...
+              </Text>
+            </View>
+          </>
+        )}
+      </ScrollView>
     </View>
   );
 }
@@ -542,7 +693,7 @@ const succ = StyleSheet.create({
 // ── Shared form styles ────────────────────────────────────────────────────
 const s = StyleSheet.create({
   scroll: { flexGrow: 1, backgroundColor: '#ffffff' },
-  form: { paddingHorizontal: 24, paddingTop: 24, paddingBottom: 48, backgroundColor: '#ffffff' },
+  form: { padding: 24, backgroundColor: '#ffffff' },
   secTitle: { fontSize: 18, fontWeight: '700', color: TEXT_PRIMARY, marginBottom: 6 },
   secSub: { fontSize: 13, color: LABEL_COLOR, marginBottom: 20, lineHeight: 18 },
   errBox: { backgroundColor: '#fef2f2', borderWidth: 1, borderColor: '#ef4444', borderRadius: 12, padding: 12, marginBottom: 16 },
@@ -559,16 +710,26 @@ export default function PharmacyRegister() {
   const [formattedPhone, setFormattedPhone] = useState('');
   const [email, setEmail] = useState('');
   const [pharmName, setPharmName] = useState('');
+  const [locationAddr, setLocationAddr] = useState('');
 
   const goBack = () => {
     if (step === 1) router.back();
     else setStep(prev => (prev - 1) as 1 | 2 | 3 | 4);
   };
 
-  if (step === 5) return <SuccessScreen onDone={() => router.replace('/(pharmacy)/(tabs)/dashboard')} />;
+  if (step === 5) return (
+    <SuccessScreen
+      phone={formattedPhone}
+      email={email}
+      pharmName={pharmName}
+      locationAddr={locationAddr}
+      onGoToLogin={() => router.replace({ pathname: '/(auth)/login', params: { initialRole: 'pharmacy' } })}
+      onGoToDashboard={() => router.replace('/(pharmacy)/(tabs)/dashboard')}
+    />
+  );
   if (step === 4) return (
     <Step4Location phone={phone} formattedPhone={formattedPhone} email={email} pharmName={pharmName}
-      onDone={() => setStep(5)} onBack={goBack} />
+      onDone={(addr) => { setLocationAddr(addr); setStep(5); }} onBack={goBack} />
   );
   if (step === 3) return (
     <Step3Details

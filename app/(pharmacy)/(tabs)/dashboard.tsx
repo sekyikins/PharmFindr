@@ -114,10 +114,10 @@ export default function Dashboard() {
                 <Text style={styles.pharmName}>{pharmacyName}</Text>
               </View>
               <Pressable
-                style={styles.profileBtn}
+                style={({pressed})=>[styles.profileBtn, pressed && {opacity: 0.5}, {borderWidth: 1, borderColor: theme.border}]}
                 onPress={() => router.push('/(pharmacy)/(tabs)/profile')}
               >
-                <Ionicons name="person-outline" size={20} color={primaryColor} />
+                <Ionicons name="person-outline" size={20} color={theme.text.primary} />
               </Pressable>
             </View>
 
@@ -159,7 +159,7 @@ export default function Dashboard() {
             {/* Action Buttons */}
             <View style={styles.actionRow}>
               <Pressable
-                style={[styles.actionBtn, { backgroundColor: primaryColor }]}
+                style={({pressed})=>[styles.actionBtn, pressed && {opacity: 0.5}, { backgroundColor: primaryColor }]}
                 onPress={() => router.push('/(pharmacy)/(tabs)/inventory')}
               >
                 <Ionicons name="add-outline" size={20} color="#fff" style={{ marginRight: 4 }} />
@@ -167,7 +167,7 @@ export default function Dashboard() {
               </Pressable>
 
               <Pressable
-                style={[styles.actionBtn, { backgroundColor: primaryDarkColor }]}
+                style={({pressed})=>[styles.actionBtn, pressed && {opacity: 0.5}, { backgroundColor: primaryDarkColor }]}
                 onPress={() => router.push('/(pharmacy)/upload-inventory')}
               >
                 <Ionicons name="cloud-upload-outline" size={20} color="#fff" style={{ marginRight: 4 }} />
@@ -245,7 +245,7 @@ function NavCard({ icon, iconBg, iconColor, title, subtitle, cardBg, cardBorder,
       style={({ pressed }) => [
         styles.navCard,
         { backgroundColor: cardBg, borderColor: cardBorder },
-        pressed && { opacity: 0.85 },
+        pressed && { opacity: 0.5 },
       ]}
       onPress={onPress}
     >

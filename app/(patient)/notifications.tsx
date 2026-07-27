@@ -47,6 +47,8 @@ export default function Notifications() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  const [isRead, setIsRead] = useState(false);
+
   const fetchNotifications = useCallback(async () => {
     if (!user?.id) return;
     try {
@@ -144,14 +146,14 @@ export default function Notifications() {
       {/* Header */}
       <View style={[styles.header, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
         <Pressable
-          style={[styles.backBtn, { backgroundColor: theme.surfaceSecondary }]}
+          style={({pressed})=>[styles.backBtn, pressed && {opacity: 0.5}, { backgroundColor: theme.surfaceSecondary }]}
           onPress={() => router.back()}
         >
           <Ionicons name="arrow-back" size={18} color={theme.text.primary} />
         </Pressable>
         <Text style={[styles.headerTitle, { color: theme.text.primary }]}>Notifications</Text>
         <Pressable
-          style={[styles.backBtn, { backgroundColor: theme.surfaceSecondary }]}
+          style={({pressed})=>[styles.backBtn, pressed && {opacity: 0.5}, { backgroundColor: theme.surfaceSecondary }]}
           onPress={fetchNotifications}
         >
           <Ionicons name="refresh-outline" size={18} color={theme.text.primary} />
@@ -182,7 +184,15 @@ export default function Notifications() {
             const colors = getThemeMap(item.type);
             return (
               <Pressable
-                style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}
+                style={({pressed})=>[
+                  styles.card, 
+                  pressed && {opacity: 0.5}, 
+                  !isRead && {
+                    borderColor: primaryColor, 
+                    borderWidth: 1}, 
+                  { 
+                    backgroundColor: theme.card, 
+                    borderColor: theme.border }]}
                 onPress={() => router.push('/(patient)/reservations-history')}
               >
                 <View style={[styles.iconCircle, { backgroundColor: colors.bg }]}>
