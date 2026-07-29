@@ -22,6 +22,7 @@ import { supabase } from '@/lib/supabase';
 import Skeleton from '@/components/ui/Skeleton';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import AvatarPickerSheet from '@/components/ui/AvatarPickerSheet';
+import { Header } from '@/components/ui/Header';
 
 export default function PharmacyProfile() {
   const router = useRouter();
@@ -142,16 +143,11 @@ export default function PharmacyProfile() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
       {/* ── Header ── */}
-      <View style={[styles.header, { borderBottomColor: theme.border, backgroundColor: theme.card }]}>
-        <Pressable
-          style={({pressed})=>[styles.backBtn, pressed && {opacity: 0.5}, { backgroundColor: theme.surfaceSecondary }]}
-          onPress={() => router.push('/(pharmacy)/(tabs)/dashboard')}
-        >
-          <Ionicons name="arrow-back" size={18} color={theme.text.primary} />
-        </Pressable>
-        <Text style={[styles.headerTitle, { color: theme.text.primary }]}>Pharmacy Profile</Text>
-        <View style={{ width: 36 }} />
-      </View>
+      <Header
+        title="Pharmacy Profile"
+        showBack
+        onBack={() => router.push('/(pharmacy)/(tabs)/dashboard')}
+      />
 
       {loading ? (
         <View style={styles.scrollContent}>

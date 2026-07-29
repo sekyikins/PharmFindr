@@ -9,18 +9,18 @@ import {
   Pressable,
   Platform,
   KeyboardAvoidingView,
-  Keyboard,
   Alert,
   ActivityIndicator,
   BackHandler,
+  Modal,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useThemeContext } from '@/hooks/useThemeContext';
-import { useChatStore } from '@/store/chatStore';
+import { useChatStore, type Consultation } from '@/store/chatStore';
 import { useAuthStore } from '@/store/authStore';
-import { supabase } from '@/lib/supabase';
+import { FormattedMarkdown } from '@/components/ui/FormattedMarkdown';
 
 const SUGGESTION_CHIPS = [
   'What is this medicine for?',
@@ -35,44 +35,47 @@ export default function AIChat() {
   const { theme, primaryColor } = useThemeContext();
   const insets = useSafeAreaInsets();
   const { user, profile } = useAuthStore();
-  const { messages, loading, fetchMessages, sendMessage, clearChat } = useChatStore();
-  const scrollRef = useRef<ScrollView>(null);
+  const {
+    consultations,
+    activeConsultation,
+    messages,
+    loading,
+    fetchConsultations,
+    selectConsultation,
+    getOrCreateGeneralConsultation,
+    createConsultation,
+    sendMessage,
+    clearCurrentConsultation,
+    deleteConsultation,
+  } = useChatStore();
 
+  const scrollRef = useRef<ScrollView>(null);
   const [inputText, setInputText] = useState('');
   const MIN_HEIGHT = 44;
-  const MAX_HEIGHT = 120;
   const [inputHeight, setInputHeight] = useState(MIN_HEIGHT);
-  const [isKeyboardVisible, setKeyboardVisible] = useState(false);
-
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showNewConsultModal, setShowNewConsultModal] = useState(false);
+  const [newTopicTitle, setNewTopicTitle] = useState('');
+  const [showBannerDetails, setShowBannerDetails] = useState(true);
 
   const slideAnim = useRef(new Animated.Value(-320)).current;
   const overlayOpacity = useRef(new Animated.Value(0)).current;
 
-  // Load chat history from Supabase
-  useEffect(() => {
-    if (user?.id) {
-      fetchMessages(user.id);
-    } else {
-      clearChat();
-    }
-  }, [user?.id]);
+  const userId = user?.id;
 
-  // Keyboard listeners
+  // Initialize consultations & select active thread
   useEffect(() => {
-    const showSub = Keyboard.addListener(
-      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
-      () => setKeyboardVisible(true)
-    );
-    const hideSub = Keyboard.addListener(
-      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
-      () => setKeyboardVisible(false)
-    );
-    return () => {
-      showSub.remove();
-      hideSub.remove();
+    if (!userId) return;
+
+    const init = async () => {
+      await fetchConsultations(userId);
+      if (!activeConsultation) {
+        const general = await getOrCreateGeneralConsultation(userId);
+        await selectConsultation(userId, general.id);
+      }
     };
-  }, []);
+    init();
+  }, [userId]);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -81,51 +84,32 @@ export default function AIChat() {
     }
   }, [messages]);
 
+  // Sidebar animations
   const openSidebar = () => {
     setSidebarOpen(true);
-
     Animated.parallel([
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 250,
-        useNativeDriver: true,
-      }),
-      Animated.timing(overlayOpacity, {
-        toValue: 1,
-        duration: 250,
-        useNativeDriver: true,
-      }),
+      Animated.timing(slideAnim, { toValue: 0, duration: 250, useNativeDriver: true }),
+      Animated.timing(overlayOpacity, { toValue: 1, duration: 250, useNativeDriver: true }),
     ]).start();
   };
 
   const closeSidebar = () => {
     Animated.parallel([
-      Animated.timing(slideAnim, {
-        toValue: -320,
-        duration: 250,
-        useNativeDriver: true,
-      }),
-      Animated.timing(overlayOpacity, {
-        toValue: 0,
-        duration: 250,
-        useNativeDriver: true,
-      }),
+      Animated.timing(slideAnim, { toValue: -320, duration: 250, useNativeDriver: true }),
+      Animated.timing(overlayOpacity, { toValue: 0, duration: 250, useNativeDriver: true }),
     ]).start(() => setSidebarOpen(false));
   };
 
-  // Close sidebar on hardware Back button press
+  // Hardware Back button
   useEffect(() => {
     if (!sidebarOpen) return;
-
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
       closeSidebar();
-      return true; // Prevent default back navigation
+      return true;
     });
-
     return () => subscription.remove();
   }, [sidebarOpen]);
 
-  // Close sidebar when navigating away or switching tabs
   useFocusEffect(
     useCallback(() => {
       return () => {
@@ -142,39 +126,45 @@ export default function AIChat() {
       if (!msgText || loading) return;
       setInputText('');
       setInputHeight(MIN_HEIGHT);
-      sendMessage(user?.id, msgText);
+      sendMessage(userId, msgText);
     },
-    [inputText, loading, user?.id, sendMessage]
+    [inputText, loading, userId, sendMessage]
   );
 
-  const hasUserMessages = messages.some((m) => m.role === 'user');
-  const firstName = profile?.full_name?.split(' ')[0] ?? 'there';
-
-  const handleNewChat = () => {
+  const handleSelectConsultation = async (consultationId: string) => {
     closeSidebar();
-    clearChat();
+    if (userId) {
+      await selectConsultation(userId, consultationId);
+    }
   };
 
-  const handleSidebarPrompt = (promptText: string) => {
+  const handleCreateTopicConsultation = async () => {
+    if (!newTopicTitle.trim() || !userId) return;
+    const title = `💊 ${newTopicTitle.trim()}`;
+    setNewTopicTitle('');
+    setShowNewConsultModal(false);
     closeSidebar();
-    handleSend(promptText);
+
+    const created = await createConsultation(userId, {
+      title,
+      type: 'topic',
+    });
+    await selectConsultation(userId, created.id);
+
+    // Initial message
+    sendMessage(userId, `I would like to start a consultation about: ${newTopicTitle.trim()}. Please explain what I should know.`);
   };
 
-  const handleClearHistory = () => {
+  const handleClearCurrentThread = () => {
     closeSidebar();
     Alert.alert(
-      'Clear Chat History',
-      'Are you sure you want to clear all your AI chat messages?',
+      'Clear Thread History',
+      'Are you sure you want to clear messages in this consultation?',
       [
         {
-          text: 'Clear All',
+          text: 'Clear',
           style: 'destructive',
-          onPress: async () => {
-            clearChat();
-            if (user?.id) {
-              await supabase.from('chat_messages').delete().eq('user_id', user.id);
-            }
-          },
+          onPress: () => clearCurrentConsultation(userId),
         },
         { text: 'Cancel', style: 'cancel' },
       ],
@@ -182,23 +172,35 @@ export default function AIChat() {
     );
   };
 
+  const handleDeleteConsultationItem = (cId: string, title: string) => {
+    Alert.alert(
+      'Delete Consultation',
+      `Delete "${title}" and all its messages?`,
+      [
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            if (userId) deleteConsultation(userId, cId);
+          },
+        },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+  };
+
+  const isGeneral = !activeConsultation || activeConsultation.type === 'general';
+  const hasMedicines = activeConsultation?.medicines && activeConsultation.medicines.length > 0;
+  const firstName = profile?.full_name?.split(' ')[0] ?? 'there';
+  const prescriptionConsultations = consultations.filter((c) => c.type !== 'general');
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
+      {/* ── Sidebar Drawer ── */}
       {sidebarOpen && (
         <>
-          <Animated.View
-            pointerEvents="auto"
-            style={[
-              styles.backdrop,
-              {
-                opacity: overlayOpacity,
-              },
-            ]}
-          >
-            <Pressable
-              style={{ flex: 1 }}
-              onPress={closeSidebar}
-            />
+          <Animated.View style={[styles.backdrop, { opacity: overlayOpacity }]}>
+            <Pressable style={{ flex: 1 }} onPress={closeSidebar} />
           </Animated.View>
 
           <Animated.View
@@ -212,150 +214,209 @@ export default function AIChat() {
             ]}
           >
             <View style={styles.sidebarHeader}>
-              <Text style={[styles.sidebarTitle, { color: theme.text.primary }]}>
-                PharmFindr AI
-              </Text>
-              <Pressable onPress={closeSidebar} style={({pressed})=>[pressed && {opacity: 0.5}, { padding: 4 }]}>
+              <Text style={[styles.sidebarTitle, { color: theme.text.primary }]}>Consultations</Text>
+              <Pressable onPress={closeSidebar} style={({ pressed }) => [pressed && { opacity: 0.5 }, { padding: 4 }]}>
                 <Ionicons name="close" size={22} color={theme.textDim} />
               </Pressable>
             </View>
 
             <View style={styles.sidebarBody}>
-            <Pressable
-              style={({pressed})=>[pressed && {opacity: 0.5}, styles.newChatBtn, { backgroundColor: primaryColor }]}
-              onPress={handleNewChat}
-            >
-              <Ionicons name="add" size={18} color="#fff" />
-              <Text style={styles.newChatText}>New Chat</Text>
-            </Pressable>
-
-            <ScrollView showsVerticalScrollIndicator={false}>
-              <Text style={[styles.sidebarSection, { color: theme.textDim, marginTop: 16 }]}>
-                QUICK ACCESS
-              </Text>
-
+              {/* Start New Consultation Button */}
               <Pressable
-                style={({pressed})=>[styles.chatItem, pressed && {opacity: 0.5}]}
+                style={({ pressed }) => [pressed && { opacity: 0.5 }, styles.newChatBtn, { backgroundColor: primaryColor }]}
                 onPress={() => {
                   closeSidebar();
-                  router.push('/(patient)/scan');
+                  setShowNewConsultModal(true);
                 }}
               >
-                <Ionicons name="camera-outline" size={18} color={primaryColor} />
-                <Text style={[styles.chatItemText, { color: theme.text.primary }]}>
-                  Scan Prescription
-                </Text>
+                <Ionicons name="add" size={18} color="#fff" />
+                <Text style={styles.newChatText}>Start New Consultation</Text>
               </Pressable>
 
-              <Pressable
-                style={({pressed})=>[styles.chatItem, pressed && {opacity: 0.5}]}
-                onPress={() => {
-                  closeSidebar();
-                  router.push('/(patient)/health-profile');
-                }}
-              >
-                <Ionicons name="fitness-outline" size={18} color={primaryColor} />
-                <Text style={[styles.chatItemText, { color: theme.text.primary }]}>
-                  Health Parameters
+              {/* 1. General Assistant */}
+                <Text style={[styles.sidebarSection, { color: theme.textDim, marginTop: 16 }]}>
+                  GENERAL ASSISTANT
                 </Text>
-              </Pressable>
 
-              <Pressable
-                style={({pressed})=>[styles.chatItem, pressed && {opacity: 0.5}]}
-                onPress={() => {
-                  closeSidebar();
-                  router.push('/(patient)/prescription-history');
-                }}
-              >
-                <Ionicons name="receipt-outline" size={18} color={primaryColor} />
-                <Text style={[styles.chatItemText, { color: theme.text.primary }]}>
-                  Prescription History
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.chatItem,
+                    pressed && { opacity: 0.5 },
+                    isGeneral && { backgroundColor: theme.patientSecondary, borderColor: theme.patient.primary, borderWidth: 1 },
+                  ]}
+                  onPress={async () => {
+                    if (userId) {
+                      const gen = await getOrCreateGeneralConsultation(userId);
+                      handleSelectConsultation(gen.id);
+                    }
+                  }}
+                >
+                  <Ionicons name="chatbubbles-outline" size={18} color={primaryColor} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.chatItemText, { color: theme.text.primary, fontWeight: isGeneral ? '700' : '500' }]}>
+                      General Assistant
+                    </Text>
+                    <Text style={[styles.chatItemSub, { color: theme.textDim }]}>Everyday health questions</Text>
+                  </View>
+                </Pressable>
+
+                {/* 2. Prescription Consultations */}
+                <Text style={[styles.sidebarSection, { color: theme.textDim, marginTop: 10 }]}>
+                  PRESCRIPTION CONSULTATIONS
                 </Text>
-              </Pressable>
 
-              <Text style={[styles.sidebarSection, { color: theme.textDim, marginTop: 16 }]}>
-                SAMPLE PROMPTS
-              </Text>
-
-              <Pressable
-                style={({pressed})=>[styles.chatItem, pressed && {opacity: 0.5}]}
-                onPress={() => handleSidebarPrompt('What is general dietary and lifestyle advice for managing diabetes?')}
-              >
-                <Ionicons name="chatbubble-outline" size={18} color={theme.textDim} />
-                <Text style={[styles.chatItemText, { color: theme.text.primary }]}>
-                  Diabetes Advice
-                </Text>
-              </Pressable>
-
-              <Pressable
-                style={({pressed})=>[styles.chatItem, pressed && {opacity: 0.5}]}
-                onPress={() => handleSidebarPrompt('Can I take ibuprofen on an empty stomach?')}
-              >
-                <Ionicons name="chatbubble-outline" size={18} color={theme.textDim} />
-                <Text style={[styles.chatItemText, { color: theme.text.primary }]}>
-                  Can I take ibuprofen?
-                </Text>
-              </Pressable>
-
-              <Pressable
-                style={({pressed})=>[styles.chatItem, pressed && {opacity: 0.5}]}
-                onPress={() => handleSidebarPrompt('What is Amoxicillin used for and what are common side effects?')}
-              >
-                <Ionicons name="chatbubble-outline" size={18} color={theme.textDim} />
-                <Text style={[styles.chatItemText, { color: theme.text.primary }]}>
-                  What is Amoxicillin?
-                </Text>
-              </Pressable>
-
-              <Pressable
-                style={({pressed})=>[styles.chatItem, pressed && {opacity: 0.5}]}
-                onPress={() => handleSidebarPrompt('Can you explain how to safely check for drug-drug interactions?')}
-              >
-                <Ionicons name="chatbubble-outline" size={18} color={theme.textDim} />
-                <Text style={[styles.chatItemText, { color: theme.text.primary }]}>
-                  Drug Interaction Guide
-                </Text>
-              </Pressable>
-
-              <View style={{ marginTop: 24, borderTopWidth: 1, borderTopColor: theme.border, paddingTop: 12 }}>
-                <Pressable style={({pressed})=>[styles.chatItem, pressed && {opacity: 0.5}]} onPress={handleClearHistory}>
-                  <Ionicons name="trash-outline" size={18} color={theme.error} />
-                  <Text style={[styles.chatItemText, { color: theme.error }]}>
-                    Clear Chat History
+              <ScrollView showsVerticalScrollIndicator={false}>             
+                {prescriptionConsultations.length === 0 ? (
+                  <Text style={[styles.emptySectionText, { color: theme.textDim }]}>
+                    No prescription consultations yet. Scan a prescription to start one!
                   </Text>
+                ) : (
+                  prescriptionConsultations.map((item) => {
+                    const isSelected = activeConsultation?.id === item.id;
+                    return (
+                      <View key={item.id} style={styles.consultationRow}>
+                        <Pressable
+                          style={({ pressed }) => [
+                            styles.chatItem,
+                            { flex: 1 },
+                            pressed && { opacity: 0.5 },
+                            isSelected && { backgroundColor: theme.patientSecondary + '66' },
+                          ]}
+                          onPress={() => handleSelectConsultation(item.id)}
+                        >
+                          <Ionicons
+                            name={item.type === 'prescription' ? 'receipt-outline' : 'medkit-outline'}
+                            size={18}
+                            color={primaryColor}
+                          />
+                          <View style={{ flex: 1 }}>
+                            <Text
+                              style={[
+                                styles.chatItemText,
+                                { color: theme.text.primary, fontWeight: isSelected ? '700' : '500' },
+                              ]}
+                              numberOfLines={1}
+                            >
+                              {item.title}
+                            </Text>
+                            <Text style={[styles.chatItemSub, { color: theme.textDim }]}>
+                              {new Date(item.updated_at || item.created_at).toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                              })}
+                            </Text>
+                          </View>
+                        </Pressable>
+                        <Pressable
+                          onPress={() => handleDeleteConsultationItem(item.id, item.title)}
+                          style={({ pressed }) => [pressed && { opacity: 0.5 }, { padding: 8 }]}
+                        >
+                          <Ionicons name="trash-outline" size={16} color={theme.error} />
+                        </Pressable>
+                      </View>
+                    );
+                  })
+                )}
+              </ScrollView>
+
+              <View style={{ borderTopWidth: 1, borderTopColor: theme.border }}>
+                <Pressable style={({ pressed }) => [styles.chatItem, pressed && { opacity: 0.5 }]} onPress={handleClearCurrentThread}>
+                  <Ionicons name="trash-outline" size={18} color={theme.error} />
+                  <Text style={[styles.chatItemText, { color: theme.error }]}>Clear Current Thread</Text>
                 </Pressable>
               </View>
-            </ScrollView>
             </View>
           </Animated.View>
         </>
       )}
-      {/* Header */}
+
+      {/* ── Top Header ── */}
       <View style={[styles.header, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
         <Pressable
-          style={({pressed})=>[styles.menuBtn, pressed && {opacity: 0.5}, { backgroundColor: theme.surfaceSecondary }]}
+          style={({ pressed }) => [styles.menuBtn, pressed && { opacity: 0.5 }, { backgroundColor: theme.surfaceSecondary }]}
           onPress={openSidebar}
         >
           <Ionicons name="menu" size={22} color={theme.text.primary} />
         </Pressable>
 
         <View style={styles.headerCenter}>
-          <View style={[styles.aiAvatar, { backgroundColor: primaryColor }]}>
-            <Ionicons name="chatbubble-ellipses" size={16} color="#fff" />
-          </View>
-          <View>
-            <Text style={[styles.headerTitle, { color: theme.text.primary }]}>PharmFindr AI</Text>
+          <Text style={[styles.headerTitle, { color: theme.text.primary }]} numberOfLines={1}>
+            {activeConsultation?.title || 'PharmFindr AI'}
+          </Text>
+          <View style={styles.badgeRow}>
             <Text style={[styles.onlineText, { color: theme.success }]}>● Online</Text>
+            <View style={[styles.typePill, { backgroundColor: isGeneral ? theme.surfaceSecondary : theme.patientSecondary }]}>
+              <Text style={[styles.typePillText, { color: isGeneral ? theme.textDim : primaryColor }]}>
+                {isGeneral ? 'General Chat' : 'Consultation'}
+              </Text>
+            </View>
           </View>
         </View>
 
-        <View style={[styles.newBadge, { backgroundColor: theme.surfaceSecondary }]}>
-          <Text style={[styles.newBadgeText, { color: theme.text.primary }]}>AI</Text>
-        </View>
+        <Pressable
+          style={({ pressed }) => [styles.menuBtn, pressed && { opacity: 0.5 }, { backgroundColor: theme.surfaceSecondary }]}
+          onPress={() => setShowNewConsultModal(true)}
+        >
+          <Ionicons name="add" size={20} color={theme.text.primary} />
+        </Pressable>
       </View>
 
+      {/* ── Active Consultation Prescription Context Banner ── */}
+      {!isGeneral && hasMedicines && (
+        <View style={[styles.prescriptionBanner, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
+          <Pressable
+            style={styles.bannerHeader}
+            onPress={() => setShowBannerDetails((v) => !v)}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
+              <Ionicons name="medkit" size={18} color={primaryColor} />
+              <Text style={[styles.bannerTitle, { color: theme.text.primary }]}>
+                Prescription Medicines ({activeConsultation?.medicines?.length || 0})
+              </Text>
+            </View>
+            <Ionicons name={showBannerDetails ? 'chevron-up' : 'chevron-down'} size={18} color={theme.textDim} />
+          </Pressable>
+
+          {showBannerDetails && (
+            <View style={styles.bannerContent}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.medsRow}>
+                {activeConsultation?.medicines?.map((med: any, idx: number) => (
+                  <View key={idx} style={[styles.medPill, { backgroundColor: theme.patientSecondary, borderColor: primaryColor + '40' }]}>
+                    <Text style={[styles.medPillText, { color: primaryColor }]}>
+                      {med.name} {med.strength || ''}
+                    </Text>
+                  </View>
+                ))}
+              </ScrollView>
+
+              <View style={styles.bannerActions}>
+                <Pressable
+                  style={({ pressed }) => [styles.bannerBtn, pressed && { opacity: 0.5 }, { backgroundColor: primaryColor }]}
+                  onPress={() => {
+                    const searchMed = activeConsultation?.medicines?.[0]?.name || '';
+                    router.push({ pathname: '/(patient)/pharmacies', params: { query: searchMed } });
+                  }}
+                >
+                  <Ionicons name="location-outline" size={14} color="#fff" />
+                  <Text style={styles.bannerBtnText}>Find Pharmacies</Text>
+                </Pressable>
+
+                <Pressable
+                  style={({ pressed }) => [styles.bannerBtnOutline, pressed && { opacity: 0.5 }, { borderColor: theme.border }]}
+                  onPress={() => router.push('/(patient)/reservations-history')}
+                >
+                  <Ionicons name="bag-handle-outline" size={14} color={theme.text.primary} />
+                  <Text style={[styles.bannerBtnOutlineText, { color: theme.text.primary }]}>Reservations</Text>
+                </Pressable>
+              </View>
+            </View>
+          )}
+        </View>
+      )}
+
+      {/* ── Main Chat Area ── */}
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 60 + insets.top : 0}
       >
@@ -366,21 +427,18 @@ export default function AIChat() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Greeting message if no history */}
           {messages.length === 0 && !loading && (
-            <View style={[styles.msgRow, styles.msgRowAI]}>
-              <View style={[styles.aiAvatarSmall, { backgroundColor: primaryColor }]}>
-                <Ionicons name="chatbubble-ellipses" size={12} color="#fff" />
-              </View>
-              <View style={[styles.bubble, styles.bubbleAI, { backgroundColor: theme.card }]}>
+            <View style={{ alignItems: "center", justifyContent: "center", height: 400 }}>
+              <View style={[styles.bubble, { backgroundColor: theme.card }]}>
                 <Text style={[styles.bubbleTextAI, { color: theme.text.primary }]}>
-                  Hello {firstName}! I'm your PharmFindr AI assistant. How can I help you today? 👋
+                  {isGeneral
+                    ? `Hello ${firstName}! 👋`
+                    : `Welcome to your consultation for ${activeConsultation?.title}. How can I assist you with these medicines?`}
                 </Text>
               </View>
             </View>
           )}
 
-          {/* Messages */}
           {messages.map((msg) => (
             <View
               key={msg.id}
@@ -389,60 +447,43 @@ export default function AIChat() {
                 msg.role === 'user' ? styles.msgRowUser : styles.msgRowAI,
               ]}
             >
-              {msg.role === 'assistant' && (
-                <View style={[styles.aiAvatarSmall, { backgroundColor: primaryColor }]}>
-                  <Ionicons name="chatbubble-ellipses" size={12} color="#fff" />
+              {msg.role === 'user' ? (
+                <View style={[styles.bubble, styles.bubbleUser, { backgroundColor: primaryColor }]}>
+                  <Text style={styles.bubbleTextUser}>{msg.content}</Text>
+                </View>
+              ) : (
+                <View style={[styles.bubbleAIContainer, { backgroundColor: theme.card }]}>
+                  <FormattedMarkdown content={msg.content} />
                 </View>
               )}
-
-              <View
-                style={[
-                  styles.bubble,
-                  msg.role === 'user'
-                    ? [styles.bubbleUser, { backgroundColor: primaryColor }]
-                    : [styles.bubbleAI, { backgroundColor: theme.card, shadowColor: theme.border }],
-                ]}
-              >
-                <Text
-                  style={
-                    msg.role === 'user'
-                      ? styles.bubbleTextUser
-                      : [styles.bubbleTextAI, { color: theme.text.primary }]
-                  }
-                >
-                  {msg.content}
-                </Text>
-              </View>
             </View>
           ))}
 
-          {/* Typing indicator */}
           {loading && (
             <View style={[styles.msgRow, styles.msgRowAI]}>
               <View style={[styles.aiAvatarSmall, { backgroundColor: primaryColor }]}>
                 <Ionicons name="chatbubble-ellipses" size={12} color="#fff" />
               </View>
-              <View style={[styles.bubble, styles.bubbleAI, { backgroundColor: theme.card }]}>
+              <View style={{ backgroundColor: theme.card }}>
                 <ActivityIndicator size="small" color={primaryColor} />
               </View>
             </View>
           )}
         </ScrollView>
 
-        {/* Suggestion chips (show when no messages yet) */}
-        {!hasUserMessages && (
+        {/* Suggestion Chips */}
+        {messages.length === 0 && (
           <ScrollView
             horizontal
             style={{ maxHeight: 44 }}
             showsHorizontalScrollIndicator={false}
-            showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.chipsRow}
             keyboardShouldPersistTaps="handled"
           >
             {SUGGESTION_CHIPS.map((chip) => (
               <Pressable
                 key={chip}
-                style={({pressed})=>[styles.chip, pressed && {opacity: 0.5}, { backgroundColor: theme.card, borderColor: theme.border }]}
+                style={({ pressed }) => [styles.chip, pressed && { opacity: 0.5 }, { backgroundColor: theme.card, borderColor: theme.border }]}
                 onPress={() => handleSend(chip)}
               >
                 <Text style={[styles.chipText, { color: theme.text.primary }]}>{chip}</Text>
@@ -451,287 +492,329 @@ export default function AIChat() {
           </ScrollView>
         )}
 
-        {/* Input Row */}
-        <View
-          style={[
-            styles.inputRow,
-            {
-              backgroundColor: theme.card,
-              borderTopColor: theme.border,
-              paddingBottom: isKeyboardVisible ? 12 : insets.bottom > 0 ? insets.bottom : 12,
-              paddingTop: 10,
-            },
-          ]}
-        >
+        {/* Input Bar */}
+        <View style={[styles.inputContainer, { backgroundColor: theme.card, borderTopColor: theme.border }]}>
           <TextInput
             style={[
               styles.input,
               {
-                height: inputHeight,
                 backgroundColor: theme.surfaceSecondary,
                 color: theme.text.primary,
+                height: Math.max(MIN_HEIGHT, inputHeight),
               },
             ]}
-            placeholder="Ask about your medications..."
+            placeholder={isGeneral ? 'Ask general health question...' : 'Ask about your prescription...'}
             placeholderTextColor={theme.textDim}
             value={inputText}
+            onChangeText={setInputText}
             multiline
-            blurOnSubmit={false}
-            textAlignVertical="top"
-            onChangeText={(text) => {
-              setInputText(text);
-              if (text === '') setInputHeight(MIN_HEIGHT);
-            }}
-            onContentSizeChange={(event) => {
-              const h = event.nativeEvent.contentSize.height;
-              setInputHeight(Math.min(MAX_HEIGHT, Math.max(MIN_HEIGHT, h)));
-            }}
+            onContentSizeChange={(e) => setInputHeight(Math.min(120, e.nativeEvent.contentSize.height))}
           />
-
           <Pressable
-            style={({pressed})=>[
+            style={({ pressed }) => [
               styles.sendBtn,
-              {
-                backgroundColor: primaryColor,
-                opacity: inputText.trim() && !loading ? 1 : 0.5,
-              }, pressed && {opacity: 0.5}
+              pressed && { opacity: 0.5 },
+              { backgroundColor: inputText.trim() ? primaryColor : theme.surfaceSecondary },
             ]}
+            disabled={!inputText.trim() || loading}
             onPress={() => handleSend()}
-            disabled={loading}
           >
-            <Ionicons name="send" size={16} color="#fff" />
+            <Ionicons
+              name="send"
+              size={18}
+              color={inputText.trim() ? '#fff' : theme.textDim}
+            />
           </Pressable>
         </View>
       </KeyboardAvoidingView>
+
+      {/* ── Start New Consultation Modal ── */}
+      <Modal visible={showNewConsultModal} transparent animationType="fade" onRequestClose={() => setShowNewConsultModal(false)}>
+        <Pressable style={styles.modalOverlay} onPress={() => setShowNewConsultModal(false)}>
+          <View style={[styles.modalCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+            <Text style={[styles.modalTitle, { color: theme.text.primary }]}>Start a New Consultation</Text>
+            <Text style={[styles.modalSub, { color: theme.textDim }]}>
+              Organize your AI chat around a prescription or specific health topic.
+            </Text>
+
+            <Pressable
+              style={({ pressed }) => [styles.modalOption, pressed && { opacity: 0.5 }, { backgroundColor: theme.patientSecondary, borderColor: theme.patient.primary, borderWidth: 1 }]}
+              onPress={() => {
+                setShowNewConsultModal(false);
+                router.push('/(patient)/scan');
+              }}
+            >
+              <Ionicons name="camera-outline" size={22} color={primaryColor} />
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.optionTitle, { color: theme.text.primary }]}>Scan a Prescription</Text>
+                <Text style={[styles.optionSub, { color: theme.textDim }]}>Auto-create consultation from scan</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={theme.patient.primary} />
+            </Pressable>
+
+            <View style={{ marginVertical: 12 }}>
+              <Text style={[styles.inputLabel, { color: theme.text }]}>OR ENTER A TOPIC NAME</Text>
+              <TextInput
+                style={[styles.topicInput, { backgroundColor: theme.surfaceSecondary, color: theme.text.primary, borderColor: theme.border }]}
+                placeholder="e.g. Headache Questions, BP Meds..."
+                placeholderTextColor={theme.textDim}
+                value={newTopicTitle}
+                onChangeText={setNewTopicTitle}
+              />
+            </View>
+
+            <View style={styles.modalBtnRow}>
+              <Pressable
+                style={({ pressed }) => [styles.modalCancelBtn, pressed && { opacity: 0.5 }, { borderColor: theme.border }]}
+                onPress={() => setShowNewConsultModal(false)}
+              >
+                <Text style={[styles.modalCancelText, { color: theme.text }]}>Cancel</Text>
+              </Pressable>
+
+              <Pressable
+                style={({ pressed }) => [
+                  styles.modalConfirmBtn,
+                  pressed && { opacity: 0.5 },
+                  { backgroundColor: newTopicTitle.trim() ? primaryColor : theme.surfaceSecondary },
+                ]}
+                disabled={!newTopicTitle.trim()}
+                onPress={handleCreateTopicConsultation}
+              >
+                <Text style={styles.modalConfirmText}>Start Consultation</Text>
+              </Pressable>
+            </View>
+          </View>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
 
+// ── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   container: { flex: 1 },
-
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.4)",
-    zIndex: 5,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    zIndex: 90,
   },
-
   sidebar: {
-    position: "absolute",
+    position: 'absolute',
     left: 0,
     top: 0,
     bottom: 0,
-    width: 280,
+    width: 300,
+    zIndex: 100,
     borderRightWidth: 1,
-    zIndex: 6,
   },
-
   sidebarHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 10,
-    borderBottomColor: "#E1E1E1",
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 12,
     borderBottomWidth: 1,
-    padding: 18,
+    borderBottomColor: '#e2e8f0',
   },
-
-  sidebarBody: {
-    padding: 18,
-  },
-
-  sidebarTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    paddingVertical: 8,
-  },
-
+  sidebarTitle: { fontSize: 18, fontWeight: '700' },
+  sidebarBody: { flex: 1, padding: 16 },
   newChatBtn: {
-    height: 46,
-    borderRadius: 14,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-  },
-
-  newChatText: {
-    color: "#fff",
-    fontWeight: "700",
-    fontSize: 15,
-  },
-
-  sidebarSection: {
-    fontSize: 12,
-    fontWeight: "700",
-    letterSpacing: 1,
-  },
-
-  chatItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 12,
-    gap: 4,
-  },
-
-  chatItemText: {
-    flex: 1,
-    fontSize: 14,
-  },
-
-  header: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    height: 44,
+    borderRadius: 22,
+    marginBottom: 12,
+  },
+  newChatText: { color: '#fff', fontWeight: '600', fontSize: 14 },
+  sidebarSection: { fontSize: 11, fontWeight: '700', letterSpacing: 0.8, marginBottom: 8 },
+  emptySectionText: { fontSize: 12, fontStyle: 'italic', marginBottom: 12 },
+  consultationRow: { flexDirection: 'row', alignItems: 'center' },
+  chatItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 10,
+    borderRadius: 8,
+    marginVertical: 2,
+  },
+  chatItemText: { fontSize: 14, fontWeight: '500' },
+  chatItemSub: { fontSize: 11 },
+
+  // Top Header
+  header: {
+    height: 56,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
     borderBottomWidth: 1,
   },
-
   menuBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
   },
+  headerCenter: { alignItems: 'center', flex: 1, paddingHorizontal: 8 },
+  headerTitle: { fontSize: 16, fontWeight: '700', textAlign: 'center' },
+  badgeRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
+  onlineText: { fontSize: 10, fontWeight: '600' },
+  typePill: { paddingHorizontal: 6, paddingVertical: 1, borderRadius: 8 },
+  typePillText: { fontSize: 9, fontWeight: '600' },
 
-  headerCenter: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
+  // Prescription Banner
+  prescriptionBanner: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
   },
-
-  aiAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  aiAvatarSmall: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 8,
-    alignSelf: 'flex-end',
-  },
-
-  headerTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-  },
-
-  onlineText: {
-    fontSize: 11,
-    fontWeight: '500',
-  },
-
-  newBadge: {
-    borderRadius: 8,
+  bannerHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  bannerTitle: { fontSize: 13, fontWeight: '700' },
+  bannerContent: { marginTop: 8 },
+  medsRow: { gap: 6, paddingBottom: 8 },
+  medPill: {
     paddingHorizontal: 10,
     paddingVertical: 4,
-  },
-
-  newBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-
-  messageList: { flex: 1 },
-
-  messageContent: {
-    padding: 16,
-    gap: 12,
-    paddingBottom: 8,
-  },
-
-  msgRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-  },
-
-  msgRowAI: { justifyContent: 'flex-start' },
-
-  msgRowUser: { justifyContent: 'flex-end' },
-
-  bubble: {
-    maxWidth: '75%',
-    borderRadius: 18,
-    padding: 14,
-  },
-
-  bubbleAI: {
-    borderBottomLeftRadius: 4,
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#d1d1d1ff",
   },
+  medPillText: { fontSize: 11, fontWeight: '600' },
+  bannerActions: { flexDirection: 'row', gap: 10, marginTop: 4 },
+  bannerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  bannerBtnText: { color: '#fff', fontSize: 12, fontWeight: '600' },
+  bannerBtnOutline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  bannerBtnOutlineText: { fontSize: 12, fontWeight: '600' },
 
+  // Chat Area
+  messageList: { flex: 1 },
+  messageContent: { padding: 16, gap: 12 },
+  msgRow: { flexDirection: 'row', gap: 8, alignItems: 'flex-end', marginBottom: 6 },
+  msgRowUser: { justifyContent: 'flex-end' },
+  msgRowAI: { justifyContent: 'flex-start' },
+  aiAvatarSmall: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  bubble: {
+    maxWidth: '80%',
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
   bubbleUser: {
     borderBottomRightRadius: 4,
   },
-
-  bubbleTextAI: {
-    fontSize: 14,
-    lineHeight: 20,
+  bubbleAIContainer: {
+    maxWidth: '100%',
+    borderRadius: 16,
+    padding: 16,
   },
-
-  bubbleTextUser: {
-    fontSize: 14,
-    color: '#ffffff',
-    lineHeight: 20,
-  },
-
-  chipsRow: {
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    gap: 8,
-    alignItems: 'center',
-  },
-
+  bubbleTextUser: { color: '#fff', fontSize: 14, lineHeight: 20 },
+  bubbleTextAI: { fontSize: 14, lineHeight: 20 },
+  chipsRow: { paddingHorizontal: 16, gap: 8, paddingBottom: 8 },
   chip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
     borderWidth: 1,
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
   },
-
-  chipText: {
-    fontSize: 13,
-  },
-
-  inputRow: {
+  chipText: { fontSize: 12, fontWeight: '500' },
+  inputContainer: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
-    paddingHorizontal: 16,
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderTopWidth: 1,
-    gap: 10,
+    gap: 8,
   },
-
   input: {
     flex: 1,
-    minHeight: 44,
-    maxHeight: 120,
-    borderRadius: 22,
+    borderRadius: 20,
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingTop: 10,
+    paddingBottom: 10,
     fontSize: 14,
-    textAlignVertical: 'top',
   },
-
   sendBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 2,
   },
+
+  // Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalCard: {
+    width: '100%',
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 1,
+  },
+  modalTitle: { fontSize: 18, fontWeight: '700', marginBottom: 4 },
+  modalSub: { fontSize: 13, marginBottom: 16 },
+  modalOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 8,
+  },
+  optionTitle: { fontSize: 14, fontWeight: '700' },
+  optionSub: { fontSize: 11 },
+  inputLabel: { fontSize: 10, fontWeight: '700', letterSpacing: 0.8, marginBottom: 4 },
+  topicInput: {
+    height: 44,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    fontSize: 14,
+    borderWidth: 1,
+  },
+  modalBtnRow: { flexDirection: 'row', gap: 10, marginTop: 12 },
+  modalCancelBtn: {
+    flex: 1,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+  },
+  modalCancelText: { fontSize: 14, fontWeight: '600' },
+  modalConfirmBtn: {
+    flex: 1,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalConfirmText: { color: '#fff', fontSize: 14, fontWeight: '600' },
 });

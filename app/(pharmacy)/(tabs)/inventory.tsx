@@ -19,6 +19,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
 import Skeleton from '@/components/ui/Skeleton';
 import AppBottomSheet from '@/components/ui/AppBottomSheet';
+import { Header } from '@/components/ui/Header';
 
 export default function Inventory() {
   const router = useRouter();
@@ -209,31 +210,31 @@ export default function Inventory() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
       {/* Header */}
-      <View style={[styles.header, { borderBottomColor: theme.border, backgroundColor: theme.card }]}>
-        <View style={styles.headerLeft}>
-          <Pressable
-            style={({pressed})=>[styles.backBtn, pressed && {opacity: 0.5}, { backgroundColor: theme.surfaceSecondary }]}
-            onPress={() => router.push('/(pharmacy)/(tabs)/dashboard')}
-          >
-            <Ionicons name="arrow-back" size={18} color={theme.text.primary} />
-          </Pressable>
-          <Text style={[styles.headerTitle, { color: theme.text.primary }]}>Inventory</Text>
-        </View>
-        <View style={{flexDirection: 'row', gap: 10, alignItems: 'center'}}>
-          <Pressable
-            style={({pressed})=>[styles.fabSmall, pressed && {opacity: 0.5}, { backgroundColor: primaryColor }]}
-            onPress={() => setShowAddForm((v) => !v)}
-          >
-            { showAddForm ? 
-              <Ionicons name="chevron-up" size={22} color="#fff" /> :
-              <Ionicons name="add" size={22} color="#fff" />
-            }
-          </Pressable>
-          <Pressable style={({pressed})=>[styles.uploadBtn, pressed && {opacity: 0.5}, { borderColor: theme.border }]} onPress={() => router.push('/(pharmacy)/upload-inventory')}>
-            <Ionicons name="cloud-upload-outline" size={18} color={theme.textMuted} />
-          </Pressable>
-        </View>
-      </View>
+      <Header
+        title="Inventory"
+        showBack
+        onBack={() => router.push('/(pharmacy)/(tabs)/dashboard')}
+        right={
+          <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
+            <Pressable
+              style={({ pressed }) => [styles.fabSmall, pressed && { opacity: 0.5 }, { backgroundColor: primaryColor }]}
+              onPress={() => setShowAddForm((v) => !v)}
+            >
+              {showAddForm ? (
+                <Ionicons name="chevron-up" size={22} color="#fff" />
+              ) : (
+                <Ionicons name="add" size={22} color="#fff" />
+              )}
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => [styles.uploadBtn, pressed && { opacity: 0.5 }, { borderColor: theme.border }]}
+              onPress={() => router.push('/(pharmacy)/upload-inventory')}
+            >
+              <Ionicons name="cloud-upload-outline" size={18} color={theme.textMuted} />
+            </Pressable>
+          </View>
+        }
+      />
 
       {/* Add New Medicine inline form */}
       {showAddForm && (
@@ -447,7 +448,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: RADIUS.md,
     paddingHorizontal: 12,
-    fontSize: FONT_SIZE.body,
+    fontSize: FONT_SIZE.lg,
   },
   addBtn: {
     height: 40,
@@ -489,7 +490,7 @@ const styles = StyleSheet.create({
   thPrice: { width: 75, fontSize: FONT_SIZE.sm, fontWeight: '700', textAlign: 'center' },
 
   listContent: { paddingBottom: 40 },
-  emptyText: { textAlign: 'center', marginTop: 40, fontSize: FONT_SIZE.body },
+  emptyText: { textAlign: 'center', marginTop: 40, fontSize: FONT_SIZE.lg },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 
   tableRow: {

@@ -8,6 +8,7 @@ import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
 import Skeleton from '@/components/ui/Skeleton';
+import { Header } from '@/components/ui/Header';
 
 export default function Reservations() {
   const router = useRouter();
@@ -184,13 +185,11 @@ export default function Reservations() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
       {/* Header */}
-      <View style={[styles.header, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
-        <Pressable style={({pressed})=>[styles.backBtn, pressed && {opacity: 0.5}, { backgroundColor: theme.surfaceSecondary }]} onPress={() => router.push('/(pharmacy)/(tabs)/dashboard')}>
-          <Ionicons name="arrow-back" size={18} color={theme.text.primary} />
-        </Pressable>
-        <Text style={[styles.headerTitle, { color: theme.text.primary }]}>Reservations</Text>
-        <View style={{ width: 36 }} />
-      </View>
+      <Header
+        title="Reservations"
+        showBack
+        onBack={() => router.push('/(pharmacy)/(tabs)/dashboard')}
+      />
 
       {loading ? (
         <View style={styles.listContent}>
@@ -250,7 +249,7 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: FONT_SIZE.xxl, fontWeight: '700' },
 
   listContent: { padding: SPACING.lg, gap: 12 },
-  emptyText: { textAlign: 'center', marginTop: 40, fontSize: FONT_SIZE.body },
+  emptyText: { textAlign: 'center', marginTop: 40, fontSize: FONT_SIZE.lg },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 
   card: {

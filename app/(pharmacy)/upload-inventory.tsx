@@ -135,7 +135,7 @@ export default function UploadInventory() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
-      <Header title="CSV / Excel Import" showBack />
+      <Header title="CSV / Excel Import" showBack onBack={() => router.navigate('/(pharmacy)/(tabs)/inventory')} />
 
       <ScrollView contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -277,7 +277,7 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.xl,
   },
   errorText: {
-    fontSize: FONT_SIZE.body,
+    fontSize: FONT_SIZE.lg,
     fontWeight: '500',
     textAlign: 'center',
   },
@@ -306,7 +306,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   medPrice: {
-    fontSize: FONT_SIZE.body,
+    fontSize: FONT_SIZE.lg,
     fontWeight: '600',
   },
   medQty: {
@@ -357,7 +357,7 @@ const styles = StyleSheet.create({
     minWidth: 90,
   },
   colName: {
-    fontSize: FONT_SIZE.body,
+    fontSize: FONT_SIZE.lg,
     fontWeight: '700',
   },
   colOpt: {

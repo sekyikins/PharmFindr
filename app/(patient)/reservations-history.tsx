@@ -15,6 +15,7 @@ import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
 import Skeleton from '@/components/ui/Skeleton';
+import { Header } from '@/components/ui/Header';
 
 export default function PatientReservationsHistory() {
   const router = useRouter();
@@ -140,16 +141,7 @@ export default function PatientReservationsHistory() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
       {/* Header */}
-      <View style={[styles.header, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
-        <Pressable
-          style={({pressed})=>[styles.navBtn, pressed && { opacity: 0.5 }, { backgroundColor: theme.surfaceSecondary }]}
-          onPress={() => router.back()}
-        >
-          <Ionicons name="arrow-back" size={18} color={theme.text.primary} />
-        </Pressable>
-        <Text style={[styles.headerTitle, { color: theme.text.primary }]}>My Reservations</Text>
-        <View style={{ width: 36 }} />
-      </View>
+      <Header title="My Reservations" showBack onBack={() => router.navigate('/(patient)/(tabs)/profile')} />
 
       {/* Filter Chips */}
       <View style={[styles.filterRow, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
@@ -251,10 +243,10 @@ const styles = StyleSheet.create({
   dateText: { fontSize: FONT_SIZE.sm, marginTop: 2 },
   badge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 3, borderRadius: RADIUS.pill },
   badgeText: { fontSize: FONT_SIZE.sm, fontWeight: '600' },
-  medsText: { fontSize: FONT_SIZE.body, marginBottom: 12 },
+  medsText: { fontSize: FONT_SIZE.lg, marginBottom: 12 },
   cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#e2e8f0' },
   priceText: { fontSize: FONT_SIZE.lg, fontWeight: '700' },
   emptyContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60, gap: 8 },
   emptyTitle: { fontSize: FONT_SIZE.xl, fontWeight: '700' },
-  emptySub: { fontSize: FONT_SIZE.body, textAlign: 'center', paddingHorizontal: 32 },
+  emptySub: { fontSize: FONT_SIZE.lg, textAlign: 'center', paddingHorizontal: 32 },
 });

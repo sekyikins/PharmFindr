@@ -22,12 +22,11 @@ export async function askGemini(
   }
 
   const ai = getAI();
+
+  // Valid Gemini model identifiers supported by the Google GenAI API v1beta
   const modelsToTry = [
     "gemini-flash-latest",
-    "gemini-pro-latest",
-    "gemini-2.5-pro",
-    "gemini-2.5-flash-lite",
-    "gemini-2.5-flash",
+    "gemini-3.6-flash"
   ];
 
   const contents = [
@@ -45,12 +44,15 @@ export async function askGemini(
         contents,
         config: {
           temperature: 0.7,
-          maxOutputTokens: 800,
+          maxOutputTokens: 2048,
           ...(systemInstruction ? { systemInstruction } : {}),
         },
       });
 
-      return response.text ?? '';
+      const text = response.text ?? '';
+      if (text.trim()) {
+        return text;
+      }
     } catch (error: any) {
       console.warn(`Gemini attempt with ${modelName} failed:`, error?.message || error);
     }
@@ -68,8 +70,8 @@ export async function parsePrescriptionImage(
     return [];
   }
 
-  const prompt = `Analyze this prescription. Extract all medicines, strengths, quantities, dosage frequencies, and duration.
-Return ONLY a valid JSON array of objects without any markdown blocks or comments.
+  const prompt = `Analyze this prescription image. Extract all medicines, strengths, quantities, dosage frequencies, and duration.
+Return ONLY a valid JSON array of objects without any markdown blocks or extra text.
 Example Output Format:
 [
   {"name": "Amoxicillin", "strength": "500mg", "quantity": 15, "frequency": "1 tablet three times daily", "duration": "5 days"},
@@ -79,10 +81,7 @@ Example Output Format:
   const ai = getAI();
   const modelsToTry = [
     "gemini-flash-latest",
-    "gemini-pro-latest",
-    "gemini-2.5-pro",
-    "gemini-2.5-flash-lite",
-    "gemini-2.5-flash",
+    "gemini-3.6-flash"
   ];
 
   for (const modelName of modelsToTry) {
@@ -102,6 +101,9 @@ Example Output Format:
             ],
           },
         ],
+        config: {
+          maxOutputTokens: 2048,
+        },
       });
 
       const rawText = response.text ?? '';

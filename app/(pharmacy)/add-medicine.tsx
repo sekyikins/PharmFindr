@@ -70,7 +70,7 @@ export default function AddMedicine() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
-      <Header title="Add Medicine" showBack />
+      <Header title="Add Medicine" showBack onBack={() => router.navigate('/(pharmacy)/(tabs)/inventory')} />
 
       <View style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scrollContent}

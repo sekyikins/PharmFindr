@@ -40,12 +40,11 @@ export const FONT_SIZE = {
   xs: 8,
   sm: 10,
   md: 12,
-  body: 14,
-  lg: 16,
-  xl: 18,
-  xxl: 20,
-  title: 22,
-  hero: 24,
+  lg: 14,
+  xl: 16,
+  xxl: 18,
+  title: 20,
+  hero: 22,
 } as const;
 
 // ─── Palette ──────────────────────────────────────────────────────────────────
@@ -111,7 +110,7 @@ export function buildTypography(c: ThemeColors) {
     hero:        { fontSize: FONT_SIZE.hero,  fontWeight: '700' as const, color: c.text, letterSpacing: -0.5 },
     title:       { fontSize: FONT_SIZE.title, fontWeight: '700' as const, color: c.text },
     sectionLabel:{ fontSize: FONT_SIZE.xs,    fontWeight: '700' as const, color: c.textDim, letterSpacing: 0.8, textTransform: 'uppercase' as const },
-    subtitle:    { fontSize: FONT_SIZE.body,  color: c.textDim, lineHeight: 20 },
+    subtitle:    { fontSize: FONT_SIZE.lg,  color: c.textDim, lineHeight: 20 },
     body:        { fontSize: FONT_SIZE.xl,    color: c.text },
     bodySmall:   { fontSize: FONT_SIZE.lg,    color: c.text },
     caption:     { fontSize: FONT_SIZE.md,    color: c.textDim },

@@ -15,6 +15,7 @@ import { useThemeContext } from '@/hooks/useThemeContext';
 import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
+import { Header } from '@/components/ui/Header';
 
 export default function ConfirmReservation() {
   const router = useRouter();
@@ -85,16 +86,7 @@ export default function ConfirmReservation() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
       {/* ── Header ── */}
-      <View style={[styles.header, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
-        <Pressable
-          style={({pressed})=>[styles.backBtn, pressed && {opacity: 0.5}, { backgroundColor: theme.surfaceSecondary }]}
-          onPress={() => router.back()}
-        >
-          <Ionicons name="arrow-back" size={18} color={theme.text.primary} />
-        </Pressable>
-        <Text style={[styles.headerTitle, { color: theme.text.primary }]}>Reserve Medicines</Text>
-        <View style={{ width: 36 }} />
-      </View>
+      <Header title="Reserve Medicines" showBack />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {/* ── Center Bag Icon ── */}

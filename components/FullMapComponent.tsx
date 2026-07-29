@@ -19,17 +19,19 @@ interface FullMapComponentProps {
   };
   userCoords: { latitude: number; longitude: number } | null;
   markers: MarkerData[];
+  selectedId?: string | null;
   onSelectMarker: (id: string) => void;
   /** Optional route polyline – no-op on web fallback. */
   routeCoords?: { latitude: number; longitude: number }[];
+  mapPadding?: any;
 }
 
 export default function FullMapComponent({
   initialRegion,
   userCoords,
   markers,
+  selectedId,
   onSelectMarker,
-  // routeCoords is intentionally unused on the web fallback
   routeCoords: _routeCoords,
 }: FullMapComponentProps) {
   // Translate latitude/longitude offsets into CSS percentage positions relative to Accra area

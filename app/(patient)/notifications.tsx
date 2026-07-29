@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback } from 'react';
 import {
   StyleSheet,
   Text,
@@ -12,17 +12,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useThemeContext } from '@/hooks/useThemeContext';
 import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
-import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
+import { useNotificationStore, type Notification } from '@/store/notificationStore';
+import Skeleton from '@/components/ui/Skeleton';
+import { Header, HeaderIconBtn } from '@/components/ui/Header';
 
-interface NotificationItem {
-  id: string;
-  type: 'confirmed' | 'declined' | 'pending' | 'info';
-  icon: string;
-  title: string;
-  body: string;
-  time: string;
-}
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -36,101 +31,107 @@ function timeAgo(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-import Skeleton from '@/components/ui/Skeleton';
+function iconForType(type: Notification['type'], metadata?: Record<string, any> | null) {
+  const status = metadata?.status as string | undefined;
+
+  if (type === 'reservation') {
+    switch (status) {
+      case 'accepted':  return 'checkmark-circle-outline';
+      case 'declined':  return 'close-circle-outline';
+      case 'collected': return 'bag-check-outline';
+      case 'expired':   return 'time-outline';
+      default:          return 'time-outline';
+    }
+  }
+  switch (type) {
+    case 'availability': return 'storefront-outline';
+    case 'medication':   return 'medkit-outline';
+    case 'system':       return 'information-circle-outline';
+    default:             return 'notifications-outline';
+  }
+}
+
+function colorKeyForType(type: Notification['type'], metadata?: Record<string, any> | null) {
+  const status = metadata?.status as string | undefined;
+
+  if (type === 'reservation') {
+    if (status === 'accepted')  return 'confirmed';
+    if (status === 'declined')  return 'declined';
+    if (status === 'collected') return 'confirmed';
+    if (status === 'expired')   return 'pending';
+    return 'pending';
+  }
+  return 'info';
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 export default function Notifications() {
   const router = useRouter();
   const { theme, primaryColor } = useThemeContext();
   const { user } = useAuthStore();
+  const {
+    notifications,
+    loading,
+    refreshing,
+    fetchNotifications,
+    refreshNotifications,
+    markRead,
+    markAllRead,
+    subscribe,
+    unsubscribe,
+  } = useNotificationStore();
 
-  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const userId = user?.id;
 
-  const [isRead, setIsRead] = useState(false);
-
-  const fetchNotifications = useCallback(async () => {
-    if (!user?.id) return;
-    try {
-      const { data, error } = await supabase
-        .from('reservations')
-        .select('id, status, medicine_name, pharmacy_name, created_at, updated_at')
-        .eq('user_id', user.id)
-        .order('updated_at', { ascending: false })
-        .limit(20);
-
-      if (error) throw error;
-
-      const items: NotificationItem[] = (data ?? []).map((res) => {
-        const medName = res.medicine_name ?? 'Medicine';
-        const pharmName = res.pharmacy_name ?? 'the pharmacy';
-        const ts = res.updated_at ?? res.created_at;
-
-        switch (res.status) {
-          case 'accepted':
-            return {
-              id: res.id,
-              type: 'confirmed',
-              icon: 'checkmark-circle-outline',
-              title: 'Reservation Confirmed',
-              body: `${pharmName} confirmed your ${medName} reservation.`,
-              time: timeAgo(ts),
-            };
-          case 'declined':
-            return {
-              id: res.id,
-              type: 'declined',
-              icon: 'close-circle-outline',
-              title: 'Reservation Declined',
-              body: `${pharmName} declined your ${medName} request. Try a nearby pharmacy.`,
-              time: timeAgo(ts),
-            };
-          case 'pending':
-          default:
-            return {
-              id: res.id,
-              type: 'pending',
-              icon: 'time-outline',
-              title: 'Reservation Pending',
-              body: `Your ${medName} reservation at ${pharmName} is awaiting confirmation.`,
-              time: timeAgo(ts),
-            };
-        }
-      });
-
-      setNotifications(items);
-    } catch (e: any) {
-      console.warn('Error loading notifications:', e.message);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [user?.id]);
-
+  // Fetch + subscribe on mount
   useEffect(() => {
-    fetchNotifications();
-  }, [fetchNotifications]);
+    if (!userId) return;
+    fetchNotifications(userId);
+    subscribe(userId);
+    return () => unsubscribe();
+  }, [userId]);
 
-  const handleRefresh = () => {
-    setRefreshing(true);
-    fetchNotifications();
-  };
+  const handleRefresh = useCallback(() => {
+    if (userId) refreshNotifications(userId);
+  }, [userId]);
 
-  const getThemeMap = (type: string) => {
-    switch (type) {
-      case 'confirmed': return { bg: theme.successBg, color: theme.success };
-      case 'declined':  return { bg: theme.errorBg, color: theme.error };
-      case 'pending':   return { bg: theme.pendingBg, color: theme.warning };
+  const handleMarkAllRead = useCallback(() => {
+    if (userId) markAllRead(userId);
+  }, [userId]);
+
+  const handlePressNotification = useCallback(
+    async (item: Notification) => {
+      if (!item.is_read) await markRead(item.id);
+
+      // Navigate based on type / metadata
+      const meta = item.metadata;
+      if (item.type === 'reservation' && meta?.reservation_id) {
+        router.push('/(patient)/reservations-history');
+      }
+    },
+    [markRead]
+  );
+
+  // ── Theme maps ─────────────────────────────────────────────────────────────
+
+  const getColors = (colorKey: string) => {
+    switch (colorKey) {
+      case 'confirmed': return { bg: theme.successBg,        color: theme.success };
+      case 'declined':  return { bg: theme.errorBg,          color: theme.error };
+      case 'pending':   return { bg: theme.pendingBg,        color: theme.warning };
       case 'info':
       default:          return { bg: theme.patientSecondary, color: primaryColor };
     }
   };
 
+  // ── Skeleton ───────────────────────────────────────────────────────────────
+
   const renderSkeleton = () => (
     <View style={styles.listContent}>
       {[1, 2, 3, 4].map((i) => (
         <View key={i} style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
-          <Skeleton width={38} height={38} borderRadius={RADIUS.pill} style={{ marginRight: 12 }} />
+          <Skeleton width={44} height={44} borderRadius={RADIUS.pill} style={{ marginRight: 12 }} />
           <View style={{ flex: 1, gap: 6 }}>
             <Skeleton width="60%" height={16} />
             <Skeleton width="90%" height={14} />
@@ -141,24 +142,33 @@ export default function Notifications() {
     </View>
   );
 
+  // ── Render ─────────────────────────────────────────────────────────────────
+
+  const hasUnread = notifications.some((n) => !n.is_read);
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
       {/* Header */}
-      <View style={[styles.header, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
-        <Pressable
-          style={({pressed})=>[styles.backBtn, pressed && {opacity: 0.5}, { backgroundColor: theme.surfaceSecondary }]}
-          onPress={() => router.back()}
-        >
-          <Ionicons name="arrow-back" size={18} color={theme.text.primary} />
-        </Pressable>
-        <Text style={[styles.headerTitle, { color: theme.text.primary }]}>Notifications</Text>
-        <Pressable
-          style={({pressed})=>[styles.backBtn, pressed && {opacity: 0.5}, { backgroundColor: theme.surfaceSecondary }]}
-          onPress={fetchNotifications}
-        >
-          <Ionicons name="refresh-outline" size={18} color={theme.text.primary} />
-        </Pressable>
-      </View>
+      <Header
+        title="Notifications"
+        showBack
+        onBack={() => {
+          if (router.canGoBack()) {
+            router.back();
+          } else {
+            router.navigate('/(patient)/(tabs)/home');
+          }
+        }}
+        right={
+          hasUnread ? (
+            <HeaderIconBtn
+              name="checkmark-done-outline"
+              onPress={handleMarkAllRead}
+              color={primaryColor}
+            />
+          ) : undefined
+        }
+      />
 
       {loading ? (
         renderSkeleton()
@@ -169,39 +179,51 @@ export default function Notifications() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.listContent}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={primaryColor} colors={[primaryColor]} />
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor={primaryColor}
+              colors={[primaryColor]}
+            />
           }
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Ionicons name="notifications-off-outline" size={48} color={theme.textDim} />
               <Text style={[styles.emptyTitle, { color: theme.text.primary }]}>No notifications yet</Text>
               <Text style={[styles.emptySubtitle, { color: theme.textMuted }]}>
-                Reservation updates will appear here.
+                Reservation updates and other alerts will appear here.
               </Text>
             </View>
           }
           renderItem={({ item }) => {
-            const colors = getThemeMap(item.type);
+            const colorKey = colorKeyForType(item.type, item.metadata);
+            const colors   = getColors(colorKey);
+            const icon     = iconForType(item.type, item.metadata);
+            const isUnread = !item.is_read;
+
             return (
               <Pressable
-                style={({pressed})=>[
-                  styles.card, 
-                  pressed && {opacity: 0.5}, 
-                  !isRead && {
-                    borderColor: primaryColor, 
-                    borderWidth: 1}, 
-                  { 
-                    backgroundColor: theme.card, 
-                    borderColor: theme.border }]}
-                onPress={() => router.push('/(patient)/reservations-history')}
+                style={({ pressed }) => [
+                  styles.card,
+                  pressed && { opacity: 0.5 },
+                  { backgroundColor: theme.card, borderColor: isUnread ? primaryColor : theme.border },
+                  isUnread && styles.unreadCard,
+                ]}
+                onPress={() => handlePressNotification(item)}
               >
+                {/* Unread dot */}
+                {isUnread && (
+                  <View style={[styles.unreadDot, { backgroundColor: primaryColor }]} />
+                )}
+
                 <View style={[styles.iconCircle, { backgroundColor: colors.bg }]}>
-                  <Ionicons name={item.icon as any} size={22} color={colors.color} />
+                  <Ionicons name={icon as any} size={22} color={colors.color} />
                 </View>
+
                 <View style={styles.cardBody}>
                   <Text style={[styles.cardTitle, { color: theme.text.primary }]}>{item.title}</Text>
-                  <Text style={[styles.cardBody2, { color: theme.textMuted }]}>{item.body}</Text>
-                  <Text style={[styles.cardTime, { color: theme.textDim }]}>{item.time}</Text>
+                  <Text style={[styles.cardMessage, { color: theme.textMuted }]}>{item.message}</Text>
+                  <Text style={[styles.cardTime, { color: theme.textDim }]}>{timeAgo(item.created_at)}</Text>
                 </View>
               </Pressable>
             );
@@ -212,9 +234,10 @@ export default function Notifications() {
   );
 }
 
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 
   header: {
     flexDirection: 'row',
@@ -224,7 +247,7 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.md,
     borderBottomWidth: 1,
   },
-  backBtn: {
+  iconBtn: {
     width: 36,
     height: 36,
     borderRadius: RADIUS.pill,
@@ -236,8 +259,8 @@ const styles = StyleSheet.create({
   listContent: { padding: SPACING.lg, gap: 12 },
 
   emptyContainer: { alignItems: 'center', marginTop: 80, gap: 10 },
-  emptyTitle: { fontSize: FONT_SIZE.xl, fontWeight: '700' },
-  emptySubtitle: { fontSize: FONT_SIZE.body, textAlign: 'center' },
+  emptyTitle:     { fontSize: FONT_SIZE.xl, fontWeight: '700' },
+  emptySubtitle:  { fontSize: FONT_SIZE.lg, textAlign: 'center' },
 
   card: {
     flexDirection: 'row',
@@ -245,6 +268,18 @@ const styles = StyleSheet.create({
     padding: SPACING.lg,
     gap: 14,
     borderWidth: 1,
+    position: 'relative',
+  },
+  unreadCard: {
+    borderWidth: 1.5,
+  },
+  unreadDot: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
   iconCircle: {
     width: 44,
@@ -254,8 +289,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexShrink: 0,
   },
-  cardBody: { flex: 1 },
-  cardTitle: { fontSize: FONT_SIZE.xl, fontWeight: '700', marginBottom: 4 },
-  cardBody2: { fontSize: FONT_SIZE.body, lineHeight: 19, marginBottom: 6 },
-  cardTime: { fontSize: FONT_SIZE.sm },
+  cardBody:    { flex: 1 },
+  cardTitle:   { fontSize: FONT_SIZE.xl, fontWeight: '700', marginBottom: 4 },
+  cardMessage: { fontSize: FONT_SIZE.lg, lineHeight: 19, marginBottom: 6 },
+  cardTime:    { fontSize: FONT_SIZE.sm },
 });

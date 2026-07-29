@@ -14,6 +14,7 @@ import { useThemeContext } from '@/hooks/useThemeContext';
 import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
 import { supabase } from '@/lib/supabase';
 import Skeleton from '@/components/ui/Skeleton';
+import { Header } from '@/components/ui/Header';
 
 interface InventoryResult {
   id: string;
@@ -98,9 +99,7 @@ export default function SearchMedicines() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
       {/* Header */}
-      <View style={[styles.header, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
-        <Text style={[styles.headerTitle, { color: theme.text.primary }]}>Search Medicines</Text>
-      </View>
+      <Header title="Search Medicines" />
 
       {/* Search Bar */}
       <View style={[styles.searchWrapper, { backgroundColor: theme.card }]}>
@@ -265,7 +264,7 @@ const styles = StyleSheet.create({
 
   section: { paddingHorizontal: SPACING.xl, paddingTop: SPACING.lg },
   sectionLabel: {
-    fontSize: FONT_SIZE.sm,
+    fontSize: FONT_SIZE.md,
     fontWeight: '700',
     letterSpacing: 0.8,
     textTransform: 'uppercase',
@@ -278,7 +277,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderBottomWidth: 1,
   },
-  recentText: { flex: 1, fontSize: FONT_SIZE.body },
+  recentText: { flex: 1, fontSize: FONT_SIZE.lg },
 
   chipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
   chip: { borderRadius: RADIUS.pill, paddingHorizontal: 14, paddingVertical: 7 },

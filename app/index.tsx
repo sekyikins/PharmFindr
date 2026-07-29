@@ -1,8 +1,6 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, View, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '@/store/authStore';
-import { colors } from '@/theme/colors';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const ONBOARDING_KEY = 'pharmafindr_onboarding_seen';
@@ -10,7 +8,6 @@ const ONBOARDING_KEY = 'pharmafindr_onboarding_seen';
 export default function Index() {
   const { session, profile, loading, initialize } = useAuthStore();
   const router = useRouter();
-  const theme = colors.light;
   const [onboardingChecked, setOnboardingChecked] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
 
@@ -42,17 +39,7 @@ export default function Index() {
     }
   }, [session, profile, loading, onboardingChecked, showOnboarding]);
 
-  return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <ActivityIndicator size="large" color={theme.patient.primary} />
-    </View>
-  );
+  // Blank screen — routing happens in the effect above.
+  // The native splash screen stays visible until the redirect fires.
+  return null;
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-});

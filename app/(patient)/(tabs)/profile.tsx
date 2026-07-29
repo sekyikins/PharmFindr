@@ -24,12 +24,12 @@ import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import AvatarPickerSheet from '@/components/ui/AvatarPickerSheet';
 
 const MENU_ITEMS = [
-  { id: 'health', icon: 'fitness-outline', label: 'Health Parameters', route: '/(patient)/health-profile' },
-  { id: 'reservations', icon: 'receipt-outline', label: 'My Reservations', route: '/(patient)/reservations-history' },
-  { id: 'history', icon: 'time-outline', label: 'Prescription History', route: '/(patient)/prescription-history' },
-  { id: 'saved', icon: 'heart-outline', label: 'Saved Medicines', route: '/(patient)/medicines' },
-  { id: 'notifs', icon: 'notifications-outline', label: 'Notifications', route: '/(patient)/notifications' },
-  { id: 'help', icon: 'help-circle-outline', label: 'Help & Feedback', route: '/(patient)/help-feedback' },
+  { id: 'health', icon: 'fitness', label: 'Health Parameters', route: '/(patient)/health-profile' },
+  { id: 'reservations', icon: 'receipt', label: 'My Reservations', route: '/(patient)/reservations-history' },
+  { id: 'history', icon: 'time', label: 'Prescription History', route: '/(patient)/prescription-history' },
+  { id: 'saved', icon: 'heart', label: 'Saved Medicines', route: '/(patient)/medicines' },
+  { id: 'notifs', icon: 'notifications', label: 'Notifications', route: '/(patient)/notifications' },
+  { id: 'help', icon: 'help-circle', label: 'Help & Feedback', route: '/(patient)/help-feedback' },
 ];
 
 export default function Profile() {
@@ -208,7 +208,7 @@ export default function Profile() {
                   <Ionicons name={item.icon as any} size={18} color={theme.textMuted} />
                 </View>
                 <Text style={[styles.menuLabel, { color: theme.text.primary }]}>{item.label}</Text>
-                <Ionicons name="chevron-forward" size={16} color={theme.textDim} />
+                <Ionicons name="chevron-forward" size={16} color={theme.text} />
               </Pressable>
             ))}
           </View>
@@ -312,7 +312,7 @@ const styles = StyleSheet.create({
   },
   avatarText: { fontSize: 28, fontWeight: '700' },
   heroName: { fontSize: FONT_SIZE.hero, fontWeight: '700', color: '#ffffff', marginBottom: 4 },
-  heroSub: { fontSize: FONT_SIZE.body, color: 'rgba(255,255,255,0.8)', marginBottom: 8 },
+  heroSub: { fontSize: FONT_SIZE.lg, color: 'rgba(255,255,255,0.8)', marginBottom: 8 },
   editAccountPill: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -336,7 +336,7 @@ const styles = StyleSheet.create({
   },
   statItem: { flex: 1, alignItems: 'center' },
   statValue: { fontSize: FONT_SIZE.hero, fontWeight: '700', marginBottom: 2 },
-  statLabel: { fontSize: FONT_SIZE.sm },
+  statLabel: { fontSize: FONT_SIZE.md },
   statDivider: { width: 1, marginVertical: 4 },
 
   // ── Menu ──
@@ -367,7 +367,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 14,
   },
-  menuLabel: { flex: 1, fontSize: FONT_SIZE.lg, fontWeight: '500' },
+  menuLabel: { flex: 1, fontSize: FONT_SIZE.lg, fontWeight: '700' },
 
   // ── Modal ──
   modalOverlay: {
@@ -400,7 +400,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderWidth: 1,
-    fontSize: FONT_SIZE.body,
+    fontSize: FONT_SIZE.lg,
   },
   modalActionRow: {
     flexDirection: 'row',
@@ -415,7 +415,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  modalBtnCancelText: { fontWeight: '600', fontSize: FONT_SIZE.body },
+  modalBtnCancelText: { fontWeight: '600', fontSize: FONT_SIZE.lg },
   modalBtnSave: {
     flex: 1,
     height: 44,
@@ -423,5 +423,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  modalBtnSaveText: { color: '#ffffff', fontWeight: '700', fontSize: FONT_SIZE.body },
+  modalBtnSaveText: { color: '#ffffff', fontWeight: '700', fontSize: FONT_SIZE.lg },
 });

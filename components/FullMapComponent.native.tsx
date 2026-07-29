@@ -1,6 +1,6 @@
-﻿import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { StyleSheet } from 'react-native';
-import MapView, { Marker, Polyline, UrlTile, PROVIDER_DEFAULT } from 'react-native-maps';
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE, EdgePadding } from 'react-native-maps';
 
 interface MarkerData {
   id: string;
@@ -19,62 +19,83 @@ interface FullMapComponentProps {
   };
   userCoords: { latitude: number; longitude: number } | null;
   markers: MarkerData[];
+  selectedId?: string | null;
   onSelectMarker: (id: string) => void;
   routeCoords?: { latitude: number; longitude: number }[];
+  mapPadding?: EdgePadding;
 }
 
 export default function FullMapComponent({
   initialRegion,
   userCoords,
   markers,
+  selectedId,
   onSelectMarker,
   routeCoords,
+  mapPadding = { top: 90, right: 16, bottom: 140, left: 16 },
 }: FullMapComponentProps) {
+  const mapRef = useRef<MapView>(null);
+
+  // Animate map center to selected pharmacy when selectedId changes
+  useEffect(() => {
+    if (!selectedId || !mapRef.current) return;
+    const selected = markers.find((m) => m.id === selectedId);
+    if (selected) {
+      mapRef.current.animateToRegion(
+        {
+          latitude: selected.latitude,
+          longitude: selected.longitude,
+          latitudeDelta: 0.015,
+          longitudeDelta: 0.015,
+        },
+        500
+      );
+    }
+  }, [selectedId, markers]);
+
   return (
     <MapView
+      ref={mapRef}
       style={styles.map}
-      provider={PROVIDER_DEFAULT}
+      provider={PROVIDER_GOOGLE}
       initialRegion={initialRegion}
-      showsUserLocation={false}
-      mapType="none"
+      showsUserLocation
+      showsMyLocationButton
+      showsCompass
+      mapPadding={mapPadding}
     >
-      {/* CARTO tiles – built on OSM data, free for app use, no API key needed */}
-      <UrlTile
-        urlTemplate="https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png"
-        maximumZ={19}
-        flipY={false}
-        tileSize={256}
-      />
-
-      {/* User position */}
+      {/* User position fallback if showsUserLocation isn't ready */}
       {userCoords && (
         <Marker
           coordinate={userCoords}
           title="You are here"
           pinColor="#2563eb"
-          zIndex={10}
+          zIndex={20}
         />
       )}
 
       {/* Pharmacy markers */}
-      {markers.map((m) => (
-        <Marker
-          key={m.id}
-          coordinate={{ latitude: m.latitude, longitude: m.longitude }}
-          title={m.name}
-          description={m.address}
-          pinColor="#10b981"
-          onCalloutPress={() => onSelectMarker(m.id)}
-        />
-      ))}
+      {markers.map((m) => {
+        const isSelected = m.id === selectedId;
+        return (
+          <Marker
+            key={m.id}
+            coordinate={{ latitude: m.latitude, longitude: m.longitude }}
+            title={m.name}
+            description={m.address}
+            pinColor={isSelected ? '#059669' : '#10b981'}
+            zIndex={isSelected ? 15 : 5}
+            onPress={() => onSelectMarker(m.id)}
+          />
+        );
+      })}
 
-      {/* ORS navigation route */}
+      {/* Route polyline if available */}
       {routeCoords && routeCoords.length > 1 && (
         <Polyline
           coordinates={routeCoords}
           strokeColor="#2563eb"
           strokeWidth={4}
-          lineDashPattern={[0]}
         />
       )}
     </MapView>

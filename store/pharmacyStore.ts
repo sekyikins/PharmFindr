@@ -27,7 +27,8 @@ export const usePharmacyStore = create<PharmacyState>((set, get) => ({
   loading: false,
   error: null,
 
-  setPharmacies: (pharmacies) => set({ pharmacies }),
+  setPharmacies: (pharmacies) =>
+    set({ pharmacies: [...pharmacies].sort((a, b) => a.distanceKm - b.distanceKm) }),
   setUserCoords: (coords) => set({ userCoords: coords }),
 
   loadNearby: async (signal?: AbortSignal) => {
@@ -44,7 +45,8 @@ export const usePharmacyStore = create<PharmacyState>((set, get) => ({
         (pharmacy) => {
           if (signal?.aborted) return;
           found.push(pharmacy);
-          set({ pharmacies: [...found] });
+          const sorted = [...found].sort((a, b) => a.distanceKm - b.distanceKm);
+          set({ pharmacies: sorted });
         },
         signal
       );

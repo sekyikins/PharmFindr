@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useThemeContext } from '@/hooks/useThemeContext';
 import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
+import { Header } from '@/components/ui/Header';
 
 const FAQS = [
   {
@@ -68,13 +69,7 @@ export default function HelpAndFeedback() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
       {/* ── Header ── */}
-      <View style={[styles.header, { borderBottomColor: theme.border, backgroundColor: theme.card }]}>
-        <Pressable style={({pressed})=>[styles.circleBtn, pressed && { opacity: 0.5 }, { backgroundColor: theme.surfaceSecondary }]} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={20} color={theme.text.primary} />
-        </Pressable>
-        <Text style={[styles.headerTitle, { color: theme.text.primary }]}>Help & Feedback</Text>
-        <View style={{ width: 40 }} />
-      </View>
+      <Header title="Help & Feedback" showBack onBack={() => router.navigate('/(patient)/(tabs)/profile')} />
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* ── 1. HELP CENTER (FAQS) ── */}
@@ -217,15 +212,13 @@ export default function HelpAndFeedback() {
       {/* ══ TERMS / PRIVACY MODAL ══ */}
       <Modal visible={legalModalType !== null} transparent animationType="slide" onRequestClose={() => setLegalModalType(null)}>
         <SafeAreaView style={[styles.legalModalContainer, { backgroundColor: theme.background }]}>
-          <View style={[styles.header, { borderBottomColor: theme.border, backgroundColor: theme.card }]}>
-            <Text style={[styles.headerTitle, { color: theme.text.primary }]}>
-              {legalModalType === 'terms' ? 'Terms of Service' : 'Privacy Policy'}
-            </Text>
-            <Pressable style={({pressed})=>[styles.circleBtn, pressed && { opacity: 0.5 }, { backgroundColor: theme.surfaceSecondary }]} onPress={() => setLegalModalType(null)}>
+          <Header
+            title={legalModalType === 'terms' ? 'Terms of Service' : 'Privacy Policy'}
+            right={
               <Ionicons name="close" size={20} color={theme.text.primary} />
-            </Pressable>
-          </View>
-          <ScrollView contentContainerStyle={{ padding: 20 }}>
+            }
+          />
+          <ScrollView contentContainerStyle={{ padding: 10 }}>
             <Text style={[styles.legalText, { color: theme.text.primary }]}>
               {legalModalType === 'terms'
                 ? `Welcome to PharmFindr.\n\n1. Acceptance of Terms\nBy accessing or using PharmFindr, you agree to comply with and be bound by these Terms of Service.\n\n2. Service Overview\nPharmFindr acts as an instant discovery and reservation platform connecting users with licensed pharmacies. We do not sell pharmaceuticals directly.\n\n3. Patient Responsibilities\nYou are responsible for verifying your prescription requirements with a licensed healthcare provider.`
@@ -290,7 +283,7 @@ const styles = StyleSheet.create({
   },
   faqQuestion: {
     flex: 1,
-    fontSize: FONT_SIZE.body,
+    fontSize: FONT_SIZE.lg,
     fontWeight: '600',
     paddingRight: 10,
   },
@@ -322,7 +315,7 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.lg,
     borderWidth: 1,
     padding: 12,
-    fontSize: FONT_SIZE.body,
+    fontSize: FONT_SIZE.lg,
     height: 100,
     marginBottom: 14,
   },
@@ -335,7 +328,7 @@ const styles = StyleSheet.create({
   },
   submitBtnText: {
     color: '#ffffff',
-    fontSize: FONT_SIZE.body,
+    fontSize: FONT_SIZE.lg,
     fontWeight: '700',
   },
 
@@ -352,7 +345,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   menuRowText: {
-    fontSize: FONT_SIZE.body,
+    fontSize: FONT_SIZE.lg,
     fontWeight: '600',
   },
   rowDivider: {
@@ -387,7 +380,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   appInfoVersion: {
-    fontSize: FONT_SIZE.body,
+    fontSize: FONT_SIZE.lg,
     fontWeight: '700',
     marginBottom: 16,
   },
@@ -411,7 +404,7 @@ const styles = StyleSheet.create({
   },
   appInfoCloseText: {
     color: '#ffffff',
-    fontSize: FONT_SIZE.body,
+    fontSize: FONT_SIZE.lg,
     fontWeight: '700',
   },
 
@@ -420,7 +413,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   legalText: {
-    fontSize: FONT_SIZE.body,
+    fontSize: FONT_SIZE.lg,
     lineHeight: 24,
   },
 });

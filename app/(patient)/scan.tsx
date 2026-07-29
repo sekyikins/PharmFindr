@@ -189,7 +189,16 @@ export default function Scan() {
 
             {/* Header Controls */}
             <SafeAreaView style={styles.cameraHeader} edges={['top']}>
-              <Pressable onPress={() => router.back()} style={({pressed})=>[styles.circleIconBtn, pressed && { opacity: 0.5 }]}>
+              <Pressable
+                onPress={() => {
+                  if (router.canGoBack()) {
+                    router.back();
+                  } else {
+                    router.navigate('/(patient)/(tabs)/home');
+                  }
+                }}
+                style={({pressed})=>[styles.circleIconBtn, pressed && { opacity: 0.5 }]}
+              >
                 <Ionicons name="arrow-back" size={20} color="#ffffff" />
               </Pressable>
 
@@ -426,7 +435,7 @@ const styles = StyleSheet.create({
   },
   processingSub: {
     color: '#94a3b8',
-    fontSize: FONT_SIZE.body,
+    fontSize: FONT_SIZE.lg,
     marginTop: 8,
   },
 });

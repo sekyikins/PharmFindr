@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
@@ -10,6 +10,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import FullMapComponent from '@/components/FullMapComponent';
 import { useThemeContext } from '@/hooks/useThemeContext';
 import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
@@ -37,6 +39,13 @@ export default function Navigate() {
   const [route, setRoute] = useState<RouteResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [sheetIndex, setSheetIndex] = useState(0);
+
+  const sheetRef = useRef<BottomSheet>(null);
+
+  // Exact fixed snap points (100px = header only, 190px = header + button)
+  // Hard caps the sheet height so user cannot pull beyond actual height
+  const snapPoints = useMemo(() => [100, 190], []);
 
   useEffect(() => {
     let cancelled = false;
@@ -75,83 +84,122 @@ export default function Navigate() {
     : (params.walkMinutes ? params.walkMinutes + ' min walk' : '—');
 
   function openExternalNav() {
-    const url = `https://www.openstreetmap.org/directions?from=${userCoords?.latitude},${userCoords?.longitude}&to=${pharmLat},${pharmLon}`;
-    Linking.openURL(url);
+    const destination = `${pharmLat},${pharmLon}`;
+    const origin = userCoords ? `${userCoords.latitude},${userCoords.longitude}` : '';
+    const googleMapsUrl = origin
+      ? `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=driving`
+      : `https://www.google.com/maps/search/?api=1&query=${destination}`;
+
+    Linking.openURL(googleMapsUrl).catch(() => {
+      Linking.openURL(`https://maps.google.com/?q=${destination}`);
+    });
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
-      {/* Full-screen map */}
-      <View style={StyleSheet.absoluteFillObject}>
-        <FullMapComponent
-          initialRegion={{
-            latitude: centerLat,
-            longitude: centerLon,
-            latitudeDelta: 0.03,
-            longitudeDelta: 0.03,
-          }}
-          userCoords={userCoords}
-          markers={[{ id: params.id ?? '', name: pharmName, address: '', latitude: pharmLat, longitude: pharmLon }]}
-          onSelectMarker={() => {}}
-          routeCoords={route?.coordinates}
-        />
-      </View>
-
-      {/* Floating header */}
-      <SafeAreaView style={styles.floatingHeader} edges={['top']}>
-        <Pressable style={({pressed})=>[styles.backBtn, pressed && {opacity: 0.5}, { backgroundColor: theme.card }]} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={18} color={theme.text.primary} />
-        </Pressable>
-
-        <View style={[styles.directionsCard, { backgroundColor: theme.card }]}>
-          {loading ? (
-            <ActivityIndicator size="small" color={primaryColor} />
-          ) : error ? (
-            <Ionicons name="warning-outline" size={20} color={theme.warning} />
-          ) : (
-            <View style={[styles.directionsIconCircle, { backgroundColor: primaryColor }]}>
-              <Ionicons name="navigate" size={16} color="#ffffff" />
-            </View>
-          )}
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.directionsTitle, { color: theme.text.primary }]}>
-              {loading ? 'Calculating route…' : error ? 'Route unavailable' : `${distanceLabel} · ${durationLabel}`}
-            </Text>
-            <Text style={[styles.directionsSub, { color: theme.textMuted }]} numberOfLines={1}>
-              {pharmName}
-            </Text>
-          </View>
-        </View>
-      </SafeAreaView>
-
-      {/* Bottom sheet */}
-      <View style={[styles.bottomSheet, { backgroundColor: theme.card }]}>
-        <View style={[styles.handle, { backgroundColor: theme.border }]} />
-        <View style={styles.sheetHeader}>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.pharmName, { color: theme.text.primary }]} numberOfLines={1}>
-              {pharmName}
-            </Text>
-            <Text style={[styles.pharmMeta, { color: theme.textMuted }]}>
-              {distanceLabel} · {durationLabel}
-            </Text>
-          </View>
-          {route && (
-            <View style={[styles.badge, { backgroundColor: theme.successBg }]}>
-              <Text style={[styles.badgeText, { color: theme.successText }]}>Route Ready</Text>
-            </View>
-          )}
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <View style={[styles.container, { backgroundColor: theme.background }]}>
+        {/* Full-screen map */}
+        <View style={StyleSheet.absoluteFillObject}>
+          <FullMapComponent
+            initialRegion={{
+              latitude: centerLat,
+              longitude: centerLon,
+              latitudeDelta: 0.03,
+              longitudeDelta: 0.03,
+            }}
+            userCoords={userCoords}
+            markers={[{ id: params.id ?? '', name: pharmName, address: '', latitude: pharmLat, longitude: pharmLon }]}
+            onSelectMarker={() => {}}
+            routeCoords={route?.coordinates}
+            mapPadding={{ top: 110, right: 16, bottom: 200, left: 16 }}
+          />
         </View>
 
-        <Pressable
-          style={({pressed})=>[styles.startBtn, pressed && {opacity: 0.5}, { backgroundColor: primaryColor }]}
-          onPress={openExternalNav}
+        {/* Floating header */}
+        <SafeAreaView style={styles.floatingHeader} edges={['top']}>
+          <Pressable style={({pressed})=>[styles.backBtn, pressed && {opacity: 0.5}, { backgroundColor: theme.card }]} onPress={() => router.back()}>
+            <Ionicons name="arrow-back" size={18} color={theme.text.primary} />
+          </Pressable>
+
+          <View style={[styles.directionsCard, { backgroundColor: theme.card }]}>
+            {loading ? (
+              <ActivityIndicator size="small" color={primaryColor} />
+            ) : error ? (
+              <Ionicons name="warning-outline" size={20} color={theme.warning} />
+            ) : (
+              <View style={[styles.directionsIconCircle, { backgroundColor: primaryColor }]}>
+                <Ionicons name="navigate" size={16} color="#ffffff" />
+              </View>
+            )}
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.directionsTitle, { color: theme.text.primary }]}>
+                {loading ? 'Calculating route…' : error ? 'Route unavailable' : `${distanceLabel} · ${durationLabel}`}
+              </Text>
+              <Text style={[styles.directionsSub, { color: theme.textMuted }]} numberOfLines={1}>
+                {pharmName}
+              </Text>
+            </View>
+          </View>
+        </SafeAreaView>
+
+        {/* ── Native Smooth Sliding Bottom Sheet ── */}
+        <BottomSheet
+          ref={sheetRef}
+          snapPoints={snapPoints}
+          index={0}
+          enablePanDownToClose={false}
+          onChange={(idx) => setSheetIndex(idx)}
+          onAnimate={(_from, to) => setSheetIndex(to)}
+          backgroundStyle={{ backgroundColor: theme.card }}
+          handleIndicatorStyle={{ backgroundColor: theme.border, width: 40 }}
         >
-          <Ionicons name="navigate" size={18} color="#fff" style={{ marginRight: 8 }} />
-          <Text style={styles.startBtnText}>Open in Maps</Text>
-        </Pressable>
+          <BottomSheetView style={styles.sheetBodyContainer}>
+            {/* Header Info Row (Always visible) */}
+            <View style={styles.sheetHeader}>
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text style={[styles.pharmName, { color: theme.text.primary }]} numberOfLines={1}>
+                  {pharmName}
+                </Text>
+                <Text style={[styles.pharmMeta, { color: theme.textMuted }]}>
+                  {distanceLabel} · {durationLabel}
+                </Text>
+              </View>
+
+              {/* Expand / Collapse Chevron Toggle */}
+              <Pressable
+                style={({ pressed }) => [styles.expandToggle, pressed && { opacity: 0.5 }, { backgroundColor: theme.surfaceSecondary }]}
+                onPress={() => {
+                  if (sheetIndex > 0) {
+                    sheetRef.current?.snapToIndex(0);
+                  } else {
+                    sheetRef.current?.snapToIndex(1);
+                  }
+                }}
+              >
+                <Ionicons
+                  name={sheetIndex > 0 ? 'chevron-down' : 'chevron-up'}
+                  size={20}
+                  color={primaryColor}
+                />
+              </Pressable>
+            </View>
+
+            {/* Open in Google Maps Button (Always in DOM; smoothly revealed as sheet expands to 190px) */}
+            <Pressable
+              style={({ pressed }) => [
+                styles.startBtn,
+                pressed && { opacity: 0.7 },
+                { backgroundColor: primaryColor },
+              ]}
+              onPress={openExternalNav}
+            >
+              <Ionicons name="navigate" size={18} color="#fff" style={{ marginRight: 8 }} />
+              <Text style={styles.startBtnText}>Open in Google Maps</Text>
+            </Pressable>
+          </BottomSheetView>
+        </BottomSheet>
       </View>
-    </View>
+    </GestureHandlerRootView>
   );
 }
 
@@ -161,6 +209,7 @@ const styles = StyleSheet.create({
     position: 'absolute', top: 0, left: 0, right: 0,
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: SPACING.lg, paddingTop: SPACING.md, gap: 12,
+    zIndex: 10,
   },
   backBtn: {
     width: 44, height: 44, borderRadius: 22,
@@ -175,22 +224,30 @@ const styles = StyleSheet.create({
   directionsIconCircle: { width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center' },
   directionsTitle: { fontSize: FONT_SIZE.lg, fontWeight: '700' },
   directionsSub: { fontSize: FONT_SIZE.sm },
-  bottomSheet: {
-    position: 'absolute', bottom: 0, left: 0, right: 0,
-    borderTopLeftRadius: RADIUS.xl, borderTopRightRadius: RADIUS.xl,
-    padding: SPACING.xl, paddingTop: 10,
-    shadowColor: '#000', shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.08, shadowRadius: 8, elevation: 8,
+
+  sheetBodyContainer: {
+    paddingHorizontal: SPACING.xl,
+    paddingTop: 4,
+    paddingBottom: 20,
+    gap: 12,
   },
-  handle: { width: 36, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: SPACING.lg },
-  sheetHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 },
-  pharmName: { fontSize: FONT_SIZE.title, fontWeight: '700', marginBottom: 4 },
-  pharmMeta: { fontSize: FONT_SIZE.body },
-  badge: { borderRadius: RADIUS.pill, paddingHorizontal: 10, paddingVertical: 4 },
-  badgeText: { fontSize: FONT_SIZE.sm, fontWeight: '600' },
+  sheetHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  pharmName: { fontSize: FONT_SIZE.title, fontWeight: '700' },
+  pharmMeta: { fontSize: FONT_SIZE.lg },
+  expandToggle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   startBtn: {
-    height: 52, borderRadius: RADIUS.pill,
-    flexDirection: 'row', justifyContent: 'center', alignItems: 'center',
+    height: 48,
+    borderRadius: RADIUS.pill,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 4,
   },
-  startBtnText: { color: '#ffffff', fontSize: FONT_SIZE.xl, fontWeight: '600' },
+  startBtnText: { color: '#ffffff', fontSize: FONT_SIZE.lg, fontWeight: '600' },
 });

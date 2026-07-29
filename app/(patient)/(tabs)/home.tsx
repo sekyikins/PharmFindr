@@ -16,6 +16,7 @@ import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
 import { usePharmacyStore } from '@/store/pharmacyStore';
 import { supabase } from '@/lib/supabase';
 import Skeleton from '@/components/ui/Skeleton';
+import { useNotificationStore } from '@/store/notificationStore';
 
 export default function Home() {
   const router = useRouter();
@@ -26,7 +27,16 @@ export default function Home() {
   // Nearby pharmacies come from the shared store (populated by the pharmacies screen)
   // No re-fetch needed — the store holds device-location-based results independently of auth.
   const { pharmacies: allPharmacies, loading: pharmLoading, loadNearby } = usePharmacyStore();
-  const pharmacies = allPharmacies.slice(0, 2);
+  const pharmacies = [...allPharmacies].sort((a, b) => a.distanceKm - b.distanceKm).slice(0, 3);
+
+  // Notification unread count + realtime subscription
+  const { unreadCount, fetchNotifications, subscribe, unsubscribe } = useNotificationStore();
+  useEffect(() => {
+    if (!user?.id) return;
+    fetchNotifications(user.id);
+    subscribe(user.id);
+    return () => unsubscribe();
+  }, [user?.id]);
 
   const [prescriptions, setPrescriptions] = useState<any[]>([]);
   const [rxLoading, setRxLoading] = useState(true);
@@ -102,26 +112,33 @@ export default function Home() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
+      {/* Header (Static Top Navigation Bar) */}
+      <View style={[styles.header, { backgroundColor: theme.card, borderBottomColor: theme.border, borderBottomWidth: 1 }]}>
+        <View>
+          <Text style={[styles.greeting, { color: theme.textMuted }]}>{getGreeting()}</Text>
+          <Text style={[styles.name, { color: theme.text }]}>{firstName}</Text>
+        </View>
+        <Pressable
+          style={({pressed})=>[styles.notifBtn, pressed && { opacity: 0.5 }, { backgroundColor: theme.surfaceSecondary }]}
+          onPress={() => router.push('/(patient)/notifications')}
+        >
+          <Ionicons name="notifications-outline" size={20} color={unreadCount > 0 ? primaryColor : theme.textMuted} />
+          {unreadCount > 0 && (
+            <View style={[styles.notifBadge, { backgroundColor: primaryColor }]}>
+              <Text style={styles.notifBadgeText}>
+                {unreadCount > 9 ? '9+' : String(unreadCount)}
+              </Text>
+            </View>
+          )}
+        </Pressable>
+      </View>
+
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scroll}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={primaryColor} colors={[primaryColor]} />
         }
       >
-          {/* Header */}
-          <View style={[styles.header, { backgroundColor: theme.card }]}>
-            <View>
-              <Text style={[styles.greeting, { color: theme.textMuted }]}>{getGreeting()}</Text>
-              <Text style={[styles.name, { color: theme.text }]}>{firstName}</Text>
-            </View>
-            <Pressable
-              style={({pressed})=>[styles.notifBtn, pressed && { opacity: 0.5 }, { backgroundColor: theme.surfaceSecondary }]}
-              onPress={() => router.push('/(patient)/notifications')}
-            >
-              <Ionicons name="notifications-outline" size={20} color={theme.textMuted} />
-            </Pressable>
-          </View>
 
           {/* Quick Actions */}
           <View style={styles.section}>
@@ -229,17 +246,9 @@ export default function Home() {
                   style={({pressed})=>[styles.pharmacyCard, { backgroundColor: theme.card }, pressed && { opacity: 0.5 }]}
                   onPress={() =>
                     router.push({
-                      pathname: '/(patient)/pharmacy/[id]',
+                      pathname: '/(patient)/pharmacies',
                       params: {
-                        id: encodeURIComponent(p.id),
-                        name: p.name,
-                        address: p.address,
-                        phone: p.phone ?? '',
-                        hours: p.hours ?? '',
-                        lat: String(p.latitude),
-                        lon: String(p.longitude),
-                        distanceKm: String(p.distanceKm),
-                        walkMinutes: String(p.walkMinutes),
+                        selectedId: p.id,
                       },
                     })
                   }
@@ -282,7 +291,6 @@ function QuickAction({
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  scroll: { paddingBottom: 32 },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 
   // Header
@@ -291,10 +299,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: SPACING.xl,
-    paddingTop: SPACING.md,
-    paddingBottom: SPACING.sm,
+    paddingVertical: SPACING.md,
   },
-  greeting: { fontSize: FONT_SIZE.body },
+  greeting: { fontSize: FONT_SIZE.lg },
   name: { fontSize: FONT_SIZE.hero, fontWeight: '700' },
   notifBtn: {
     width: 40,
@@ -302,13 +309,31 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.pill,
     justifyContent: 'center',
     alignItems: 'center',
+    position: 'relative',
+  },
+  notifBadge: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 3,
+  },
+  notifBadgeText: {
+    color: '#ffffff',
+    fontSize: 9,
+    fontWeight: '700',
+    lineHeight: 12,
   },
 
   // Sections
-  section: { paddingHorizontal: SPACING.xl, paddingTop: SPACING.xl },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.md },
-  sectionLabel: { fontSize: FONT_SIZE.sm, fontWeight: '700', letterSpacing: 0.8, textTransform: 'uppercase' },
-  viewAll: { fontSize: FONT_SIZE.body, fontWeight: '600' },
+  section: { paddingHorizontal: SPACING.xl, paddingTop: SPACING.md },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.sm },
+  sectionLabel: { fontSize: FONT_SIZE.md, fontWeight: '700', letterSpacing: 0.8, textTransform: 'uppercase' },
+  viewAll: { fontSize: FONT_SIZE.md, fontWeight: '600', letterSpacing: 0.8 },
 
   // Quick Actions
   actionsRow: { flexDirection: 'row', gap: SPACING.md },
@@ -328,7 +353,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: SPACING.sm,
   },
-  actionLabel: { fontSize: FONT_SIZE.sm, fontWeight: '600' },
+  actionLabel: { fontSize: FONT_SIZE.md, fontWeight: '600' },
 
   // Prescription Cards
   card: {

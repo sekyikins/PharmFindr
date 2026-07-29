@@ -16,6 +16,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useThemeContext } from '@/hooks/useThemeContext';
 import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
 import AppBottomSheet from '@/components/ui/AppBottomSheet';
+import { Header } from '@/components/ui/Header';
 
 export default function HealthProfile() {
   const router = useRouter();
@@ -84,7 +85,7 @@ export default function HealthProfile() {
       });
 
       Alert.alert('Success', 'Health parameters updated successfully!', [
-        { text: 'OK', onPress: () => router.back() },
+        { text: 'OK', onPress: () => router.navigate('/(patient)/(tabs)/profile') },
       ]);
     } catch (e: any) {
       Alert.alert('Error', e.message || 'Failed to update profile.');
@@ -98,16 +99,7 @@ export default function HealthProfile() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
       {/* Header */}
-      <View style={[styles.header, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
-        <Pressable
-          style={({pressed})=>[styles.navBtn, pressed && {opacity: 0.5}, { backgroundColor: theme.surfaceSecondary }]}
-          onPress={() => router.back()}
-        >
-          <Ionicons name="arrow-back" size={18} color={theme.text.primary} />
-        </Pressable>
-        <Text style={[styles.headerTitle, { color: theme.text.primary }]}>Health Parameters</Text>
-        <View style={{ width: 15 }} />
-      </View>
+      <Header title="Health Parameters" showBack onBack={() => router.navigate('/(patient)/(tabs)/profile')} />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {/* Info card */}
@@ -362,7 +354,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderWidth: 1,
-    fontSize: FONT_SIZE.body,
+    fontSize: FONT_SIZE.lg,
   },
   textArea: { height: 70, textAlignVertical: 'top' },
   paramBox: {
@@ -404,7 +396,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  dropdownValue: { fontSize: FONT_SIZE.body },
+  dropdownValue: { fontSize: FONT_SIZE.lg },
   saveBtn: {
     height: 48,
     borderRadius: RADIUS.pill,
@@ -428,7 +420,7 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.md,
   },
   genderOptionText: {
-    fontSize: FONT_SIZE.body,
+    fontSize: FONT_SIZE.lg,
     flex: 1,
   },
 });

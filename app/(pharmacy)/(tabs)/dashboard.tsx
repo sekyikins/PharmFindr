@@ -99,6 +99,20 @@ export default function Dashboard() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
+      {/* Static Top Header Bar */}
+      <View style={[styles.topHeader, { backgroundColor: primaryColor }]}>
+        <View style={styles.heroLeft}>
+          <Text style={styles.welcomeBack}>Welcome back</Text>
+          <Text style={styles.pharmName}>{pharmacyName}</Text>
+        </View>
+        <Pressable
+          style={({pressed})=>[styles.profileBtn, pressed && {opacity: 0.5}]}
+          onPress={() => router.push('/(pharmacy)/(tabs)/profile')}
+        >
+          <Ionicons name="person-outline" size={20} color={theme.text.primary} />
+        </Pressable>
+      </View>
+
       <ScrollView
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
@@ -106,21 +120,8 @@ export default function Dashboard() {
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={primaryColor} colors={[primaryColor]} />
         }
       >
-          {/* Green Hero Header */}
+          {/* Green Hero Header for Stats */}
           <View style={[styles.hero, { backgroundColor: primaryColor }]}>
-            <View style={styles.heroContent}>
-              <View style={styles.heroLeft}>
-                <Text style={styles.welcomeBack}>Welcome back</Text>
-                <Text style={styles.pharmName}>{pharmacyName}</Text>
-              </View>
-              <Pressable
-                style={({pressed})=>[styles.profileBtn, pressed && {opacity: 0.5}, {borderWidth: 1, borderColor: theme.border}]}
-                onPress={() => router.push('/(pharmacy)/(tabs)/profile')}
-              >
-                <Ionicons name="person-outline" size={20} color={theme.text.primary} />
-              </Pressable>
-            </View>
-
             {/* Stats row */}
             <View style={styles.statsRow}>
               <View style={styles.statItem}>
@@ -268,11 +269,11 @@ const styles = StyleSheet.create({
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   scroll: {},
 
-  // Hero
-  hero: { padding: SPACING.xl, overflow: 'hidden' },
-  heroContent: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: SPACING.xl },
+  // Top Header
+  topHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: SPACING.xl, paddingVertical: SPACING.md },
+  hero: { paddingHorizontal: SPACING.xl, paddingBottom: SPACING.xl, overflow: 'hidden' },
   heroLeft: { flex: 1 },
-  welcomeBack: { fontSize: FONT_SIZE.body, color: 'rgba(255,255,255,0.85)', marginBottom: 2 },
+  welcomeBack: { fontSize: FONT_SIZE.lg, color: 'rgba(255,255,255,0.85)', marginBottom: 2 },
   pharmName: { fontSize: FONT_SIZE.title + 2, fontWeight: '700', color: '#ffffff' },
   profileBtn: { width: 40, height: 40, borderRadius: RADIUS.lg, backgroundColor: '#ffffff', justifyContent: 'center', alignItems: 'center' },
 

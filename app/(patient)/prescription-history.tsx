@@ -16,6 +16,7 @@ import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
 import Skeleton from '@/components/ui/Skeleton';
+import { Header } from '@/components/ui/Header';
 
 export default function PrescriptionHistory() {
   const router = useRouter();
@@ -108,16 +109,7 @@ export default function PrescriptionHistory() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
       {/* Header */}
-      <View style={[styles.header, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
-        <Pressable
-          style={({pressed})=>[styles.backBtn, pressed && { opacity: 0.5 }, { backgroundColor: theme.surfaceSecondary }]}
-          onPress={() => router.back()}
-        >
-          <Ionicons name="arrow-back" size={18} color={theme.text.primary} />
-        </Pressable>
-        <Text style={[styles.headerTitle, { color: theme.text.primary }]}>Prescription History</Text>
-        <View style={{ width: 36 }} />
-      </View>
+      <Header title="Prescription History" showBack onBack={() => router.navigate('/(patient)/(tabs)/profile')} />
 
       {loading ? (
         renderSkeleton()
@@ -203,7 +195,7 @@ const styles = StyleSheet.create({
 
   listContent: { padding: SPACING.lg, gap: 12 },
   emptyContainer: { alignItems: 'center', marginTop: 80, gap: 10 },
-  emptyText: { fontSize: FONT_SIZE.body, textAlign: 'center' },
+  emptyText: { fontSize: FONT_SIZE.lg, textAlign: 'center' },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 
   card: {

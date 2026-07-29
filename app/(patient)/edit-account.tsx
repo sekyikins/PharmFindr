@@ -23,6 +23,7 @@ import { supabase } from '@/lib/supabase';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import AppBottomSheet from '@/components/ui/AppBottomSheet';
 import AvatarPickerSheet from '@/components/ui/AvatarPickerSheet';
+import { Header } from '@/components/ui/Header';
 
 export default function EditAccount() {
   const router = useRouter();
@@ -166,13 +167,7 @@ export default function EditAccount() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
       {/* ── Header ── */}
-      <View style={[styles.header, { borderBottomColor: theme.border, backgroundColor: theme.card }]}>
-        <Pressable style={({pressed})=>[styles.circleBtn, pressed && { opacity: 0.5 }, { backgroundColor: theme.surfaceSecondary }]} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={20} color={theme.text.primary} />
-        </Pressable>
-        <Text style={[styles.headerTitle, { color: theme.text.primary }]}>Edit Account</Text>
-        <View style={{ width: 40 }} />
-      </View>
+      <Header title="Edit Account" showBack onBack={() => router.navigate('/(patient)/(tabs)/profile')} />
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* ── Expanded Avatar Section ── */}
@@ -504,7 +499,7 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    fontSize: FONT_SIZE.body,
+    fontSize: FONT_SIZE.lg,
   },
   hintText: {
     fontSize: FONT_SIZE.sm,
@@ -534,7 +529,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   securityTitle: {
-    fontSize: FONT_SIZE.body,
+    fontSize: FONT_SIZE.lg,
     fontWeight: '600',
   },
   securitySub: {
@@ -647,7 +642,7 @@ const styles = StyleSheet.create({
   },
   avatarActionLabel: {
     color: '#ffffff',
-    fontSize: FONT_SIZE.body,
+    fontSize: FONT_SIZE.lg,
     fontWeight: '600',
   },
 
@@ -674,7 +669,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     height: 46,
     borderWidth: 1,
-    fontSize: FONT_SIZE.body,
+    fontSize: FONT_SIZE.lg,
   },
   passwordActionRow: {
     flexDirection: 'row',
@@ -689,7 +684,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  modalBtnCancelText: { fontWeight: '600', fontSize: FONT_SIZE.body },
+  modalBtnCancelText: { fontWeight: '600', fontSize: FONT_SIZE.lg },
   modalBtnSave: {
     flex: 1,
     height: 46,
@@ -697,5 +692,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  modalBtnSaveText: { color: '#ffffff', fontWeight: '700', fontSize: FONT_SIZE.body },
+  modalBtnSaveText: { color: '#ffffff', fontWeight: '700', fontSize: FONT_SIZE.lg },
 });

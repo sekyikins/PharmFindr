@@ -9,7 +9,9 @@ import {
   ScrollView,
   useWindowDimensions,
   Image,
-  StatusBar} from 'react-native';
+  StatusBar,
+  KeyboardAvoidingView,
+  Platform} from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAuthStore } from '@/store/authStore';
 import { supabase } from '@/lib/supabase';
@@ -195,13 +197,17 @@ export default function Login() {
   return (
     <View style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={activeColor} />
-      <ScrollView 
-        contentContainerStyle={styles.scroll} 
-        bounces={false}
-        keyboardShouldPersistTaps="handled"
-      
-        showsVerticalScrollIndicator={false}
-        showsHorizontalScrollIndicator={false}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+      >
+        <ScrollView 
+          contentContainerStyle={styles.scroll} 
+          bounces={false}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          showsHorizontalScrollIndicator={false}
+        >
 
         {/* ── Figma Hero Header ── */}
         <View style={[styles.hero, { backgroundColor: activeColor }]}>
@@ -426,6 +432,7 @@ export default function Login() {
           </Pressable>
         </View>
       </ScrollView>
+      </KeyboardAvoidingView>
       {/* Ensure content extends to the bottom of the device */}
       <SafeAreaView edges={['bottom']} style={{ backgroundColor: '#ffffff' }} />
     </View>

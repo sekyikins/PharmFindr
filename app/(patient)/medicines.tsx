@@ -73,7 +73,7 @@ export default function MedicineDetail() {
         
         {/* ── Blue Hero Header ── */}
         <View style={[styles.hero, { backgroundColor: primaryColor }]}>
-          <Pressable style={({pressed})=>[styles.backBtn, pressed && { opacity: 0.5 }]} onPress={() => router.back()}>
+          <Pressable style={({pressed})=>[styles.backBtn, pressed && { opacity: 0.5 }]} onPress={() => router.navigate('/(patient)/(tabs)/profile')}>
             <Ionicons name="arrow-back" size={18} color="#ffffff" />
           </Pressable>
 
@@ -211,7 +211,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   cardLabel: { fontSize: FONT_SIZE.xs - 1, fontWeight: '700', letterSpacing: 0.5, marginBottom: 4 },
-  cardValue: { fontSize: FONT_SIZE.body, fontWeight: '600', textAlign: 'center' },
+  cardValue: { fontSize: FONT_SIZE.lg, fontWeight: '600', textAlign: 'center' },
 
   // ── Panels ──
   panel: {
@@ -222,7 +222,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   panelTitle: { fontSize: FONT_SIZE.xl, fontWeight: '700', marginBottom: 8 },
-  panelContent: { fontSize: FONT_SIZE.body, lineHeight: 20 },
+  panelContent: { fontSize: FONT_SIZE.lg, lineHeight: 20 },
 
   // ── Alternatives ──
   alternativesRow: {

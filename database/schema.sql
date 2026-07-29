@@ -18,6 +18,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- ============================================================
 
 -- Drop dependent tables first (FK order)
+DROP TABLE IF EXISTS public.notifications      CASCADE;
 DROP TABLE IF EXISTS public.chat_messages      CASCADE;
 DROP TABLE IF EXISTS public.reservations       CASCADE;
 DROP TABLE IF EXISTS public.prescriptions      CASCADE;
@@ -221,15 +222,35 @@ CREATE TRIGGER on_reservation_updated
   FOR EACH ROW EXECUTE FUNCTION public.handle_reservation_updated();
 
 -- ============================================================
--- 8. CHAT MESSAGES
+-- 8. CONSULTATIONS & CHAT MESSAGES
 -- ============================================================
+CREATE TABLE public.consultations (
+  id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id         UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  title           TEXT        NOT NULL,
+  type            TEXT        NOT NULL DEFAULT 'prescription'
+                              CHECK (type IN ('general', 'prescription', 'topic')),
+  prescription_id UUID        REFERENCES public.prescriptions(id) ON DELETE SET NULL,
+  image_url       TEXT,
+  medicines       JSONB,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE public.consultations ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "consultations_owner_all" ON public.consultations
+  FOR ALL USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
 CREATE TABLE public.chat_messages (
-  id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id    UUID        REFERENCES auth.users(id) ON DELETE CASCADE,
-  role       TEXT        NOT NULL CHECK (role IN ('user', 'assistant')),
-  content    TEXT        NOT NULL,
-  metadata   JSONB,
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id         UUID        REFERENCES auth.users(id) ON DELETE CASCADE,
+  consultation_id UUID        REFERENCES public.consultations(id) ON DELETE CASCADE,
+  role            TEXT        NOT NULL CHECK (role IN ('user', 'assistant')),
+  content         TEXT        NOT NULL,
+  metadata        JSONB,
+  created_at      TIMESTAMPTZ DEFAULT NOW()
 );
 
 ALTER TABLE public.chat_messages ENABLE ROW LEVEL SECURITY;

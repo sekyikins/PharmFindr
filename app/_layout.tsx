@@ -3,7 +3,7 @@ import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
-import { View, ActivityIndicator, Platform, StatusBar } from 'react-native';
+import { StatusBar } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 
@@ -35,12 +35,8 @@ export default function RootLayout() {
   }, [loaded]);
 
   if (!loaded) {
-    // Show a spinner instead of null to avoid blank white page on web
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#ffffff' }}>
-        <ActivityIndicator size="large" color="#2563eb" />
-      </View>
-    );
+    // Keep the native splash screen visible until fonts are ready — no spinner flash.
+    return null;
   }
 
   return <RootLayoutNav />;
@@ -65,7 +61,6 @@ function RootLayoutNav() {
             <Stack.Screen name="(auth)" />
             <Stack.Screen name="(patient)" />
             <Stack.Screen name="(pharmacy)" />
-            <Stack.Screen name="modal" options={{ presentation: 'modal', headerShown: true }} />
           </Stack>
         </ThemeProvider>
       </BottomSheetModalProvider>

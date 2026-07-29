@@ -96,7 +96,7 @@ export default function PharmacyReservationDetails() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
-      <Header title="Reservation Request" showBack />
+      <Header title="Reservation Request" showBack onBack={() => router.navigate('/(pharmacy)/(tabs)/reservations')} />
 
       <ScrollView contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}

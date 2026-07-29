@@ -130,7 +130,7 @@ const styles = StyleSheet.create({
   },
   label: {
     flex: 1,
-    fontSize: FONT_SIZE.body,
+    fontSize: FONT_SIZE.lg,
     fontWeight: '500',
   },
 });
