@@ -270,11 +270,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
           content,
         });
       } catch (err) {
-        await supabase.from('chat_messages').insert({
-          user_id: userId,
-          role: 'user',
-          content,
-        }).catch(() => {});
+        try {
+          await supabase.from('chat_messages').insert({
+            user_id: userId,
+            role: 'user',
+            content,
+          });
+        } catch (_) {}
       }
     }
 
@@ -318,11 +320,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
             content: reply,
           });
         } catch (err) {
-          await supabase.from('chat_messages').insert({
-            user_id: userId,
-            role: 'assistant',
-            content: reply,
-          }).catch(() => {});
+          try {
+            await supabase.from('chat_messages').insert({
+              user_id: userId,
+              role: 'assistant',
+              content: reply,
+            });
+          } catch (_) {}
         }
       }
     } catch (e: any) {

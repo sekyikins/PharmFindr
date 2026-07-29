@@ -185,7 +185,8 @@ export default function AIChat() {
           },
         },
         { text: 'Cancel', style: 'cancel' },
-      ]
+      ],
+      {cancelable: true}
     );
   };
 

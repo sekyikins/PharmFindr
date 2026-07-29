@@ -140,7 +140,7 @@ const styles = StyleSheet.create({
   statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: RADIUS.pill, flexShrink: 0 },
   statusText: { fontSize: FONT_SIZE.md, fontWeight: '600' },
   detailRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
-  detailText: { fontSize: FONT_SIZE.body, flex: 1 },
+  detailText: { fontSize: FONT_SIZE.lg, flex: 1 },
   primaryBtn: { height: 52, borderRadius: RADIUS.pill, justifyContent: 'center', alignItems: 'center' },
   primaryBtnText: { color: '#fff', fontSize: FONT_SIZE.xl, fontWeight: '600' },
   secondaryRow: { flexDirection: 'row', gap: 12 },
