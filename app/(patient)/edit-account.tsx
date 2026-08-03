@@ -27,7 +27,7 @@ import { Header } from '@/components/ui/Header';
 
 export default function EditAccount() {
   const router = useRouter();
-  const { user, profile, updateProfile, uploadAvatar } = useAuthStore();
+  const { user, profile, updateProfile, uploadAvatar, updatePasswordAndRevokeOtherSessions } = useAuthStore();
   const { theme, primaryColor } = useThemeContext();
 
   const [fullName, setFullName] = useState(profile?.full_name ?? '');
@@ -113,7 +113,7 @@ export default function EditAccount() {
     }
   };
 
-  // Secure Password Update Handler
+  // Secure Password Update Handler with Global Session Revocation
   const handleChangePasswordSubmit = async () => {
     if (!currentPassword.trim()) {
       Alert.alert('Validation Error', 'Please enter your current password.');
@@ -145,14 +145,13 @@ export default function EditAccount() {
         throw new Error('Current password is incorrect.');
       }
 
-      // 2. Update to New Password
-      const { error: updateErr } = await supabase.auth.updateUser({
-        password: newPassword,
-      });
+      // 2. Update to New Password & Revoke All Remote Sessions
+      await updatePasswordAndRevokeOtherSessions(newPassword);
 
-      if (updateErr) throw updateErr;
-
-      Alert.alert('Success', 'Your password has been changed securely!');
+      Alert.alert(
+        'Password Updated',
+        'Your password has been changed securely. All other active device sessions have been logged out for security.'
+      );
       passwordSheetRef.current?.dismiss();
       setCurrentPassword('');
       setNewPassword('');
@@ -167,7 +166,7 @@ export default function EditAccount() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
       {/* ── Header ── */}
-      <Header title="Edit Account" showBack onBack={() => router.navigate('/(patient)/(tabs)/profile')} />
+      <Header title="Edit Account" showBack onBack={() => router.canGoBack() ? router.back() : router.navigate('/(patient)/(tabs)/profile')} />
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* ── Expanded Avatar Section ── */}

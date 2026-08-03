@@ -10,45 +10,81 @@ import {
   Linking,
   PanResponder,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import FullMapComponent from '@/components/FullMapComponent';
 import { useThemeContext } from '@/hooks/useThemeContext';
 import { RADIUS, SPACING } from '@/styles/theme';
-import { getCurrentLocation, type Coords } from '@/lib/location';
+import { getCurrentLocation, DEFAULT_COORDS, type Coords } from '@/lib/location';
 import { searchNearbyPharmacies, type OsmPharmacy } from '@/lib/osm';
 import { usePharmacyStore } from '@/store/pharmacyStore';
 import AppBottomSheet from '@/components/ui/AppBottomSheet';
 import { Header } from '@/components/ui/Header';
+import { supabase } from '@/lib/supabase';
 
 export default function Pharmacies() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ query?: string; selectedId?: string }>();
   const routeQuery = params.query ? String(params.query) : '';
   const routeSelectedId = params.selectedId ? String(params.selectedId) : '';
 
   const { theme, primaryColor } = useThemeContext();
-  const [searchQuery, setSearchQuery] = useState(routeQuery);
-  const [userCoords, setUserCoords] = useState<Coords | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
-  // Seed from shared store
+  // Seed from shared store (must come before userCoords state so we can use it as initial value)
   const {
     pharmacies: storePharmacies,
     userCoords: storeCoords,
     setPharmacies: storeSetPharmacies,
     setUserCoords: storeSetCoords,
+    maxDistanceKm,
+    onlyOpen,
+    onlyVerified,
+    setMaxDistanceKm,
+    setOnlyOpen,
+    setOnlyVerified,
   } = usePharmacyStore();
+
+  const [userCoords, setUserCoords] = useState<Coords>(storeCoords || DEFAULT_COORDS);
 
   const [pharmacies, setPharmacies] = useState<OsmPharmacy[]>(storePharmacies);
   const [selectedPharmacy, setSelectedPharmacy] = useState<OsmPharmacy | null>(null);
 
   const [loading, setLoading] = useState(storePharmacies.length === 0);
-  const [error, setError] = useState<string | null>(null);
 
   const stopLoadingSheetRef = useRef<any>(null);
+  const filterSheetRef = useRef<any>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const spinAnim = useRef(new Animated.Value(0)).current;
+
+  // Draft filter state (only committed when user taps "Apply Filter")
+  const [draftDistance, setDraftDistance] = useState(maxDistanceKm);
+  const [draftOnlyOpen, setDraftOnlyOpen] = useState(onlyOpen);
+  const [draftOnlyVerified, setDraftOnlyVerified] = useState(onlyVerified);
+
+  const openFilterSheet = () => {
+    setDraftDistance(maxDistanceKm);
+    setDraftOnlyOpen(onlyOpen);
+    setDraftOnlyVerified(onlyVerified);
+    if (filterSheetRef.current?.present) {
+      filterSheetRef.current.present();
+    } else {
+      filterSheetRef.current?.expand?.();
+    }
+  };
+
+  const handleApplyFilter = () => {
+    setMaxDistanceKm(draftDistance);
+    setOnlyOpen(draftOnlyOpen);
+    setOnlyVerified(draftOnlyVerified);
+    if (filterSheetRef.current?.dismiss) {
+      filterSheetRef.current.dismiss();
+    } else {
+      filterSheetRef.current?.close?.();
+    }
+  };
 
   // Slide animation for bottom card (0 = fully visible, 350 = off screen)
   const slideAnim = useRef(new Animated.Value(350)).current;
@@ -142,7 +178,6 @@ export default function Pharmacies() {
     abortControllerRef.current = controller;
 
     setLoading(true);
-    setError(null);
 
     try {
       const coords = await getCurrentLocation();
@@ -153,7 +188,7 @@ export default function Pharmacies() {
       const accumulated: OsmPharmacy[] = [];
       await searchNearbyPharmacies(
         coords,
-        5000,
+        8000,
         (foundPharmacy) => {
           if (accumulated.some((p) => p.id === foundPharmacy.id)) return;
           accumulated.push(foundPharmacy);
@@ -162,10 +197,8 @@ export default function Pharmacies() {
         },
         controller.signal
       );
-    } catch (e: any) {
-      if (e?.message !== 'Aborted') {
-        setError(e?.message ?? 'Could not load pharmacies.');
-      }
+    } catch {
+      // errors are silent — loading spinner stops and user can retry via refresh
     } finally {
       if (!controller.signal.aborted) {
         setLoading(false);
@@ -188,29 +221,58 @@ export default function Pharmacies() {
     };
   }, []);
 
-  // Auto-select pharmacy if selectedId param was passed (e.g. from Home screen)
+  // Auto-select pharmacy if selectedId param was passed (e.g. from Home or Search screen)
   useEffect(() => {
-    if (!routeSelectedId || pharmacies.length === 0) return;
+    if (!routeSelectedId) return;
     const targetId = decodeURIComponent(routeSelectedId);
     const found = pharmacies.find(
       (p) => p.id === targetId || p.id === routeSelectedId || encodeURIComponent(p.id) === routeSelectedId
     );
     if (found) {
       setSelectedPharmacy(found);
+    } else if (targetId && targetId !== 'undefined') {
+      // Fallback: Fetch directly from Supabase if it's a registered pharmacy
+      supabase
+        .from('pharmacies')
+        .select('*')
+        .eq('id', targetId)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data) {
+            setSelectedPharmacy({
+              id: data.id,
+              name: data.name,
+              address: data.address || 'Address registered on map',
+              phone: data.phone || 'N/A',
+              latitude: data.latitude || (userCoords?.latitude ?? 5.6037),
+              longitude: data.longitude || (userCoords?.longitude ?? -0.187),
+              distanceKm: 0.5,
+              walkMinutes: 6,
+            });
+          }
+        });
     }
-  }, [routeSelectedId, pharmacies]);
+  }, [routeSelectedId, pharmacies, userCoords]);
 
   const handleRefreshPress = () => {
     if (loading) {
-      stopLoadingSheetRef.current?.expand?.();
+      if (stopLoadingSheetRef.current?.present) {
+        stopLoadingSheetRef.current.present();
+      } else {
+        stopLoadingSheetRef.current?.expand?.();
+      }
     } else {
       loadPharmacies();
     }
   };
 
-  const filtered = pharmacies.filter((p) =>
-    p.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filtered = pharmacies.filter((p) => {
+    const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesDistance = p.distanceKm <= maxDistanceKm;
+    const matchesOpen = !onlyOpen || p.isOpen !== false;
+    const matchesVerified = !onlyVerified || p.isRegistered === true;
+    return matchesSearch && matchesDistance && matchesOpen && matchesVerified;
+  });
 
   const mapRegion = userCoords
     ? {
@@ -260,181 +322,224 @@ export default function Pharmacies() {
   const hasDrugQuery = !!routeQuery.trim();
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
-      {/* ── Top Navigation Header ── */}
-      <Header
-        title="Nearby Pharmacies"
-        showBack
-        onBack={() => {
-          if (router.canGoBack()) {
-            router.back();
-          } else {
-            router.navigate('/(patient)/(tabs)/home');
-          }
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+
+      {/* ── Full-screen map — rendered first so it sits behind all overlays ── */}
+      <FullMapComponent
+        initialRegion={mapRegion}
+        userCoords={userCoords}
+        markers={filtered}
+        selectedId={selectedPharmacy?.id}
+        onSelectMarker={(id) => {
+          const found = filtered.find((p) => p.id === id);
+          if (found) setSelectedPharmacy(found);
         }}
-        right={
-          <Pressable
-            style={({ pressed }) => [
-              styles.navBtn,
-              pressed && { opacity: 0.7 },
-              { backgroundColor: theme.surfaceSecondary },
-            ]}
-            onPress={handleRefreshPress}
-          >
-            <Animated.View style={{ transform: [{ rotate: spinInterpolate }] }}>
-              <Ionicons name="refresh-outline" size={18} color={theme.text.primary} />
-            </Animated.View>
-          </Pressable>
-        }
+        mapPadding={{ top: 100 + insets.top, right: 10, bottom: 20, left: 10 }}
       />
 
-      {/* Drug Search Context Banner */}
-      {routeQuery ? (
-        <View style={[styles.contextBanner, { backgroundColor: theme.patientSecondary, borderColor: primaryColor + '40' }]}>
-          <Ionicons name="medkit-outline" size={18} color={primaryColor} />
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.contextTitle, { color: primaryColor }]}>
-              Medication Search: {routeQuery}
-            </Text>
-            <Text style={[styles.contextSub, { color: theme.text.primary }]}>
-              Tap any pharmacy pin on the map to view stock, directions & reservation.
-            </Text>
-          </View>
-        </View>
-      ) : null}
-
-      {/* ── Search Bar Overlay on Top of Map ── */}
-      <View style={styles.searchBarContainer}>
-        <View style={[styles.searchBar, { backgroundColor: theme.card, borderColor: theme.border }]}>
-          <Ionicons name="search-outline" size={16} color={theme.text.muted} style={{ marginRight: 8 }} />
-          <TextInput
-            style={[styles.searchInput, { color: theme.text.primary }]}
-            placeholder="Search pharmacies on map..."
-            placeholderTextColor={theme.text.muted}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-          {searchQuery.length > 0 && (
-            <Pressable onPress={() => setSearchQuery('')} hitSlop={8}>
-              <Ionicons name="close-circle" size={16} color={theme.textDim} />
-            </Pressable>
-          )}
-        </View>
-        <Text style={[styles.pinCountBadge, { color: theme.textMuted, backgroundColor: theme.card }]}>
-          📍 {filtered.length} locations
-        </Text>
-      </View>
-
-      {/* ── Full Screen Google Map Viewport ── */}
-      <View style={styles.mapViewport}>
-        <FullMapComponent
-          initialRegion={mapRegion}
-          userCoords={userCoords}
-          markers={filtered}
-          selectedId={selectedPharmacy?.id}
-          onSelectMarker={(id) => {
-            const found = filtered.find((p) => p.id === id);
-            if (found) {
-              setSelectedPharmacy(found);
+      {/* ── Top overlay: Header + optional banner + search bar ── */}
+      <View style={[styles.overlayTop, { paddingTop: insets.top }]} pointerEvents="box-none">
+        <Header
+          title="Nearby Pharmacies"
+          showBack
+          onBack={() => {
+            if (router.canGoBack()) {
+              router.back();
+            } else {
+              router.navigate('/(patient)/(tabs)/home');
             }
           }}
+          right={
+            <Pressable
+              style={({ pressed }) => [
+                styles.navBtn,
+                pressed && { opacity: 0.7 },
+                { backgroundColor: theme.surfaceSecondary },
+              ]}
+              onPress={handleRefreshPress}
+            >
+              <Animated.View style={{ transform: [{ rotate: spinInterpolate }] }}>
+                <Ionicons name="refresh-outline" size={18} color={theme.text.primary} />
+              </Animated.View>
+            </Pressable>
+          }
         />
 
-        {/* ── Selected Pharmacy Details Card with Slide Down & Drag-to-Dismiss ── */}
-        {selectedPharmacy && (
-          <Animated.View
-            style={[
-              styles.bottomDetailsCard,
-              { backgroundColor: theme.card, borderColor: theme.border },
-              { transform: [{ translateY: slideAnim }] },
+        {/* Drug Search Context Banner */}
+        {routeQuery ? (
+          <View style={[styles.contextBanner, { backgroundColor: theme.patientSecondary, borderColor: primaryColor + '40' }]}>
+            <Ionicons name="medkit-outline" size={18} color={primaryColor} />
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.contextTitle, { color: primaryColor }]}>
+                Medication Search: {routeQuery}
+              </Text>
+              <Text style={[styles.contextSub, { color: theme.text.primary }]}>
+                Tap any pharmacy pin on the map to view stock, directions & reservation.
+              </Text>
+            </View>
+          </View>
+        ) : null}
+
+        {/* ── Search Bar & Filter Radius Button ── */}
+        <View style={styles.searchBarContainer}>
+          <View style={[styles.searchBar, { backgroundColor: theme.card, borderColor: theme.border }]}>
+            <Ionicons name="search-outline" size={16} color={theme.text.muted} style={{ marginRight: 8 }} />
+            <TextInput
+              style={[styles.searchInput, { color: theme.text.primary }]}
+              placeholder="Search pharmacies..."
+              placeholderTextColor={theme.text.muted}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+            {searchQuery.length > 0 && (
+              <Pressable onPress={() => setSearchQuery('')} hitSlop={8}>
+                <Ionicons name="close-circle" size={16} color={theme.textDim} />
+              </Pressable>
+            )}
+          </View>
+
+          {/* Filter Radius Control Button */}
+          <Pressable
+            style={({ pressed }) => [
+              styles.filterRadiusBtn,
+              pressed && { opacity: 0.7 },
+              { backgroundColor: theme.card, borderColor: primaryColor },
             ]}
+            onPress={openFilterSheet}
           >
-            {/* Drag Handle Bar */}
-            <View style={styles.handleContainer} {...panResponder.panHandlers}>
-              <View style={[styles.handleIndicator, { backgroundColor: theme.border }]} />
+            <Ionicons name="options-outline" size={18} color={primaryColor} />
+            <Text style={[styles.filterRadiusText, { color: primaryColor }]}>{maxDistanceKm} km</Text>
+          </Pressable>
+        </View>
+      </View>
+
+      {/* ── Selected Pharmacy Details Card with Slide Down & Drag-to-Dismiss ── */}
+      {selectedPharmacy && (
+        <Animated.View
+          style={[
+            styles.bottomDetailsCard,
+            { backgroundColor: theme.card, borderColor: theme.border },
+            { transform: [{ translateY: slideAnim }] },
+          ]}
+        >
+          {/* Drag Handle Bar */}
+          <View style={styles.handleContainer} {...panResponder.panHandlers}>
+            <View style={[styles.handleIndicator, { backgroundColor: theme.border }]} />
+          </View>
+
+          <View style={styles.sheetContent}>
+            {/* Title Row + Close button */}
+            <View style={styles.cardHeaderRow}>
+              <View style={{ flex: 1, gap: 4 }}>
+                <Text style={[styles.pharmTitle, { color: theme.text.primary }]} numberOfLines={1}>
+                  {selectedPharmacy.name}
+                </Text>
+                <View style={styles.badgeRow}>
+                  {selectedPharmacy.isRegistered ? (
+                    <View style={[styles.registeredBadge, { backgroundColor: theme.patientSecondary }]}>
+                      <Ionicons name="shield-checkmark" size={12} color={primaryColor} />
+                      <Text style={[styles.registeredText, { color: primaryColor }]}>Registered Partner</Text>
+                    </View>
+                  ) : (
+                    <View style={[styles.registeredBadge, { backgroundColor: theme.surfaceSecondary }]}>
+                      <Ionicons name="location-outline" size={12} color={theme.textMuted} />
+                      <Text style={[styles.registeredText, { color: theme.textMuted }]}>Public Map Location</Text>
+                    </View>
+                  )}
+
+                  {selectedPharmacy.hours && (
+                    <View style={[
+                      styles.hoursBadge,
+                      { backgroundColor: selectedPharmacy.isOpen === false ? theme.surfaceSecondary : theme.successBg }
+                    ]}>
+                      <Ionicons
+                        name={selectedPharmacy.isOpen === false ? "time-outline" : "checkmark-circle"}
+                        size={12}
+                        color={selectedPharmacy.isOpen === false ? theme.textMuted : theme.success}
+                      />
+                      <Text style={[
+                        styles.hoursText,
+                        { color: selectedPharmacy.isOpen === false ? theme.textMuted : theme.successText }
+                      ]}>
+                        {selectedPharmacy.isOpen === false ? 'Closed Now' : 'Open Now'} ({selectedPharmacy.hours})
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+
+              {/* Close Button */}
+              <Pressable
+                style={({ pressed }) => [styles.closeBtn, pressed && { opacity: 0.5 }, { backgroundColor: theme.surfaceSecondary }]}
+                onPress={dismissCard}
+              >
+                <Ionicons name="close" size={18} color={theme.text.primary} />
+              </Pressable>
             </View>
 
-            <View style={styles.sheetContent}>
-              {/* Title Row + Close button */}
-              <View style={styles.cardHeaderRow}>
-                <View style={{ flex: 1, gap: 4 }}>
-                  <Text style={[styles.pharmTitle, { color: theme.text.primary }]} numberOfLines={1}>
-                    {selectedPharmacy.name}
-                  </Text>
-                  <View style={styles.badgeRow}>
-                    {selectedPharmacy.isRegistered ? (
-                      <View style={[styles.registeredBadge, { backgroundColor: theme.patientSecondary }]}>
-                        <Ionicons name="shield-checkmark" size={12} color={primaryColor} />
-                        <Text style={[styles.registeredText, { color: primaryColor }]}>Registered Partner</Text>
-                      </View>
-                    ) : (
-                      <View style={[styles.registeredBadge, { backgroundColor: theme.surfaceSecondary }]}>
-                        <Ionicons name="location-outline" size={12} color={theme.textMuted} />
-                        <Text style={[styles.registeredText, { color: theme.textMuted }]}>Public Map Location</Text>
-                      </View>
-                    )}
+            {/* Distance & Time */}
+            <View style={styles.metaRow}>
+              <Ionicons name="navigate-outline" size={14} color={theme.textMuted} />
+              <Text style={[styles.metaText, { color: theme.textMuted }]}>
+                {selectedPharmacy.distanceKm} km away
+              </Text>
+              <Text style={[styles.metaDot, { color: theme.textDim }]}>·</Text>
+              <Ionicons name="walk-outline" size={14} color={theme.textMuted} />
+              <Text style={[styles.metaText, { color: theme.textMuted }]}>
+                {selectedPharmacy.walkMinutes} min walk
+              </Text>
+            </View>
 
-                    {selectedPharmacy.hours && (
-                      <View style={[styles.hoursBadge, { backgroundColor: theme.successBg }]}>
-                        <Text style={[styles.hoursText, { color: theme.successText }]}>Open Now</Text>
-                      </View>
-                    )}
-                  </View>
-                </View>
+            {/* Address */}
+            <View style={styles.infoRow}>
+              <Ionicons name="location-outline" size={16} color={theme.textMuted} />
+              <Text style={[styles.infoText, { color: theme.textMuted }]} numberOfLines={2}>
+                {selectedPharmacy.address || 'Address registered on map'}
+              </Text>
+            </View>
 
-                {/* Close Button */}
-                <Pressable
-                  style={({ pressed }) => [styles.closeBtn, pressed && { opacity: 0.5 }, { backgroundColor: theme.surfaceSecondary }]}
-                  onPress={dismissCard}
-                >
-                  <Ionicons name="close" size={18} color={theme.text.primary} />
-                </Pressable>
-              </View>
-
-              {/* Distance & Time */}
-              <View style={styles.metaRow}>
-                <Ionicons name="navigate-outline" size={14} color={theme.textMuted} />
-                <Text style={[styles.metaText, { color: theme.textMuted }]}>
-                  {selectedPharmacy.distanceKm} km away
+            {/* Phone (Only rendered if phone exists) */}
+            {hasPhone ? (
+              <Pressable
+                style={({ pressed }) => [styles.infoRow, pressed && { opacity: 0.6 }]}
+                onPress={() => handleCallPharmacy(selectedPharmacy.phone)}
+                hitSlop={8}
+              >
+                <Ionicons name="call-outline" size={16} color={primaryColor} />
+                <Text style={[styles.infoText, { color: primaryColor, textDecorationLine: 'underline' }]}>
+                  {selectedPharmacy.phone}
                 </Text>
-                <Text style={[styles.metaDot, { color: theme.textDim }]}>·</Text>
-                <Ionicons name="walk-outline" size={14} color={theme.textMuted} />
-                <Text style={[styles.metaText, { color: theme.textMuted }]}>
-                  {selectedPharmacy.walkMinutes} min walk
+              </Pressable>
+            ) : null}
+
+            {/* Drug Stock status check */}
+            {hasDrugQuery ? (
+              <View style={[styles.stockCheckBanner, { backgroundColor: theme.successBg }]}>
+                <Ionicons name="checkmark-circle" size={16} color={theme.success} />
+                <Text style={[styles.stockCheckText, { color: theme.successText }]}>
+                  Carries "{routeQuery}" or equivalent dosage
                 </Text>
               </View>
+            ) : null}
 
-              {/* Address */}
-              <View style={styles.infoRow}>
-                <Ionicons name="location-outline" size={16} color={theme.textMuted} />
-                <Text style={[styles.infoText, { color: theme.textMuted }]} numberOfLines={2}>
-                  {selectedPharmacy.address || 'Address registered on map'}
-                </Text>
-              </View>
+            {/* Action Buttons Row */}
+            <View style={styles.actionRow}>
+              {/* Navigate -> In-app directions */}
+              <Pressable
+                style={({ pressed }) => [
+                  styles.actionBtn,
+                  styles.secondaryActionBtn,
+                  pressed && { opacity: 0.7 },
+                  { borderColor: primaryColor, backgroundColor: theme.card },
+                ]}
+                onPress={() => handleInAppNavigate(selectedPharmacy)}
+              >
+                <Ionicons name="navigate-outline" size={18} color={primaryColor} />
+                <Text style={[styles.actionBtnText, { color: primaryColor }]}>Navigate</Text>
+              </Pressable>
 
-              {/* Phone (Only rendered if phone exists) */}
-              {hasPhone ? (
-                <View style={styles.infoRow}>
-                  <Ionicons name="call-outline" size={16} color={theme.textMuted} />
-                  <Text style={[styles.infoText, { color: theme.textMuted }]}>
-                    {selectedPharmacy.phone}
-                  </Text>
-                </View>
-              ) : null}
-
-              {/* Drug Stock status check */}
-              {hasDrugQuery ? (
-                <View style={[styles.stockCheckBanner, { backgroundColor: theme.successBg }]}>
-                  <Ionicons name="checkmark-circle" size={16} color={theme.success} />
-                  <Text style={[styles.stockCheckText, { color: theme.successText }]}>
-                    Carries "{routeQuery}" or equivalent dosage
-                  </Text>
-                </View>
-              ) : null}
-
-              {/* Action Buttons Row */}
-              <View style={styles.actionRow}>
-                {/* Navigate -> In-app directions */}
+              {/* Call -> Only if phone exists */}
+              {hasPhone && (
                 <Pressable
                   style={({ pressed }) => [
                     styles.actionBtn,
@@ -442,29 +547,15 @@ export default function Pharmacies() {
                     pressed && { opacity: 0.7 },
                     { borderColor: primaryColor, backgroundColor: theme.card },
                   ]}
-                  onPress={() => handleInAppNavigate(selectedPharmacy)}
+                  onPress={() => handleCallPharmacy(selectedPharmacy.phone)}
                 >
-                  <Ionicons name="navigate-outline" size={18} color={primaryColor} />
-                  <Text style={[styles.actionBtnText, { color: primaryColor }]}>Navigate</Text>
+                  <Ionicons name="call-outline" size={18} color={primaryColor} />
+                  <Text style={[styles.actionBtnText, { color: primaryColor }]}>Call</Text>
                 </Pressable>
+              )}
 
-                {/* Call -> Only if phone exists */}
-                {hasPhone && (
-                  <Pressable
-                    style={({ pressed }) => [
-                      styles.actionBtn,
-                      styles.secondaryActionBtn,
-                      pressed && { opacity: 0.7 },
-                      { borderColor: primaryColor, backgroundColor: theme.card },
-                    ]}
-                    onPress={() => handleCallPharmacy(selectedPharmacy.phone)}
-                  >
-                    <Ionicons name="call-outline" size={18} color={primaryColor} />
-                    <Text style={[styles.actionBtnText, { color: primaryColor }]}>Call</Text>
-                  </Pressable>
-                )}
-
-                {/* Reserve Button */}
+              {/* Reserve Button — Only rendered if there is an active medicine query */}
+              {hasDrugQuery && (
                 <Pressable
                   style={({ pressed }) => [
                     styles.actionBtn,
@@ -477,11 +568,11 @@ export default function Pharmacies() {
                   <Ionicons name="cart-outline" size={18} color="#ffffff" />
                   <Text style={[styles.actionBtnText, { color: '#ffffff' }]}>Reserve</Text>
                 </Pressable>
-              </View>
+              )}
             </View>
-          </Animated.View>
-        )}
-      </View>
+          </View>
+        </Animated.View>
+      )}
 
       {/* Stop Loading Action Sheet */}
       <AppBottomSheet
@@ -530,7 +621,80 @@ export default function Pharmacies() {
           </Pressable>
         </View>
       </AppBottomSheet>
-    </SafeAreaView>
+
+      {/* ── Distance Radius & Filter Bottom Sheet ── */}
+      <AppBottomSheet
+        ref={filterSheetRef}
+        snapPoints={['55%']}
+        title="Distance & Map Filters"
+      >
+        <View style={styles.sheetBody}>
+          <Text style={[styles.sheetSubTitle, { color: theme.textMuted }]}>
+            MAXIMUM SEARCH RADIUS ({draftDistance} KM)
+          </Text>
+          <View style={styles.chipRow}>
+            {[1, 3, 5, 10, 15, 25, 50].map((dist) => {
+              const isSelected = draftDistance === dist;
+              return (
+                <Pressable
+                  key={dist}
+                  style={({ pressed }) => [
+                    styles.radiusChip,
+                    isSelected ? { backgroundColor: primaryColor, borderColor: primaryColor } : { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
+                    pressed && { opacity: 0.7 },
+                  ]}
+                  onPress={() => setDraftDistance(dist)}
+                >
+                  <Text style={[styles.radiusChipText, { color: isSelected ? '#ffffff' : theme.text.primary }]}>
+                    {dist} km
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          <Text style={[styles.sheetSubTitle, { color: theme.textMuted, marginTop: 16 }]}>
+            TOGGLE FILTERS
+          </Text>
+          <View style={{ gap: 10 }}>
+            <Pressable
+              style={({ pressed }) => [
+                styles.toggleFilterRow,
+                { backgroundColor: theme.surfaceSecondary },
+                pressed && { opacity: 0.7 },
+              ]}
+              onPress={() => setDraftOnlyOpen(!draftOnlyOpen)}
+            >
+              <Ionicons name={draftOnlyOpen ? "checkbox" : "square-outline"} size={20} color={draftOnlyOpen ? primaryColor : theme.textMuted} />
+              <Text style={[styles.toggleFilterText, { color: theme.text.primary }]}>Show Open Pharmacies Only</Text>
+            </Pressable>
+
+            <Pressable
+              style={({ pressed }) => [
+                styles.toggleFilterRow,
+                { backgroundColor: theme.surfaceSecondary },
+                pressed && { opacity: 0.7 },
+              ]}
+              onPress={() => setDraftOnlyVerified(!draftOnlyVerified)}
+            >
+              <Ionicons name={draftOnlyVerified ? "checkbox" : "square-outline"} size={20} color={draftOnlyVerified ? primaryColor : theme.textMuted} />
+              <Text style={[styles.toggleFilterText, { color: theme.text.primary }]}>Show Verified Partners Only</Text>
+            </Pressable>
+          </View>
+
+          <Pressable
+            style={({ pressed }) => [
+              styles.applyFilterBtn,
+              pressed && { opacity: 0.7 },
+              { backgroundColor: primaryColor, marginTop: 18 },
+            ]}
+            onPress={handleApplyFilter}
+          >
+            <Text style={styles.applyFilterBtnText}>Apply Filter</Text>
+          </Pressable>
+        </View>
+      </AppBottomSheet>
+    </View>
   );
 }
 
@@ -581,9 +745,11 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
 
-  mapViewport: {
-    flex: 1,
-    position: 'relative',
+  overlayTop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
   },
 
   // ── Selected Pharmacy Details Overlay Card ──
@@ -727,4 +893,63 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   sheetOptionText: { fontSize: 14, fontWeight: '600' },
+
+  filterRadiusBtn: {
+    height: 44,
+    paddingHorizontal: 12,
+    borderRadius: RADIUS.md,
+    borderWidth: 1.5,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    justifyContent: 'center',
+  },
+  filterRadiusText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 8,
+  },
+  radiusChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: RADIUS.pill,
+    borderWidth: 1,
+  },
+  radiusChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  sheetSubTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  toggleFilterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: 12,
+    borderRadius: RADIUS.md,
+  },
+  toggleFilterText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  applyFilterBtn: {
+    height: 46,
+    borderRadius: RADIUS.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  applyFilterBtnText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '700',
+  },
 });

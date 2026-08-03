@@ -135,7 +135,7 @@ export default function UploadInventory() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
-      <Header title="CSV / Excel Import" showBack onBack={() => router.navigate('/(pharmacy)/(tabs)/inventory')} />
+      <Header title="CSV / Excel Import" showBack onBack={() => router.canGoBack() ? router.back() : router.navigate('/(pharmacy)/(tabs)/inventory')} />
 
       <ScrollView contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}

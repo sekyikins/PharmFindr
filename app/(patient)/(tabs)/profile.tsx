@@ -42,20 +42,6 @@ export default function Profile() {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const avatarSheetRef = useRef<BottomSheetModal>(null);
 
-  // Edit Account Modal State
-  const [editModalVisible, setEditModalVisible] = useState(false);
-  const [editName, setEditName] = useState(profile?.full_name ?? '');
-  const [editPhone, setEditPhone] = useState(profile?.phone ?? '');
-  const [editPassword, setEditPassword] = useState('');
-  const [savingAccount, setSavingAccount] = useState(false);
-
-  useEffect(() => {
-    if (profile) {
-      setEditName(profile.full_name ?? '');
-      setEditPhone(profile.phone ?? '');
-    }
-  }, [profile]);
-
   const displayName = profile?.full_name ?? 'User';
   const initials = displayName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2);
 
@@ -105,35 +91,6 @@ export default function Profile() {
 
   const handlePickAvatar = () => {
     avatarSheetRef.current?.present();
-  };
-
-  const handleSaveAccount = async () => {
-    if (!editName.trim()) {
-      Alert.alert('Validation Error', 'Full Name cannot be empty.');
-      return;
-    }
-    setSavingAccount(true);
-    try {
-      // 1. Update Profile table
-      await updateProfile({
-        full_name: editName.trim(),
-        phone: editPhone.trim(),
-      });
-
-      // 2. Update Password if provided
-      if (editPassword.trim()) {
-        const { error } = await supabase.auth.updateUser({ password: editPassword.trim() });
-        if (error) throw error;
-      }
-
-      Alert.alert('Success', 'Account information updated successfully!');
-      setEditModalVisible(false);
-      setEditPassword('');
-    } catch (e: any) {
-      Alert.alert('Error', e.message || 'Failed to update account.');
-    } finally {
-      setSavingAccount(false);
-    }
   };
 
   return (
@@ -368,60 +325,4 @@ const styles = StyleSheet.create({
     marginRight: 14,
   },
   menuLabel: { flex: 1, fontSize: FONT_SIZE.lg, fontWeight: '700' },
-
-  // ── Modal ──
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  editModalCard: {
-    width: '90%',
-    borderRadius: RADIUS.xl,
-    padding: 22,
-    elevation: 8,
-  },
-  editModalTitle: {
-    fontSize: FONT_SIZE.xxl,
-    fontWeight: '700',
-    marginBottom: 18,
-  },
-  fieldLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-    marginBottom: 6,
-    marginTop: 12,
-  },
-  modalInput: {
-    borderRadius: RADIUS.md,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderWidth: 1,
-    fontSize: FONT_SIZE.lg,
-  },
-  modalActionRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 24,
-  },
-  modalBtnCancel: {
-    flex: 1,
-    height: 44,
-    borderRadius: RADIUS.pill,
-    borderWidth: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalBtnCancelText: { fontWeight: '600', fontSize: FONT_SIZE.lg },
-  modalBtnSave: {
-    flex: 1,
-    height: 44,
-    borderRadius: RADIUS.pill,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalBtnSaveText: { color: '#ffffff', fontWeight: '700', fontSize: FONT_SIZE.lg },
 });

@@ -7,7 +7,7 @@ import {
   ActivityIndicator,
   Linking,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
@@ -20,6 +20,7 @@ import { getRoute, formatDistance, formatDuration, type RouteResult } from '@/li
 
 export default function Navigate() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{
     id: string;
     name?: string;
@@ -45,7 +46,7 @@ export default function Navigate() {
 
   // Exact fixed snap points (100px = header only, 190px = header + button)
   // Hard caps the sheet height so user cannot pull beyond actual height
-  const snapPoints = useMemo(() => [100, 190], []);
+  const snapPoints = useMemo(() => [100, 160], []);
 
   useEffect(() => {
     let cancelled = false;
@@ -111,12 +112,12 @@ export default function Navigate() {
             markers={[{ id: params.id ?? '', name: pharmName, address: '', latitude: pharmLat, longitude: pharmLon }]}
             onSelectMarker={() => {}}
             routeCoords={route?.coordinates}
-            mapPadding={{ top: 110, right: 16, bottom: 200, left: 16 }}
+            mapPadding={{ top: 70, right: 10, bottom: 100, left: 10 }}
           />
         </View>
 
         {/* Floating header */}
-        <SafeAreaView style={styles.floatingHeader} edges={['top']}>
+        <View style={[styles.floatingHeader, { paddingTop: insets.top }]}>
           <Pressable style={({pressed})=>[styles.backBtn, pressed && {opacity: 0.5}, { backgroundColor: theme.card }]} onPress={() => router.back()}>
             <Ionicons name="arrow-back" size={18} color={theme.text.primary} />
           </Pressable>
@@ -128,9 +129,10 @@ export default function Navigate() {
               <Ionicons name="warning-outline" size={20} color={theme.warning} />
             ) : (
               <View style={[styles.directionsIconCircle, { backgroundColor: primaryColor }]}>
-                <Ionicons name="navigate" size={16} color="#ffffff" />
+                <Ionicons name="navigate" size={16} color="#fff" />
               </View>
             )}
+
             <View style={{ flex: 1 }}>
               <Text style={[styles.directionsTitle, { color: theme.text.primary }]}>
                 {loading ? 'Calculating route…' : error ? 'Route unavailable' : `${distanceLabel} · ${durationLabel}`}
@@ -140,13 +142,14 @@ export default function Navigate() {
               </Text>
             </View>
           </View>
-        </SafeAreaView>
+        </View>
 
         {/* ── Native Smooth Sliding Bottom Sheet ── */}
         <BottomSheet
           ref={sheetRef}
           snapPoints={snapPoints}
           index={0}
+          enableDynamicSizing={false}
           enablePanDownToClose={false}
           onChange={(idx) => setSheetIndex(idx)}
           onAnimate={(_from, to) => setSheetIndex(to)}
@@ -228,8 +231,8 @@ const styles = StyleSheet.create({
   sheetBodyContainer: {
     paddingHorizontal: SPACING.xl,
     paddingTop: 4,
-    paddingBottom: 20,
-    gap: 12,
+    paddingBottom: 16,
+    gap: 16,
   },
   sheetHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   pharmName: { fontSize: FONT_SIZE.title, fontWeight: '700' },

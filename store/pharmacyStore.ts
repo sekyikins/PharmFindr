@@ -14,11 +14,19 @@ interface PharmacyState {
   userCoords: Coords | null;
   loading: boolean;
   error: string | null;
-  /** Load (or refresh) nearby pharmacies using current device GPS. */
+
+  // Filter & Radius Settings
+  maxDistanceKm: number;
+  onlyOpen: boolean;
+  onlyVerified: boolean;
+
+  /** Load (or refresh) nearby pharmacies using current device GPS and active radius limit. */
   loadNearby: (signal?: AbortSignal) => Promise<void>;
-  /** Append pharmacies as they stream in from OSM (called by pharmacies screen). */
   setPharmacies: (pharmacies: OsmPharmacy[]) => void;
   setUserCoords: (coords: Coords) => void;
+  setMaxDistanceKm: (distance: number) => void;
+  setOnlyOpen: (value: boolean) => void;
+  setOnlyVerified: (value: boolean) => void;
 }
 
 export const usePharmacyStore = create<PharmacyState>((set, get) => ({
@@ -27,23 +35,35 @@ export const usePharmacyStore = create<PharmacyState>((set, get) => ({
   loading: false,
   error: null,
 
+  maxDistanceKm: 5, // Default 5 km radius limit
+  onlyOpen: false,
+  onlyVerified: false,
+
   setPharmacies: (pharmacies) =>
     set({ pharmacies: [...pharmacies].sort((a, b) => a.distanceKm - b.distanceKm) }),
   setUserCoords: (coords) => set({ userCoords: coords }),
 
+  setMaxDistanceKm: (distance) => set({ maxDistanceKm: distance }),
+
+  setOnlyOpen: (value) => set({ onlyOpen: value }),
+  setOnlyVerified: (value) => set({ onlyVerified: value }),
+
   loadNearby: async (signal?: AbortSignal) => {
-    set({ loading: true, error: null, pharmacies: [] });
+    set({ loading: true, error: null });
     try {
       const coords = await getCurrentLocation();
       if (signal?.aborted) return;
       set({ userCoords: coords });
 
+      const radiusMeters = Math.min(Math.max(get().maxDistanceKm * 1000, 1000), 50000);
+
       const found: OsmPharmacy[] = [];
       await searchNearbyPharmacies(
         coords,
-        5000,
+        radiusMeters,
         (pharmacy) => {
           if (signal?.aborted) return;
+          if (found.some((p) => p.id === pharmacy.id)) return;
           found.push(pharmacy);
           const sorted = [...found].sort((a, b) => a.distanceKm - b.distanceKm);
           set({ pharmacies: sorted });

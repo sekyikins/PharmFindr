@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   StyleSheet,
   Text,
@@ -19,22 +19,29 @@ import { Header } from '@/components/ui/Header';
 interface InventoryResult {
   id: string;
   name: string;
+  genericName?: string | null;
+  brandName?: string | null;
   strength: string;
+  dosageForm?: string | null;
   pharmacyName: string;
   pharmacyId: string;
   price: number;
   quantity: number;
+  isAlternative?: boolean;
 }
 
-const RECENT_SEARCHES = ['Amoxicillin', 'Metformin', 'Lisinopril'];
+const RECENT_SEARCHES = ['Paracetamol', 'Amoxicillin', 'Metformin', 'Ibuprofen'];
 
 export default function SearchMedicines() {
   const router = useRouter();
   const { theme, primaryColor } = useThemeContext();
+
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<InventoryResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
+
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const runSearch = useCallback(async (term: string) => {
     const trimmed = term.trim();
@@ -46,35 +53,88 @@ export default function SearchMedicines() {
 
     setLoading(true);
     setSearched(true);
+
     try {
+      // 1. Direct query on inventory across generic_name, brand_name, medicine_name
       const { data, error } = await supabase
         .from('inventory')
         .select(`
           id,
           medicine_name,
+          generic_name,
+          brand_name,
           strength,
+          dosage_form,
           price,
           quantity,
           pharmacies ( id, name )
         `)
-        .ilike('medicine_name', `%${trimmed}%`)
+        .or(`generic_name.ilike.%${trimmed}%,brand_name.ilike.%${trimmed}%,medicine_name.ilike.%${trimmed}%`)
         .gt('quantity', 0)
         .order('medicine_name', { ascending: true })
         .limit(30);
 
       if (error) throw error;
 
-      setResults(
-        (data ?? []).map((item: any) => ({
-          id: item.id,
-          name: item.medicine_name,
-          strength: item.strength ?? '',
-          pharmacyName: item.pharmacies?.name ?? 'Unknown Pharmacy',
-          pharmacyId: item.pharmacies?.id ?? '',
-          price: parseFloat(item.price) || 0,
-          quantity: item.quantity,
-        }))
+      const directMatches: InventoryResult[] = (data ?? []).map((item: any) => ({
+        id: item.id,
+        name: item.medicine_name,
+        genericName: item.generic_name,
+        brandName: item.brand_name,
+        strength: item.strength ?? '',
+        dosageForm: item.dosage_form ?? '',
+        pharmacyName: item.pharmacies?.name ?? 'Pharmacy',
+        pharmacyId: item.pharmacies?.id ?? '',
+        price: parseFloat(item.price) || 0,
+        quantity: item.quantity,
+        isAlternative: false,
+      }));
+
+      // 2. If we matched a brand name, fetch generic alternatives sharing the same generic_name
+      const matchedGenerics = Array.from(
+        new Set(directMatches.map((m) => m.genericName).filter(Boolean) as string[])
       );
+
+      let alternativeMatches: InventoryResult[] = [];
+      if (matchedGenerics.length > 0) {
+        const directIds = new Set(directMatches.map((m) => m.id));
+        const { data: altData } = await supabase
+          .from('inventory')
+          .select(`
+            id,
+            medicine_name,
+            generic_name,
+            brand_name,
+            strength,
+            dosage_form,
+            price,
+            quantity,
+            pharmacies ( id, name )
+          `)
+          .in('generic_name', matchedGenerics)
+          .gt('quantity', 0)
+          .limit(20);
+
+        if (altData) {
+          alternativeMatches = altData
+            .filter((item: any) => !directIds.has(item.id))
+            .map((item: any) => ({
+              id: item.id,
+              name: item.medicine_name,
+              genericName: item.generic_name,
+              brandName: item.brand_name,
+              strength: item.strength ?? '',
+              dosageForm: item.dosage_form ?? '',
+              pharmacyName: item.pharmacies?.name ?? 'Pharmacy',
+              pharmacyId: item.pharmacies?.id ?? '',
+              price: parseFloat(item.price) || 0,
+              quantity: item.quantity,
+              isAlternative: true,
+            }));
+        }
+      }
+
+      setResults([...directMatches, ...alternativeMatches]);
     } catch (e: any) {
       console.warn('Search error:', e.message);
     } finally {
@@ -84,10 +144,17 @@ export default function SearchMedicines() {
 
   const handleQueryChange = (text: string) => {
     setQuery(text);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+
     if (!text.trim()) {
       setResults([]);
       setSearched(false);
+      return;
     }
+
+    debounceRef.current = setTimeout(() => {
+      runSearch(text);
+    }, 300);
   };
 
   const handleSubmit = () => runSearch(query);
@@ -98,16 +165,15 @@ export default function SearchMedicines() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
-      {/* Header */}
       <Header title="Search Medicines" />
 
-      {/* Search Bar */}
+      {/* Search Input Bar */}
       <View style={[styles.searchWrapper, { backgroundColor: theme.card }]}>
         <View style={[styles.searchBar, { backgroundColor: theme.surfaceSecondary, borderWidth: 1, borderColor: theme.border }]}>
           <Ionicons name="search" size={18} color={theme.text.muted} style={{ marginRight: 8 }} />
           <TextInput
             style={[styles.searchInput, { color: theme.text.primary }]}
-            placeholder="Search medicine name..."
+            placeholder="Search generic or brand name..."
             placeholderTextColor={theme.text.muted}
             value={query}
             onChangeText={handleQueryChange}
@@ -123,7 +189,7 @@ export default function SearchMedicines() {
         </View>
       </View>
 
-      {/* Loading */}
+      {/* Loading Skeleton */}
       {loading && (
         <View style={styles.listContent}>
           {[1, 2, 3].map((i) => (
@@ -142,40 +208,71 @@ export default function SearchMedicines() {
         </View>
       )}
 
-      {/* Search Results */}
+      {/* Search Results List */}
       {!loading && searched && (
         <FlatList
           data={results}
           keyExtractor={(item) => item.id}
           showsVerticalScrollIndicator={false}
-          showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.listContent}
           ListEmptyComponent={
             <Text style={[styles.emptyText, { color: theme.textDim }]}>
-              No medicines found for "{query}" in any pharmacy.
+              No medicines found for "{query}". Try searching by generic active ingredient (e.g. Paracetamol).
             </Text>
           }
           renderItem={({ item }) => (
             <Pressable
-              style={({pressed})=>[styles.medicineCard, { backgroundColor: theme.card, borderColor: theme.border }, pressed && {opacity: 0.5}]}
+              style={({ pressed }) => [
+                styles.medicineCard,
+                { backgroundColor: theme.card, borderColor: theme.border },
+                item.isAlternative && { borderStyle: 'dashed', borderColor: theme.textDim },
+                pressed && { opacity: 0.5 },
+              ]}
               onPress={() =>
                 router.push({
                   pathname: '/(patient)/pharmacies',
-                  params: { query: item.name },
+                  params: {
+                    query: item.genericName || item.name,
+                    selectedId: item.pharmacyId,
+                  },
                 })
               }
             >
               <View style={[styles.medIcon, { backgroundColor: theme.patientSecondary }]}>
                 <Ionicons name="medkit-outline" size={18} color={primaryColor} />
               </View>
+
               <View style={styles.medBody}>
-                <Text style={[styles.medName, { color: theme.text.primary }]}>{item.name}</Text>
+                {/* Brand & Generic Labels */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                  <Text style={[styles.medName, { color: theme.text.primary }]}>
+                    {item.brandName ? item.brandName : item.name}
+                  </Text>
+                  {item.brandName ? (
+                    <View style={[styles.badgePill, { backgroundColor: theme.patientSecondary }]}>
+                      <Text style={[styles.badgePillText, { color: primaryColor }]}>Brand</Text>
+                    </View>
+                  ) : (
+                    <View style={[styles.badgePill, { backgroundColor: '#dcfce7' }]}>
+                      <Text style={[styles.badgePillText, { color: '#16a34a' }]}>Generic</Text>
+                    </View>
+                  )}
+                  {item.isAlternative && (
+                    <View style={[styles.badgePill, { backgroundColor: '#fef3c7' }]}>
+                      <Text style={[styles.badgePillText, { color: '#d97706' }]}>Alternative</Text>
+                    </View>
+                  )}
+                </View>
+
                 <Text style={[styles.medSub, { color: theme.textMuted }]}>
-                  {item.strength ? `${item.strength} · ` : ''}{item.pharmacyName}
+                  {item.genericName ? `Generic: ${item.genericName} · ` : ''}
+                  {item.strength ? `${item.strength} · ` : ''}
+                  {item.pharmacyName}
                 </Text>
               </View>
+
               <View style={styles.priceCol}>
-                <Text style={[styles.priceText, { color: primaryColor }]}>${item.price.toFixed(2)}</Text>
+                <Text style={[styles.priceText, { color: primaryColor }]}>GH₵{item.price.toFixed(2)}</Text>
                 <Text style={[styles.qtyText, { color: theme.textDim }]}>{item.quantity} in stock</Text>
               </View>
             </Pressable>
@@ -183,13 +280,12 @@ export default function SearchMedicines() {
         />
       )}
 
-      {/* Default: Recent + Suggestions */}
+      {/* Default View: Recent + Popular Generics */}
       {!loading && !searched && (
         <FlatList
           data={[]}
           renderItem={() => null}
           showsVerticalScrollIndicator={false}
-          showsHorizontalScrollIndicator={false}
           ListHeaderComponent={
             <>
               {/* Recent Searches */}
@@ -198,7 +294,7 @@ export default function SearchMedicines() {
                 {RECENT_SEARCHES.map((term) => (
                   <Pressable
                     key={term}
-                    style={({pressed})=>[styles.recentRow, { borderBottomColor: theme.border }, pressed && {opacity: 0.7}]}
+                    style={({ pressed }) => [styles.recentRow, { borderBottomColor: theme.border }, pressed && { opacity: 0.7 }]}
                     onPress={() => handleChip(term)}
                   >
                     <Ionicons name="time-outline" size={18} color={theme.text.muted} style={{ marginRight: 12 }} />
@@ -212,10 +308,10 @@ export default function SearchMedicines() {
               <View style={styles.section}>
                 <Text style={[styles.sectionLabel, { color: theme.textDim }]}>POPULAR MEDICINES</Text>
                 <View style={styles.chipsRow}>
-                  {['Paracetamol', 'Ibuprofen', 'Omeprazole', 'Cetirizine', 'Aspirin', 'Metformin'].map((chip) => (
+                  {['Paracetamol', 'Amoxicillin', 'Metformin', 'Ibuprofen', 'Augmentin', 'Panadol', 'Omeprazole'].map((chip) => (
                     <Pressable
                       key={chip}
-                      style={({pressed})=>[styles.chip, { backgroundColor: theme.patientSecondary }, pressed && {opacity: 0.7}]}
+                      style={({ pressed }) => [styles.chip, { backgroundColor: theme.patientSecondary }, pressed && { opacity: 0.7 }]}
                       onPress={() => handleChip(chip)}
                     >
                       <Text style={[styles.chipText, { color: primaryColor }]}>{chip}</Text>
@@ -233,24 +329,6 @@ export default function SearchMedicines() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: SPACING.xl,
-    paddingVertical: SPACING.md,
-    borderBottomWidth: 1,
-  },
-  backBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: RADIUS.pill,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitle: { fontSize: FONT_SIZE.xxl, fontWeight: '700' },
 
   searchWrapper: { padding: SPACING.lg, paddingBottom: 0 },
   searchBar: {
@@ -300,11 +378,18 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   medBody: { flex: 1 },
-  medName: { fontSize: FONT_SIZE.md, fontWeight: '500', marginBottom: 2 },
-  medSub: { fontSize: FONT_SIZE.sm },
+  medName: { fontSize: FONT_SIZE.md, fontWeight: '700' },
+  medSub: { fontSize: FONT_SIZE.sm, marginTop: 2 },
   priceCol: { alignItems: 'flex-end' },
   priceText: { fontSize: FONT_SIZE.md, fontWeight: '600' },
   qtyText: { fontSize: FONT_SIZE.sm, marginTop: 2 },
+
+  badgePill: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: RADIUS.pill,
+  },
+  badgePillText: { fontSize: 10, fontWeight: '700' },
 
   emptyText: { textAlign: 'center', marginTop: 40, fontSize: FONT_SIZE.md },
 });

@@ -62,6 +62,8 @@ export default function PatientReservationsHistory() {
         return { label: 'Declined', bg: theme.surfaceSecondary, text: theme.errorText, icon: 'close-circle' as const };
       case 'collected':
         return { label: 'Collected', bg: theme.patientSecondary, text: primaryColor, icon: 'bag-check' as const };
+      case 'cancelled':
+        return { label: 'Cancelled', bg: theme.surfaceSecondary, text: theme.textMuted, icon: 'close-circle-outline' as const };
       default:
         return { label: 'Pending', bg: theme.warning + '20', text: theme.warning, icon: 'time' as const };
     }
@@ -141,7 +143,7 @@ export default function PatientReservationsHistory() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
       {/* Header */}
-      <Header title="My Reservations" showBack onBack={() => router.navigate('/(patient)/(tabs)/profile')} />
+      <Header title="My Reservations" showBack onBack={() => router.canGoBack() ? router.back() : router.navigate('/(patient)/(tabs)/profile')} />
 
       {/* Filter Chips */}
       <View style={[styles.filterRow, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -13,6 +13,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import FullMapComponent from '@/components/FullMapComponent';
 import { useThemeContext } from '@/hooks/useThemeContext';
 import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
+import { supabase } from '@/lib/supabase';
 
 export default function PharmacyDetail() {
   const router = useRouter();
@@ -30,17 +31,51 @@ export default function PharmacyDetail() {
   const { theme, primaryColor } = useThemeContext();
 
   const id = params.id ?? '';
-  const name = params.name ?? 'Pharmacy';
-  const address = params.address || 'Address unavailable';
-  const phone = params.phone || 'N/A';
-  const hours = params.hours || 'N/A';
+
+  const [details, setDetails] = useState({
+    name: params.name ?? 'Pharmacy',
+    address: params.address || 'Address unavailable',
+    phone: params.phone || 'N/A',
+    hours: params.hours || 'N/A',
+    lat: parseFloat(params.lat ?? '5.6037'),
+    lon: parseFloat(params.lon ?? '-0.187'),
+  });
+
+  useEffect(() => {
+    const rawId = decodeURIComponent(id);
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawId)) {
+      supabase
+        .from('pharmacies')
+        .select('*')
+        .eq('id', rawId)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data) {
+            setDetails((prev) => ({
+              ...prev,
+              name: data.name || prev.name,
+              address: data.address || prev.address,
+              phone: data.phone || prev.phone,
+              hours: data.opening_time ? `${data.opening_time} - ${data.closing_time}` : prev.hours,
+              lat: data.latitude || prev.lat,
+              lon: data.longitude || prev.lon,
+            }));
+          }
+        });
+    }
+  }, [id]);
+
+  const name = details.name;
+  const address = details.address;
+  const phone = details.phone;
+  const hours = details.hours;
+  const lat = details.lat;
+  const lon = details.lon;
   const distanceKm = params.distanceKm ?? 'N/A';
   const walkMinutes = params.walkMinutes ?? 'N/A';
 
-  const lat = parseFloat(params.lat ?? '5.6037');
-  const lon = parseFloat(params.lon ?? '-0.187');
   const hasValidCoords = !isNaN(lat) && !isNaN(lon);
-  const isOpen = !!params.hours && params.hours !== 'N/A';
+  const isOpen = !!hours && hours !== 'N/A';
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
@@ -78,10 +113,14 @@ export default function PharmacyDetail() {
             <Ionicons name="time-outline" size={14} color={theme.textMuted} />
             <Text style={[styles.detailText, { color: theme.textMuted }]}>{hours}</Text>
           </View>
-          <View style={styles.detailRow}>
-            <Ionicons name="call-outline" size={14} color={theme.textMuted} />
-            <Text style={[styles.detailText, { color: theme.textMuted }]}>{phone}</Text>
-          </View>
+          <Pressable
+            style={({ pressed }) => [styles.detailRow, pressed && { opacity: 0.6 }]}
+            onPress={() => phone !== 'N/A' && Linking.openURL('tel:' + phone)}
+            hitSlop={8}
+          >
+            <Ionicons name="call-outline" size={14} color={primaryColor} />
+            <Text style={[styles.detailText, { color: primaryColor, textDecorationLine: 'underline' }]}>{phone}</Text>
+          </Pressable>
           <View style={styles.detailRow}>
             <Ionicons name="navigate-outline" size={14} color={theme.textMuted} />
             <Text style={[styles.detailText, { color: theme.textMuted }]}>{distanceKm} km · {walkMinutes} min walk</Text>

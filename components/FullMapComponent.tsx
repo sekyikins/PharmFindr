@@ -2,16 +2,19 @@ import React from 'react';
 import { StyleSheet, View, Text, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-interface MarkerData {
+export interface MarkerData {
   id: string;
   name: string;
   address: string;
   latitude: number;
   longitude: number;
+  isRegistered?: boolean;
+  isOpen?: boolean;
+  hours?: string;
 }
 
 interface FullMapComponentProps {
-  initialRegion: {
+  initialRegion?: {
     latitude: number;
     longitude: number;
     latitudeDelta: number;
@@ -21,32 +24,33 @@ interface FullMapComponentProps {
   markers: MarkerData[];
   selectedId?: string | null;
   onSelectMarker: (id: string) => void;
-  /** Optional route polyline – no-op on web fallback. */
   routeCoords?: { latitude: number; longitude: number }[];
-  mapPadding?: any;
+  mapPadding?: { top: number; right: number; bottom: number; left: number };
+}
+
+export function getPinColor(m: MarkerData, isSelected: boolean): string {
+  if (isSelected) return '#f59e0b'; // Amber / Gold for active selected pin
+  if (m.isOpen === false) return '#64748b'; // Slate Gray for ALL closed pharmacies (registered & public)
+  if (m.isRegistered) return '#10b981'; // Emerald Green for open registered database pharmacies
+  return '#0284c7'; // Royal Blue for open public map pharmacies
 }
 
 export default function FullMapComponent({
-  initialRegion,
   userCoords,
   markers,
   selectedId,
   onSelectMarker,
-  routeCoords: _routeCoords,
 }: FullMapComponentProps) {
   // Translate latitude/longitude offsets into CSS percentage positions relative to Accra area
   const getPositionStyles = (lat: number, lng: number) => {
-    // Center is Accra: 5.6037, -0.1870
-    // Define an approximate bounding box for Accra
     const centerLat = 5.6037;
     const centerLng = -0.1870;
     
-    // Scale factor to map lat/lng range to screen percentage
     const latDiff = lat - centerLat;
     const lngDiff = lng - centerLng;
     
-    const topPercent = 50 - (latDiff / 0.05) * 50; // latitude increases going north (upwards)
-    const leftPercent = 50 + (lngDiff / 0.05) * 50; // longitude increases going east (rightwards)
+    const topPercent = 50 - (latDiff / 0.05) * 50;
+    const leftPercent = 50 + (lngDiff / 0.05) * 50;
     
     return {
       top: `${Math.min(Math.max(topPercent, 10), 85)}%` as any,
@@ -65,33 +69,72 @@ export default function FullMapComponent({
         <View style={[styles.street, { left: '30%', width: 14, height: '100%' }]} />
         <View style={[styles.street, { left: '75%', width: 18, height: '100%' }]} />
 
-        {/* User Location */}
+        {/* User Location Marker */}
         {userCoords && (
-          <View style={[styles.markerContainer, getPositionStyles(userCoords.latitude, userCoords.longitude)]}>
-            <Ionicons name="person" size={24} color="#2563eb" />
-            <Text style={[styles.markerLabel, styles.userLabel]}>You</Text>
+          <View style={[styles.markerContainer, getPositionStyles(userCoords.latitude, userCoords.longitude), { zIndex: 100 }]}>
+            <View style={styles.userPinBubble}>
+              <Ionicons name="person" size={16} color="#ffffff" />
+            </View>
+            <Text style={[styles.markerLabel, styles.userLabel]}>You Are Here</Text>
           </View>
         )}
 
         {/* Pharmacy Markers */}
-        {markers.map((m) => (
-          <Pressable
-            key={m.id}
-            style={[styles.markerContainer, getPositionStyles(m.latitude, m.longitude)]}
-            onPress={() => onSelectMarker(m.id)}
-          >
-            <Ionicons name="location" size={26} color="#10b981" />
-            <View style={styles.tooltip}>
-              <Text style={styles.markerLabel}>{m.name}</Text>
-              <Text style={styles.markerSubLabel}>Click to view</Text>
-            </View>
-          </Pressable>
-        ))}
+        {markers.map((m) => {
+          const isSelected = m.id === selectedId;
+          const pinColor = getPinColor(m, isSelected);
+          return (
+            <Pressable
+              key={m.id}
+              style={[styles.markerContainer, getPositionStyles(m.latitude, m.longitude), { zIndex: isSelected ? 50 : 10 }]}
+              onPress={() => onSelectMarker(m.id)}
+            >
+              <Ionicons
+                name={m.isOpen === false ? 'time-outline' : m.isRegistered ? 'checkmark-circle' : 'location'}
+                size={isSelected ? 30 : 25}
+                color={pinColor}
+              />
+              <View style={styles.tooltip}>
+                <Text style={[styles.markerLabel, { color: pinColor, borderColor: pinColor }]}>
+                  {m.name}
+                </Text>
+
+                <View style={styles.badgeRow}>
+                  {m.isRegistered && (
+                    <Text style={styles.verifiedTag}>Verified Partner</Text>
+                  )}
+                  {m.isOpen === false && (
+                    <Text style={styles.closedTag}>Closed</Text>
+                  )}
+                </View>
+              </View>
+            </Pressable>
+          );
+        })}
       </View>
 
-      <View style={styles.footerNote}>
-        <Ionicons name="information-circle-outline" size={14} color="#64748b" />
-        <Text style={styles.footerNoteText}>Interactive Web Map: Click any pharmacy pin to view details</Text>
+      {/* Interactive Map Legend Bar */}
+      <View style={styles.legendContainer}>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendDot, { backgroundColor: '#2563eb' }]} />
+          <Text style={styles.legendText}>You</Text>
+        </View>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendDot, { backgroundColor: '#10b981' }]} />
+          <Text style={styles.legendText}>Verified</Text>
+        </View>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendDot, { backgroundColor: '#0284c7' }]} />
+          <Text style={styles.legendText}>Public</Text>
+        </View>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendDot, { backgroundColor: '#64748b' }]} />
+          <Text style={styles.legendText}>Closed</Text>
+        </View>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendDot, { backgroundColor: '#f59e0b' }]} />
+          <Text style={styles.legendText}>Selected</Text>
+        </View>
       </View>
     </View>
   );
@@ -147,6 +190,21 @@ const styles = StyleSheet.create({
     color: '#1e3a8a',
     backgroundColor: '#dbeafe',
   },
+  userPinBubble: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#2563eb',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#ffffff',
+    shadowColor: '#2563eb',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.4,
+    shadowRadius: 4,
+    elevation: 4,
+  },
   tooltip: {
     alignItems: 'center',
     shadowColor: '#000',
@@ -154,33 +212,61 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 2,
   },
-  markerSubLabel: {
-    fontSize: 7,
-    color: '#64748b',
-    backgroundColor: '#ffffff',
-    paddingHorizontal: 3,
-    paddingVertical: 0.5,
-    borderRadius: 3,
-    marginTop: 1,
-    textAlign: 'center',
-  },
-  footerNote: {
-    position: 'absolute',
-    bottom: 8,
-    left: 8,
-    right: 8,
-    backgroundColor: 'rgba(255,255,255,0.95)',
-    borderRadius: 8,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
+  badgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    zIndex: 10,
+    gap: 4,
+    marginTop: 2,
   },
-  footerNoteText: {
-    fontSize: 11,
-    color: '#64748b',
-    fontWeight: '500',
+  verifiedTag: {
+    fontSize: 7,
+    fontWeight: '700',
+    color: '#047857',
+    backgroundColor: '#d1fae5',
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 3,
+  },
+  closedTag: {
+    fontSize: 7,
+    fontWeight: '700',
+    color: '#475569',
+    backgroundColor: '#f1f5f9',
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 3,
+  },
+  legendContainer: {
+    position: 'absolute',
+    bottom: 12,
+    left: 12,
+    right: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 4,
+    zIndex: 20,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  legendDot: {
+    width: 9,
+    height: 9,
+    borderRadius: 4.5,
+  },
+  legendText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#334155',
   },
 });

@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
+  Alert,
   Animated,
   StyleSheet,
   Text,
@@ -14,7 +15,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import { parsePrescriptionImage } from '@/lib/gemini';
 import { Ionicons } from '@expo/vector-icons';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { useThemeContext } from '@/hooks/useThemeContext';
 import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
 
@@ -80,12 +81,13 @@ export default function Scan() {
     setProcessing(true);
     try {
       const base64 = await FileSystem.readAsStringAsync(uri, {
-        encoding: 'base64',
+        encoding: FileSystem.EncodingType.Base64,
       });
 
-      // Call Gemini multimodal OCR
+      // Call Gemini multimodal OCR (never throws — returns [] on failure)
       const medicines = await parsePrescriptionImage(base64, 'image/jpeg');
 
+      // Always navigate to results — ocr-result handles empty state
       router.push({
         pathname: '/(patient)/ocr-result',
         params: { 
@@ -93,20 +95,13 @@ export default function Scan() {
           imageUri: uri
         }
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error processing image:', error);
-      // Fail-soft mock fallback matching the 3-medicines Figma screenshot
-      router.push({
-        pathname: '/(patient)/ocr-result',
-        params: { 
-          medicines: JSON.stringify([
-            { name: 'Amoxicillin', strength: '500mg', category: 'Antibiotic', dosage: '1 Tablet', frequency: '3× Daily', duration: '5 Days' },
-            { name: 'Paracetamol', strength: '500mg', category: 'Analgesic', dosage: '1-2 Tablets', frequency: 'As needed', duration: '5 Days' },
-            { name: 'Ibuprofen', strength: '400mg', category: 'NSAID', dosage: '1 Tablet', frequency: '2× Daily', duration: '3 Days' }
-          ]),
-          imageUri: uri
-        }
-      });
+      Alert.alert(
+        'Processing Error',
+        'Could not read the image. Please try again.',
+        [{ text: 'OK', style: 'default' }]
+      );
     } finally {
       setProcessing(false);
     }
@@ -166,8 +161,8 @@ export default function Scan() {
       {processing ? (
         <View style={styles.processingOverlay}>
           <ActivityIndicator size="large" color="#ffffff" />
-          <Text style={styles.processingText}>Analyzing prescription details...</Text>
-          <Text style={styles.processingSub}>Our AI is scanning your medicines</Text>
+          <Text style={styles.processingText}>Extracting prescription text...</Text>
+          <Text style={styles.processingSub}>Analyzing your prescriptions</Text>
         </View>
       ) : (
         <>

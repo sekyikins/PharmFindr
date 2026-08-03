@@ -3,12 +3,13 @@ import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
-import { StatusBar } from 'react-native';
+import { Alert, StatusBar } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 
 import { useAuthStore } from '@/store/authStore';
 import { registerForPushNotificationsAsync } from '@/lib/pushNotifications';
+import OfflineBanner from '@/components/ui/OfflineBanner';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -50,7 +51,7 @@ export default function RootLayout() {
 }
 
 function RootLayoutNav() {
-  const { user } = useAuthStore();
+  const { user, securityNotice, clearSecurityNotice } = useAuthStore();
 
   useEffect(() => {
     if (user?.id) {
@@ -58,11 +59,20 @@ function RootLayoutNav() {
     }
   }, [user?.id]);
 
+  useEffect(() => {
+    if (securityNotice) {
+      Alert.alert('Security Notice', securityNotice, [
+        { text: 'OK', onPress: () => clearSecurityNotice() },
+      ]);
+    }
+  }, [securityNotice, clearSecurityNotice]);
+
   return (
     <BottomSheetModalProvider>
       <ThemeProvider value={DefaultTheme}>
         {/* Default to dark status bar text (visible on white/light backgrounds) */}
         <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+        <OfflineBanner />
         <Stack
           screenOptions={{
             headerShown: false,

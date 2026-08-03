@@ -214,7 +214,7 @@ export default function AIChat() {
               },
             ]}
           >
-            <View style={styles.sidebarHeader}>
+            <View style={[styles.sidebarHeader, { paddingTop: Math.max(insets.top, 16) + 8, borderBottomColor: theme.border }]}>
               <Text style={[styles.sidebarTitle, { color: theme.text.primary }]}>Consultations</Text>
               <Pressable onPress={closeSidebar} style={({ pressed }) => [pressed && { opacity: 0.5 }, { padding: 4 }]}>
                 <Ionicons name="close" size={22} color={theme.textDim} />
@@ -281,7 +281,7 @@ export default function AIChat() {
                             styles.chatItem,
                             { flex: 1 },
                             pressed && { opacity: 0.5 },
-                            isSelected && { backgroundColor: theme.patientSecondary + '66' },
+                            isSelected && { backgroundColor: theme.patientSecondary, borderWidth: 1, borderColor: theme.patientPrimary },
                           ]}
                           onPress={() => handleSelectConsultation(item.id)}
                         >
@@ -403,7 +403,7 @@ export default function AIChat() {
                 </Pressable>
 
                 <Pressable
-                  style={({ pressed }) => [styles.bannerBtnOutline, pressed && { opacity: 0.5 }, { borderColor: theme.border }]}
+                  style={({ pressed }) => [styles.bannerBtnOutline, pressed && { opacity: 0.5 }, { borderColor: theme.border}]}
                   onPress={() => router.push('/(patient)/reservations-history')}
                 >
                   <Ionicons name="bag-handle-outline" size={14} color={theme.text.primary} />
@@ -619,7 +619,7 @@ const styles = StyleSheet.create({
     borderBottomColor: '#e2e8f0',
   },
   sidebarTitle: { fontSize: 18, fontWeight: '700' },
-  sidebarBody: { flex: 1, padding: 16 },
+  sidebarBody: { flex: 1, padding: 16, paddingBottom: 8 },
   newChatBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -686,8 +686,10 @@ const styles = StyleSheet.create({
   medPillText: { fontSize: 11, fontWeight: '600' },
   bannerActions: { flexDirection: 'row', gap: 10, marginTop: 4 },
   bannerBtn: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 4,
     paddingHorizontal: 12,
     paddingVertical: 6,
@@ -695,8 +697,10 @@ const styles = StyleSheet.create({
   },
   bannerBtnText: { color: '#fff', fontSize: 12, fontWeight: '600' },
   bannerBtnOutline: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 4,
     paddingHorizontal: 12,
     paddingVertical: 6,

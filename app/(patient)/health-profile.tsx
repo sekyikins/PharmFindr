@@ -99,7 +99,7 @@ export default function HealthProfile() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
       {/* Header */}
-      <Header title="Health Parameters" showBack onBack={() => router.navigate('/(patient)/(tabs)/profile')} />
+      <Header title="Health Parameters" showBack onBack={() => router.canGoBack() ? router.back() : router.navigate('/(patient)/(tabs)/profile')} />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {/* Info card */}

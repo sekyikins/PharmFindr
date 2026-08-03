@@ -5,6 +5,9 @@ import { useThemeContext } from '@/hooks/useThemeContext';
 import { Ionicons } from '@expo/vector-icons';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { runOnJS } from 'react-native-reanimated';
+import { useAuthStore } from '@/store/authStore';
+import { usePharmacyStore } from '@/store/pharmacyStore';
+import { useChatStore } from '@/store/chatStore';
 
 const TAB_ROUTES = ['home', 'search', 'chat', 'profile'];
 
@@ -12,6 +15,27 @@ export default function TabsLayout() {
   const { theme, primaryColor } = useThemeContext();
   const router = useRouter();
   const pathname = usePathname();
+
+  const { user } = useAuthStore();
+  const { pharmacies, loading: pharmLoading, loadNearby } = usePharmacyStore();
+  const { consultations, fetchConsultations } = useChatStore();
+
+  // ── Background preload: warm up data for non-visible tabs on mount ──────────
+  useEffect(() => {
+    // Pharmacies (GPS-based, no auth needed). Guard against double-fire with home.tsx.
+    if (pharmacies.length === 0 && !pharmLoading) {
+      loadNearby();
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    // Chat consultations — preload once so Chat tab renders instantly
+    if (consultations.length === 0) {
+      fetchConsultations(user.id);
+    }
+  }, [user?.id]);
+
 
   // Find active tab index based on pathname
   let activeIndex = TAB_ROUTES.findIndex((route) => pathname.includes(route));

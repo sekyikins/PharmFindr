@@ -17,6 +17,7 @@ import { usePharmacyStore } from '@/store/pharmacyStore';
 import { supabase } from '@/lib/supabase';
 import Skeleton from '@/components/ui/Skeleton';
 import { useNotificationStore } from '@/store/notificationStore';
+import { Header } from '@/components/ui/Header';
 
 export default function Home() {
   const router = useRouter();
@@ -97,9 +98,9 @@ export default function Home() {
 
   const getGreeting = () => {
     const h = new Date().getHours();
-    if (h < 12) return 'Good Morning 👋';
-    if (h < 18) return 'Good Afternoon 👋';
-    return 'Good Evening 👋';
+    if (h < 12) return 'Good Morning';
+    if (h < 18) return 'Good Afternoon';
+    return 'Good Evening';
   };
 
   const [refreshing, setRefreshing] = useState(false);
@@ -112,26 +113,31 @@ export default function Home() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
-      {/* Header (Static Top Navigation Bar) */}
-      <View style={[styles.header, { backgroundColor: theme.card, borderBottomColor: theme.border, borderBottomWidth: 1 }]}>
-        <View>
-          <Text style={[styles.greeting, { color: theme.textMuted }]}>{getGreeting()}</Text>
-          <Text style={[styles.name, { color: theme.text }]}>{firstName}</Text>
-        </View>
-        <Pressable
-          style={({pressed})=>[styles.notifBtn, pressed && { opacity: 0.5 }, { backgroundColor: theme.surfaceSecondary }]}
-          onPress={() => router.push('/(patient)/notifications')}
-        >
-          <Ionicons name="notifications-outline" size={20} color={unreadCount > 0 ? primaryColor : theme.textMuted} />
-          {unreadCount > 0 && (
-            <View style={[styles.notifBadge, { backgroundColor: primaryColor }]}>
-              <Text style={styles.notifBadgeText}>
-                {unreadCount > 9 ? '9+' : String(unreadCount)}
-              </Text>
-            </View>
-          )}
-        </Pressable>
-      </View>
+      {/* Header */}
+      <Header
+        title=""
+        left={
+          <View style={{ flexDirection: 'row', gap: 4, alignItems: 'center' }}>
+            <Text style={[styles.greeting, { color: theme.textMuted }]}>{getGreeting()}</Text>
+            <Text style={[styles.name, { color: theme.text }]}>{firstName}</Text>
+          </View>
+        }
+        right={
+          <Pressable
+            style={({ pressed }) => [styles.notifBtn, pressed && { opacity: 0.5 }, { backgroundColor: theme.surfaceSecondary }]}
+            onPress={() => router.push('/(patient)/notifications')}
+          >
+            <Ionicons name="notifications-outline" size={20} color={unreadCount > 0 ? primaryColor : theme.textMuted} />
+            {unreadCount > 0 && (
+              <View style={[styles.notifBadge, { backgroundColor: primaryColor }]}>
+                <Text style={styles.notifBadgeText}>
+                  {unreadCount > 9 ? '9+' : String(unreadCount)}
+                </Text>
+              </View>
+            )}
+          </Pressable>
+        }
+      />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -225,7 +231,7 @@ export default function Home() {
             </View>
             {pharmLoading ? (
               <View style={{ gap: 10 }}>
-                {[1, 2].map((i) => (
+                {[1, 2, 3].map((i) => (
                   <View key={i} style={[styles.pharmacyCard, { backgroundColor: theme.card }]}>
                     <Skeleton width={38} height={38} borderRadius={RADIUS.pill} style={{ marginRight: 12 }} />
                     <View style={{ flex: 1, gap: 6 }}>
@@ -294,15 +300,8 @@ const styles = StyleSheet.create({
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 
   // Header
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: SPACING.xl,
-    paddingVertical: SPACING.md,
-  },
   greeting: { fontSize: FONT_SIZE.lg },
-  name: { fontSize: FONT_SIZE.hero, fontWeight: '700' },
+  name: { fontSize: FONT_SIZE.xl, fontWeight: '700' },
   notifBtn: {
     width: 40,
     height: 40,

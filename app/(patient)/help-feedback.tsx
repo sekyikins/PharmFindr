@@ -15,7 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useThemeContext } from '@/hooks/useThemeContext';
 import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
-import { Header } from '@/components/ui/Header';
+import { Header, HeaderIconBtn } from '@/components/ui/Header';
 
 const FAQS = [
   {
@@ -69,7 +69,7 @@ export default function HelpAndFeedback() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
       {/* ── Header ── */}
-      <Header title="Help & Feedback" showBack onBack={() => router.navigate('/(patient)/(tabs)/profile')} />
+      <Header title="Help & Feedback" showBack onBack={() => router.canGoBack() ? router.back() : router.navigate('/(patient)/(tabs)/profile')} />
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* ── 1. HELP CENTER (FAQS) ── */}
@@ -215,7 +215,10 @@ export default function HelpAndFeedback() {
           <Header
             title={legalModalType === 'terms' ? 'Terms of Service' : 'Privacy Policy'}
             right={
-              <Ionicons name="close" size={20} color={theme.text.primary} />
+              <HeaderIconBtn
+                name="close"
+                onPress={() => setLegalModalType(null)}
+              />
             }
           />
           <ScrollView contentContainerStyle={{ padding: 10 }}>
@@ -253,7 +256,8 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   scrollContent: {
-    padding: SPACING.xl,
+    padding: SPACING.md,
+    paddingBottom: 0,
   },
 
   cardTitleRow: {

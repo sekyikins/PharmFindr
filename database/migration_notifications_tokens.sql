@@ -1,6 +1,6 @@
 -- ============================================================
--- PharmaFindr — Migration: Push Tokens Table & Notification Push Triggers
--- Paste into Supabase SQL Editor and Run.
+-- PharmaFindr — Migration: Push Tokens Table & Modern Edge Function Trigger
+-- Paste into Supabase SQL Editor and Run. (Idempotent & Safe to Re-run)
 -- ============================================================
 
 -- 1. PUSH TOKENS TABLE
@@ -21,32 +21,52 @@ CREATE INDEX IF NOT EXISTS push_tokens_user_id_idx ON public.push_tokens (user_i
 ALTER TABLE public.push_tokens ENABLE ROW LEVEL SECURITY;
 
 -- Users can select their own push tokens
+DROP POLICY IF EXISTS "push_tokens_owner_select" ON public.push_tokens;
 CREATE POLICY "push_tokens_owner_select" ON public.push_tokens
   FOR SELECT USING (auth.uid() = user_id);
 
 -- Users can insert/upsert their own push tokens
+DROP POLICY IF EXISTS "push_tokens_owner_insert" ON public.push_tokens;
 CREATE POLICY "push_tokens_owner_insert" ON public.push_tokens
   FOR INSERT WITH CHECK (auth.uid() = user_id);
 
 -- Users can update their own push tokens
+DROP POLICY IF EXISTS "push_tokens_owner_update" ON public.push_tokens;
 CREATE POLICY "push_tokens_owner_update" ON public.push_tokens
   FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 
 -- Users can delete their own push tokens
+DROP POLICY IF EXISTS "push_tokens_owner_delete" ON public.push_tokens;
 CREATE POLICY "push_tokens_owner_delete" ON public.push_tokens
   FOR DELETE USING (auth.uid() = user_id);
 
 
--- 2. SUPABASE EDGE FUNCTION / WEBHOOK TRIGGER SPECIFICATION
+-- 2. ENABLE PG_NET EXTENSION
+--    Allows Postgres triggers to make async HTTP requests directly to Edge Functions.
+CREATE EXTENSION IF NOT EXISTS pg_net;
+
+
+-- 3. POSTGRES TRIGGER FOR EDGE FUNCTION DISPATCH
 --    Whenever a row is inserted into `public.notifications`, this function triggers
---    the push notification dispatcher to send the push alert to the user's Expo push tokens.
+--    the `push-notifier` Supabase Edge Function via `net.http_post`.
 
 CREATE OR REPLACE FUNCTION public.notify_expo_push_on_notification()
 RETURNS TRIGGER AS $$
+DECLARE
+  -- Replace with your Supabase Project URL and Service Role Key if triggering via pg_net
+  supabase_url     TEXT := 'https://YOUR_PROJECT_REF.supabase.co';
+  service_role_key TEXT := 'YOUR_SUPABASE_SERVICE_ROLE_KEY';
 BEGIN
-  -- This function acts as the trigger point for database change webhooks.
-  -- Supabase Webhooks or Edge Functions listen to INSERT events on `public.notifications`
-  -- and send Expo Push API requests to all active tokens in `public.push_tokens` where user_id = NEW.user_id.
+  -- Asynchronously post notification payload to push-notifier Edge Function
+  PERFORM net.http_post(
+    url := supabase_url || '/functions/v1/push-notifier',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer ' || service_role_key
+    ),
+    body := jsonb_build_object('record', row_to_json(NEW))
+  );
+
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

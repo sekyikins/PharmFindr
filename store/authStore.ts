@@ -1,6 +1,13 @@
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
 import { Session, User } from '@supabase/supabase-js';
+import {
+  registerDeviceSession,
+  checkInactivityTimeout,
+  updateLastActiveTimestamp,
+  revokeAllOtherSessions,
+} from '@/lib/deviceSession';
+import { enqueueOfflineAction } from '@/lib/offlineSyncQueue';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -51,6 +58,7 @@ interface AuthState {
   appUser: AppUser | null;
   loading: boolean;
   initialized: boolean;
+  securityNotice: string | null;
 
   signUp: (
     phone: string,
@@ -62,6 +70,9 @@ interface AuthState {
   signIn: (emailOrPhone: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   initialize: () => Promise<void>;
+
+  updatePasswordAndRevokeOtherSessions: (newPassword: string) => Promise<void>;
+  clearSecurityNotice: () => void;
 
   fetchAppUser: () => Promise<void>;
   updateAppUser: (data: Partial<AppUser>) => Promise<void>;
@@ -135,6 +146,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
       try {
         const profile = await resolveProfile(session.user.id);
         set({ profile });
+        await updateLastActiveTimestamp();
       } catch (e) {
         console.error('Error resolving profile in auth state change:', e);
       } finally {
@@ -152,13 +164,14 @@ export const useAuthStore = create<AuthState>((set, get) => {
     appUser: null,
     loading: true,
     initialized: false,
+    securityNotice: null,
+
+    clearSecurityNotice: () => set({ securityNotice: null }),
 
     // ── Sign Up ──────────────────────────────────────────────────────────────
     signUp: async (phone, email, password, role, fullName) => {
       set({ loading: true });
 
-      // For pharmacy accounts, ALWAYS use phone-derived synthetic email for Auth to avoid
-      // colliding with the user's personal app_user email.
       const finalEmail = role === 'pharmacy'
         ? `${phone.replace(/\s+/g, '')}@pharmafindr.com`
         : email.trim();
@@ -168,7 +181,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
         password,
         options: {
           data: {
-            role,      // used by DB trigger to set user_roles.role
+            role,
             full_name: fullName,
             phone,
             business_email: role === 'pharmacy' ? email.trim() : undefined,
@@ -181,6 +194,10 @@ export const useAuthStore = create<AuthState>((set, get) => {
         throw error;
       }
 
+      if (data.user) {
+        await registerDeviceSession(data.user.id, role);
+      }
+
       set({ loading: false });
       return data.user;
     },
@@ -189,7 +206,6 @@ export const useAuthStore = create<AuthState>((set, get) => {
     signIn: async (emailOrPhone, password) => {
       set({ loading: true });
 
-      // Derive email for phone-based pharmacy logins
       const email = emailOrPhone.includes('@')
         ? emailOrPhone.trim()
         : `${emailOrPhone.replace(/\s+/g, '')}@pharmafindr.com`;
@@ -201,16 +217,36 @@ export const useAuthStore = create<AuthState>((set, get) => {
         throw error;
       }
 
-      // resolveProfile is also triggered by onAuthStateChange, but we set
-      // it here immediately so callers don't need to wait for the listener.
       try {
         const profile = await resolveProfile(data.user.id);
         set({ profile });
+
+        const userRole = profile?.role === 'pharmacy' ? 'pharmacy' : 'patient';
+        await registerDeviceSession(data.user.id, userRole);
       } catch (e) {
         console.warn('resolveProfile after signIn failed (non-fatal):', e);
       }
 
       set({ loading: false });
+    },
+
+    // ── Update Password & Revoke Other Sessions ──────────────────────────────
+    updatePasswordAndRevokeOtherSessions: async (newPassword: string) => {
+      set({ loading: true });
+      try {
+        const { error } = await supabase.auth.updateUser({ password: newPassword });
+        if (error) throw error;
+
+        await revokeAllOtherSessions();
+
+        set({
+          securityNotice: 'Your password was updated. All other active device sessions have been logged out for security.',
+        });
+      } catch (e) {
+        throw e;
+      } finally {
+        set({ loading: false });
+      }
     },
 
     // ── Sign Out ─────────────────────────────────────────────────────────────
@@ -224,17 +260,33 @@ export const useAuthStore = create<AuthState>((set, get) => {
       set({ session: null, user: null, profile: null, appUser: null, loading: false });
     },
 
-    // ── Initialize (cold start) ──────────────────────────────────────────────
+    // ── Initialize (cold start with 7-day inactivity check) ────────────────
     initialize: async () => {
       if (get().initialized) return;
       set({ loading: true });
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (session) {
+          const isExpired = await checkInactivityTimeout();
+          if (isExpired) {
+            console.info('Session expired due to 7 days of inactivity.');
+            await supabase.auth.signOut();
+            set({
+              session: null,
+              user: null,
+              profile: null,
+              appUser: null,
+              securityNotice: 'You have been logged out due to 7 days of inactivity for account security.',
+            });
+            return;
+          }
+
           const profile = await resolveProfile(session.user.id);
           set({ session, user: session.user, profile });
 
-          // Pre-fetch full app_user record for general users
+          const userRole = profile?.role === 'pharmacy' ? 'pharmacy' : 'patient';
+          await registerDeviceSession(session.user.id, userRole);
+
           if (profile?.role === 'user') {
             get().fetchAppUser();
           }
@@ -290,16 +342,27 @@ export const useAuthStore = create<AuthState>((set, get) => {
       const user = get().user;
       if (!user) throw new Error('Not authenticated');
 
-      const payload = {
+      // Optimistic local update
+      const currentAppUser = get().appUser;
+      const updatedLocal = {
         id: user.id,
+        ...(currentAppUser || {}),
         ...dataToUpdate,
         updated_at: new Date().toISOString(),
-      };
+      } as AppUser;
+      set({ appUser: updatedLocal });
 
-      const { error } = await supabase.from('app_users').upsert(payload);
-      if (error) throw error;
-
-      await get().fetchAppUser();
+      try {
+        const { error } = await supabase.from('app_users').upsert({
+          id: user.id,
+          ...dataToUpdate,
+          updated_at: new Date().toISOString(),
+        });
+        if (error) throw error;
+      } catch (e) {
+        console.warn('Network update failed. Enqueued offline sync.');
+        await enqueueOfflineAction('UPDATE_APP_USER', user.id, dataToUpdate);
+      }
     },
 
     // ── Profile (name / phone / avatar for display) ──────────────────────────
@@ -308,31 +371,39 @@ export const useAuthStore = create<AuthState>((set, get) => {
       const currentProfile = get().profile;
       if (!user) return;
 
-      const role = currentProfile?.role ?? 'user';
-
-      if (role === 'user') {
-        const { error } = await supabase.from('app_users').upsert({
-          id: user.id,
-          full_name: dataToUpdate.full_name ?? currentProfile?.full_name,
-          phone: dataToUpdate.phone ?? currentProfile?.phone,
-          avatar_url: dataToUpdate.avatar_url ?? currentProfile?.avatar_url,
-          updated_at: new Date().toISOString(),
-        });
-        if (error) console.warn('updateProfile (app_users):', error.message);
-      }
-      // For pharmacy role: name/phone live in pharmacies table — update there if needed
-
+      // Optimistic local update
       set({
         profile: currentProfile
           ? { ...currentProfile, ...dataToUpdate }
           : null,
       });
+
+      const role = currentProfile?.role ?? 'user';
+
+      if (role === 'user') {
+        try {
+          const { error } = await supabase.from('app_users').upsert({
+            id: user.id,
+            full_name: dataToUpdate.full_name ?? currentProfile?.full_name,
+            phone: dataToUpdate.phone ?? currentProfile?.phone,
+            avatar_url: dataToUpdate.avatar_url ?? currentProfile?.avatar_url,
+            updated_at: new Date().toISOString(),
+          });
+          if (error) throw error;
+        } catch (e) {
+          console.warn('Profile update enqueued offline.');
+          await enqueueOfflineAction('UPDATE_PROFILE', user.id, dataToUpdate);
+        }
+      }
     },
 
     // ── Avatar Upload ────────────────────────────────────────────────────────
     uploadAvatar: async (imageUri: string) => {
       const user = get().user;
       if (!user) return null;
+
+      // Optimistic local update
+      await get().updateProfile({ avatar_url: imageUri });
 
       try {
         const fileExt = imageUri.split('.').pop()?.toLowerCase() || 'jpg';
@@ -348,26 +419,22 @@ export const useAuthStore = create<AuthState>((set, get) => {
             upsert: true,
           });
 
-        let publicUrl = imageUri;
-
         if (!uploadErr && uploadData) {
           const { data: urlData } = supabase.storage
             .from('avatars')
             .getPublicUrl(fileName);
           if (urlData?.publicUrl) {
-            publicUrl = urlData.publicUrl;
+            await get().updateProfile({ avatar_url: urlData.publicUrl });
+            return urlData.publicUrl;
           }
-        } else if (uploadErr) {
-          console.warn('Storage upload note:', uploadErr.message);
+        } else {
+          throw new Error(uploadErr?.message || 'Storage upload error');
         }
-
-        await get().updateProfile({ avatar_url: publicUrl });
-        return publicUrl;
       } catch (e: any) {
-        console.warn('Avatar upload fallback to local URI:', e?.message || e);
-        await get().updateProfile({ avatar_url: imageUri });
-        return imageUri;
+        console.warn('Avatar upload enqueued for offline sync:', e?.message || e);
+        await enqueueOfflineAction('UPLOAD_AVATAR', user.id, { imageUri });
       }
+      return imageUri;
     },
   };
 });

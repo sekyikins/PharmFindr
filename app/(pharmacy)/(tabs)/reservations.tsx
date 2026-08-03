@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { StyleSheet, Text, View, FlatList, Pressable, Alert, RefreshControl } from 'react-native';
+import { StyleSheet, Text, View, FlatList, Pressable, Alert, RefreshControl, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -136,7 +136,14 @@ export default function Reservations() {
             <Text style={[styles.patientId, { color: theme.text.primary }]}>{item.patientName}</Text>
             <Text style={[styles.refText, { color: theme.textDim }]}>{item.ref} · {item.timeAgo}</Text>
             {item.patientPhone !== 'N/A' && (
-              <Text style={[styles.phoneText, { color: theme.textMuted }]}>{item.patientPhone}</Text>
+              <Pressable
+                onPress={() => Linking.openURL(`tel:${item.patientPhone}`)}
+                hitSlop={8}
+                style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }, pressed && { opacity: 0.6 }]}
+              >
+                <Ionicons name="call-outline" size={13} color={primaryColor} />
+                <Text style={[styles.phoneText, { color: primaryColor, textDecorationLine: 'underline' }]}>{item.patientPhone}</Text>
+              </Pressable>
             )}
           </View>
           {isAccepted && (

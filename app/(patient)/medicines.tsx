@@ -73,7 +73,7 @@ export default function MedicineDetail() {
         
         {/* ── Blue Hero Header ── */}
         <View style={[styles.hero, { backgroundColor: primaryColor }]}>
-          <Pressable style={({pressed})=>[styles.backBtn, pressed && { opacity: 0.5 }]} onPress={() => router.navigate('/(patient)/(tabs)/profile')}>
+          <Pressable style={({pressed})=>[styles.backBtn, pressed && { opacity: 0.5 }]} onPress={() => router.canGoBack() ? router.back() : router.navigate('/(patient)/(tabs)/profile')}>
             <Ionicons name="arrow-back" size={18} color="#ffffff" />
           </Pressable>
 

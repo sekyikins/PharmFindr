@@ -66,6 +66,7 @@ export default function PrescriptionHistory() {
             medicines: meds.slice(0, 3),
             count: meds.length,
             fullMeds: meds,
+            rawMedicines: (typeof rx.ai_interpretation === 'object' && rx.ai_interpretation?.medicines) || [],
             ocrText: rx.ocr_text,
           };
         })
@@ -109,7 +110,7 @@ export default function PrescriptionHistory() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
       {/* Header */}
-      <Header title="Prescription History" showBack onBack={() => router.navigate('/(patient)/(tabs)/profile')} />
+      <Header title="Prescription History" showBack onBack={() => router.canGoBack() ? router.back() : router.navigate('/(patient)/(tabs)/profile')} />
 
       {loading ? (
         renderSkeleton()
@@ -132,10 +133,15 @@ export default function PrescriptionHistory() {
             <Pressable
               style={({pressed})=>[styles.card, pressed && { opacity: 0.5 }, { backgroundColor: theme.card, borderColor: theme.border }]}
               onPress={() => {
+                // Pass full medicine objects if available, otherwise wrap names
+                const medsToPass = item.rawMedicines.length > 0
+                  ? item.rawMedicines
+                  : item.fullMeds.map((name: string) => ({ name, strength: null, dosage: null, frequency: null, duration: null, route: null, instructions: null, confidence: 0 }));
                 router.push({
                   pathname: '/(patient)/ocr-result',
                   params: {
-                    medicines: JSON.stringify(item.fullMeds.map((name: string) => ({ name }))),
+                    medicines: JSON.stringify(medsToPass),
+                    prescriptionId: item.id,
                   },
                 });
               }}
