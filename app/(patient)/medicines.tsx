@@ -1,258 +1,330 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   StyleSheet,
   Text,
   View,
-  ScrollView,
+  FlatList,
+  TextInput,
   Pressable,
-  Dimensions,
+  Alert,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import Svg, { Path } from 'react-native-svg';
+import { useRouter } from 'expo-router';
 import { useThemeContext } from '@/hooks/useThemeContext';
 import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
+import { Header } from '@/components/ui/Header';
+import { useSavedMedicinesStore } from '@/store/savedMedicinesStore';
+import { type MedicineItem } from '@/lib/medicineCatalogue';
 
-const { width } = Dimensions.get('window');
-
-const MEDICINE_DETAILS: Record<string, any> = {
-  Amoxicillin: {
-    name: 'Amoxicillin',
-    strength: '500mg',
-    category: 'Antibiotic',
-    dosage: '1 Tablet',
-    frequency: '3× Daily',
-    duration: '5 Days',
-    uses: 'Treats bacterial infections including pneumonia, ear infections, urinary tract infections, and skin infections caused by susceptible organisms.',
-    howToTake: 'Take with or without food. Swallow whole with a full glass of water. Complete the full course even if you feel better after a few days.',
-    sideEffects: 'Common: Nausea, diarrhea, stomach upset. Rare: Allergic reactions (rash, hives). Stop immediately if you develop severe skin reaction or difficulty breathing.',
-    warnings: 'Inform your doctor of any antibiotic allergies. May reduce efficacy of oral contraceptives. Complete the full course to prevent resistance.',
-    alternatives: ['Ampicillin 500mg', 'Azithromycin 250mg', 'Clarithromycin 500mg'],
-  },
-  Metformin: {
-    name: 'Metformin',
-    strength: '850mg',
-    category: 'Antidiabetic',
-    dosage: '1 Tablet',
-    frequency: '2× Daily',
-    duration: 'Ongoing',
-    uses: 'Improves glycemic control in adults and pediatric patients 10 years of age and older with type 2 diabetes mellitus.',
-    howToTake: 'Take with meals to reduce gastrointestinal side effects. Swallow whole, do not crush or chew.',
-    sideEffects: 'Common: Diarrhea, nausea, vomiting, flatulence. Rare: Lactic acidosis (requires immediate medical attention).',
-    warnings: 'Should not be used in patients with severe renal impairment or metabolic acidosis. Monitor kidney function regularly.',
-    alternatives: ['Glipizide 5mg', 'Pioglitazone 15mg', 'Sitagliptin 100mg'],
-  },
-  Lisinopril: {
-    name: 'Lisinopril',
-    strength: '10mg',
-    category: 'ACE Inhibitor',
-    dosage: '1 Tablet',
-    frequency: '1× Daily',
-    duration: 'Ongoing',
-    uses: 'Treats high blood pressure (hypertension) to lower the risk of stroke and heart attack. Also used for heart failure.',
-    howToTake: 'Take at the same time each day, with or without food. Drink plenty of water.',
-    sideEffects: 'Common: Dry cough, dizziness, headache. Rare: Angioedema (swelling of face, lips, tongue, or throat).',
-    warnings: 'Do not use during pregnancy as it can harm the unborn baby. Monitor potassium levels and kidney function.',
-    alternatives: ['Losartan 50mg', 'Enalapril 10mg', 'Amlodipine 5mg'],
-  },
-};
-
-export default function MedicineDetail() {
+export default function SavedMedicinesScreen() {
   const router = useRouter();
-  const { query } = useLocalSearchParams<{ query?: string }>();
   const { theme, primaryColor } = useThemeContext();
-  
-  // Default to Amoxicillin if query is not found
-  const medKey = query && MEDICINE_DETAILS[query] ? query : 'Amoxicillin';
-  const med = MEDICINE_DETAILS[medKey];
+
+  const { savedMedicines, loadSavedMedicines, removeSavedMedicine, clearAllSaved } =
+    useSavedMedicinesStore();
+
+  const [filterQuery, setFilterQuery] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadSavedMedicines();
+    setRefreshing(false);
+  };
+
+  useEffect(() => {
+    loadSavedMedicines();
+  }, []);
+
+  const handleGoBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.navigate('/(patient)/(tabs)/profile');
+    }
+  };
+
+  const filteredMedicines = savedMedicines.filter((m) => {
+    const q = filterQuery.trim().toLowerCase();
+    if (!q) return true;
+    return (
+      m.name.toLowerCase().includes(q) ||
+      m.genericName.toLowerCase().includes(q) ||
+      m.category.toLowerCase().includes(q)
+    );
+  });
+
+  const handleRemoveConfirm = (item: MedicineItem) => {
+    Alert.alert('Remove Medicine', `Are you sure you want to remove ${item.name} from your saved list?`, [
+      { text: 'Remove', style: 'destructive', onPress: () => removeSavedMedicine(item.id) },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  };
+
+  const handleSelectMedicine = (item: MedicineItem) => {
+    router.push({
+      pathname: '/(patient)/medicine/[id]',
+      params: { id: item.id },
+    });
+  };
+
+  const handleFindPharmacies = (item: MedicineItem) => {
+    router.push({
+      pathname: '/(patient)/pharmacies',
+      params: { query: item.genericName || item.name },
+    });
+  };
+
+  const handleAskAI = (item: MedicineItem) => {
+    router.push({
+      pathname: '/(patient)/(tabs)/chat',
+      params: {
+        initialQuery: `Tell me about ${item.name} (${item.strength}). What are key precautions and usage guidelines?`,
+      },
+    });
+  };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
-        
-        {/* ── Blue Hero Header ── */}
-        <View style={[styles.hero, { backgroundColor: primaryColor }]}>
-          <Pressable style={({pressed})=>[styles.backBtn, pressed && { opacity: 0.5 }]} onPress={() => router.canGoBack() ? router.back() : router.navigate('/(patient)/(tabs)/profile')}>
-            <Ionicons name="arrow-back" size={18} color="#ffffff" />
-          </Pressable>
+      <Header title="Saved Medicines" showBack onBack={handleGoBack} />
 
-          <View style={styles.heroContent}>
-            {/* Pill icon white circle */}
-            <View style={styles.pillCircle}>
-              <Ionicons name="ellipse-outline" size={28} color={primaryColor} style={styles.rotatedPill} />
-            </View>
-            <View style={styles.heroTextCol}>
-              <Text style={styles.medName}>{med.name}</Text>
-              <Text style={styles.medSub}>{med.strength} · {med.category}</Text>
-            </View>
+      {/* ── Filter Bar & Clear All Option ── */}
+      {savedMedicines.length > 0 && (
+        <View style={styles.topSection}>
+          <View style={[styles.searchBar, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
+            <Ionicons name="search" size={18} color={theme.textMuted} style={{ marginRight: 8 }} />
+            <TextInput
+              style={[styles.searchInput, { color: theme.text.primary }]}
+              placeholder="Filter saved medicines..."
+              placeholderTextColor={theme.textMuted}
+              value={filterQuery}
+              onChangeText={setFilterQuery}
+            />
+            {filterQuery.length > 0 && (
+              <Pressable onPress={() => setFilterQuery('')} style={{ padding: 4 }}>
+                <Ionicons name="close-circle" size={18} color={theme.textMuted} />
+              </Pressable>
+            )}
+          </View>
+
+          <View style={styles.countRow}>
+            <Text style={[styles.countText, { color: theme.textMuted }]}>
+              {filteredMedicines.length} Saved {filteredMedicines.length === 1 ? 'Item' : 'Items'}
+            </Text>
+            <Pressable
+              onPress={() => {
+                Alert.alert('Remove Saved Medicines', 'Are you sure you want to remove all saved medicines?', [
+                  { text: 'Remove All', style: 'destructive', onPress: clearAllSaved },
+                  { text: 'Cancel', style: 'cancel' },
+                ]);
+              }}
+            >
+              <Text style={[styles.removeText, { color: primaryColor }]}>Remove All</Text>
+            </Pressable>
           </View>
         </View>
+      )}
 
-        {/* ── Wave curve at bottom of hero ── */}
-        <View style={{ backgroundColor: primaryColor }}>
-          <Svg width={width} height={20} viewBox={`0 0 ${width} 20`} style={{ display: 'flex' }}>
-            <Path d={`M0,20 Q${width/2},0 ${width},20 L${width},20 L0,20 Z`} fill={theme.background} />
-          </Svg>
-        </View>
+      {/* ── Saved Medicines List ── */}
+      <FlatList
+        data={filteredMedicines}
+        keyExtractor={(item) => item.id}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={primaryColor}
+            colors={[primaryColor]}
+          />
+        }
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.listContent}
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <View style={[styles.emptyIconCircle, { backgroundColor: theme.patientSecondary }]}>
+              <Ionicons name="heart-dislike-outline" size={40} color={primaryColor} />
+            </View>
+            <Text style={[styles.emptyTitle, { color: theme.text.primary }]}>No Saved Medicines</Text>
+            <Text style={[styles.emptySub, { color: theme.textMuted }]}>
+              {filterQuery.trim()
+                ? `No saved medicines matched "${filterQuery}".`
+                : 'Bookmark medicines during search or viewing details to save them for quick access.'}
+            </Text>
 
-        {/* ── Cards Grid (Dosage, Frequency, Duration) ── */}
-        <View style={styles.cardsRow}>
-          <DetailCard icon="medkit" iconColor={theme.error} label="DOSAGE" value={med.dosage} theme={theme} />
-          <DetailCard icon="time" iconColor={theme.warning} label="FREQUENCY" value={med.frequency} theme={theme} />
-          <DetailCard icon="calendar" iconColor={theme.success} label="DURATION" value={med.duration} theme={theme} />
-        </View>
-
-        {/* ── Info Panels ── */}
-        <InfoPanel title="Uses" content={med.uses} theme={theme} />
-        <InfoPanel title="How to Take" content={med.howToTake} theme={theme} />
-        <InfoPanel title="Side Effects" content={med.sideEffects} theme={theme} />
-        <InfoPanel title="Warnings" content={med.warnings} theme={theme} />
-
-        {/* ── Possible Alternatives ── */}
-        <View style={[styles.panel, { backgroundColor: theme.card, borderColor: theme.border }]}>
-          <Text style={[styles.panelTitle, { color: theme.text.primary }]}>Possible Alternatives</Text>
-          <View style={styles.alternativesRow}>
-            {med.alternatives.map((alt: string, index: number) => (
-              <View key={index} style={[styles.alternativeBadge, { backgroundColor: theme.patientSecondary }]}>
-                <Text style={[styles.alternativeText, { color: primaryColor }]}>{alt}</Text>
+            <Pressable
+              style={({ pressed }) => [styles.exploreBtn, { backgroundColor: primaryColor }, pressed && { opacity: 0.7 }]}
+              onPress={() => router.push('/(patient)/(tabs)/search')}
+            >
+              <Ionicons name="search" size={18} color="#ffffff" style={{ marginRight: 8 }} />
+              <Text style={styles.exploreBtnText}>Explore & Search Medicines</Text>
+            </Pressable>
+          </View>
+        }
+        renderItem={({ item }) => (
+          <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
+            {/* Card Main Info */}
+            <Pressable
+              style={({ pressed }) => [styles.cardTopRow, pressed && { opacity: 0.7 }]}
+              onPress={() => handleSelectMedicine(item)}
+            >
+              <View style={[styles.medIcon, { backgroundColor: theme.patientSecondary }]}>
+                <Ionicons name="medkit" size={20} color={primaryColor} />
               </View>
-            ))}
+
+              <View style={styles.medBody}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                  <Text style={[styles.medName, { color: theme.text.primary }]}>{item.name}</Text>
+                  <View style={[styles.badgePill, { backgroundColor: theme.patientSecondary }]}>
+                    <Text style={[styles.badgePillText, { color: primaryColor }]}>{item.strength}</Text>
+                  </View>
+                </View>
+
+                <Text style={[styles.medSub, { color: theme.textMuted }]}>
+                  Generic: {item.genericName} · {item.category}
+                </Text>
+                <Text style={[styles.priceSub, { color: primaryColor }]}>
+                  {item.estimatedPriceRange || 'Stock Available'}
+                </Text>
+              </View>
+
+              <Pressable onPress={() => handleRemoveConfirm(item)} style={{ padding: 6 }}>
+                <Ionicons name="trash-outline" size={18} color="#ff4d4f" />
+              </Pressable>
+            </Pressable>
+
+            {/* Card Action Row */}
+            <View style={[styles.cardActionRow, { borderTopColor: theme.border }]}>
+              <Pressable
+                style={({ pressed }) => [styles.actionBtn, pressed && { opacity: 0.6 }]}
+                onPress={() => handleFindPharmacies(item)}
+              >
+                <Ionicons name="location-outline" size={16} color="#10b981" />
+                <Text style={[styles.actionBtnText, { color: '#10b981' }]}>Find Stock</Text>
+              </Pressable>
+
+              <View style={[styles.divider, { backgroundColor: theme.border }]} />
+
+              <Pressable
+                style={({ pressed }) => [styles.actionBtn, pressed && { opacity: 0.6 }]}
+                onPress={() => handleAskAI(item)}
+              >
+                <Ionicons name="sparkles-outline" size={16} color={primaryColor} />
+                <Text style={[styles.actionBtnText, { color: primaryColor }]}>Ask AI</Text>
+              </Pressable>
+            </View>
           </View>
-        </View>
-
-        {/* ── Find Nearby Button ── */}
-        <Pressable
-          style={({pressed})=>[styles.findBtn, pressed && { opacity: 0.5 }, { backgroundColor: primaryColor }]}
-          onPress={() => router.push('/(patient)/pharmacies')}
-        >
-          <Text style={styles.findBtnText}>Find Nearby Pharmacies</Text>
-        </Pressable>
-
-      </ScrollView>
+        )}
+      />
     </SafeAreaView>
-  );
-}
-
-function DetailCard({ icon, iconColor, label, value, theme }: { icon: any; iconColor: string; label: string; value: string; theme: any }) {
-  return (
-    <View style={[styles.detailCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
-      <Ionicons name={icon} size={20} color={iconColor} style={{ marginBottom: 8 }} />
-      <Text style={[styles.cardLabel, { color: theme.textDim }]}>{label}</Text>
-      <Text style={[styles.cardValue, { color: theme.text.primary }]}>{value}</Text>
-    </View>
-  );
-}
-
-function InfoPanel({ title, content, theme }: { title: string; content: string; theme: any }) {
-  return (
-    <View style={[styles.panel, { backgroundColor: theme.card, borderColor: theme.border }]}>
-      <Text style={[styles.panelTitle, { color: theme.text.primary }]}>{title}</Text>
-      <Text style={[styles.panelContent, { color: theme.textMuted }]}>{content}</Text>
-    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  scroll: { paddingBottom: 32 },
 
-  // ── Hero ──
-  hero: {
-    paddingTop: 12,
-    paddingHorizontal: SPACING.xl,
-    paddingBottom: 24,
-  },
-  backBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: RADIUS.pill,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  heroContent: {
+  topSection: { paddingHorizontal: SPACING.xl, paddingTop: SPACING.md },
+  searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
-  },
-  pillCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#ffffff',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  rotatedPill: { transform: [{ rotate: '45deg' }] },
-  heroTextCol: { flex: 1 },
-  medName: { fontSize: FONT_SIZE.hero, fontWeight: '700', color: '#ffffff', marginBottom: 2 },
-  medSub: { fontSize: FONT_SIZE.lg, color: 'rgba(255, 255, 255, 0.8)' },
-
-  // ── Cards Row ──
-  cardsRow: {
-    flexDirection: 'row',
-    gap: 10,
-    paddingHorizontal: SPACING.xl,
-    marginTop: 10,
-    marginBottom: 20,
-  },
-  detailCard: {
-    flex: 1,
-    borderRadius: RADIUS.lg,
-    padding: 12,
-    alignItems: 'center',
-    borderWidth: 1,
-  },
-  cardLabel: { fontSize: FONT_SIZE.xs - 1, fontWeight: '700', letterSpacing: 0.5, marginBottom: 4 },
-  cardValue: { fontSize: FONT_SIZE.lg, fontWeight: '600', textAlign: 'center' },
-
-  // ── Panels ──
-  panel: {
-    marginHorizontal: SPACING.xl,
-    marginBottom: SPACING.md,
     borderRadius: RADIUS.xl,
-    padding: SPACING.lg,
+    height: 46,
+    paddingHorizontal: SPACING.lg,
     borderWidth: 1,
   },
-  panelTitle: { fontSize: FONT_SIZE.xl, fontWeight: '700', marginBottom: 8 },
-  panelContent: { fontSize: FONT_SIZE.lg, lineHeight: 20 },
+  searchInput: { flex: 1, fontSize: FONT_SIZE.md },
 
-  // ── Alternatives ──
-  alternativesRow: {
+  countRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 4,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 10,
   },
-  alternativeBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: RADIUS.pill,
-  },
-  alternativeText: {
-    fontSize: FONT_SIZE.sm,
-    fontWeight: '600',
-  },
+  countText: { fontSize: 12, fontWeight: '600' },
+  removeText: { fontSize: 12, fontWeight: '600' },
 
-  // ── Find Button ──
-  findBtn: {
-    marginHorizontal: SPACING.xl,
-    height: 48,
-    borderRadius: RADIUS.pill,
+  listContent: { padding: SPACING.md, gap: 14 },
+
+  card: {
+    borderRadius: RADIUS.xl,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  cardTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+  },
+  medIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: RADIUS.md,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: SPACING.sm,
+    marginRight: 12,
   },
-  findBtnText: {
-    color: '#ffffff',
-    fontSize: FONT_SIZE.xl,
+  medBody: { flex: 1 },
+  medName: { fontSize: FONT_SIZE.md, fontWeight: '700' },
+  medSub: { fontSize: 12, marginTop: 2 },
+  priceSub: { fontSize: 11, fontWeight: '700', marginTop: 2 },
+
+  badgePill: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: RADIUS.pill,
+  },
+  badgePillText: { fontSize: 10, fontWeight: '700' },
+
+  cardActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderTopWidth: 1,
+    paddingVertical: 10,
+  },
+  actionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  actionBtnText: {
+    fontSize: 12,
     fontWeight: '600',
+  },
+  divider: {
+    width: 1,
+    height: 18,
+  },
+
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+    paddingHorizontal: SPACING.xl,
+  },
+  emptyIconCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  emptyTitle: { fontSize: 18, fontWeight: '700', marginBottom: 6 },
+  emptySub: { fontSize: 13, textAlign: 'center', lineHeight: 18, marginBottom: 20 },
+
+  exploreBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    height: 46,
+    borderRadius: RADIUS.pill,
+  },
+  exploreBtnText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '700',
   },
 });

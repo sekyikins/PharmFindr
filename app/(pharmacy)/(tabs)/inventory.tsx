@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
@@ -46,20 +46,46 @@ export default function Inventory() {
     if (!user) return;
     try {
       // 1. Get pharmacy owned by current user
-      const { data: pharm, error: pharmErr } = await supabase
+      let pharmId: string | null = null;
+
+      const { data: pharm } = await supabase
         .from('pharmacies')
         .select('id')
         .eq('owner_id', user.id)
-        .single();
+        .maybeSingle();
 
-      if (pharmErr) throw pharmErr;
-      setPharmacyId(pharm.id);
+      if (pharm?.id) {
+        pharmId = pharm.id;
+      } else {
+        // Fallback match by phone or email
+        let query = supabase.from('pharmacies').select('id');
+        if (user.phone) {
+          query = query.eq('phone', user.phone);
+        } else if (user.email) {
+          query = query.eq('email', user.email);
+        }
+
+        const { data: fallbackPharm } = await query.maybeSingle();
+        if (fallbackPharm?.id) {
+          pharmId = fallbackPharm.id;
+          await supabase.from('pharmacies').update({ owner_id: user.id }).eq('id', pharmId);
+        }
+      }
+
+      if (!pharmId) {
+        setInventory([]);
+        setLoading(false);
+        setRefreshing(false);
+        return;
+      }
+
+      setPharmacyId(pharmId);
 
       // 2. Get inventory
       const { data: inv, error: invErr } = await supabase
         .from('inventory')
         .select('*')
-        .eq('pharmacy_id', pharm.id)
+        .eq('pharmacy_id', pharmId)
         .order('medicine_name', { ascending: true });
 
       if (invErr) throw invErr;
@@ -74,7 +100,6 @@ export default function Inventory() {
       );
     } catch (e: any) {
       console.warn('Error fetching inventory:', e.message);
-      Alert.alert('Error', 'Failed to load inventory.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -89,10 +114,6 @@ export default function Inventory() {
     setRefreshing(true);
     fetchInventory();
   };
-
-  const filteredInventory = inventory.filter((i) =>
-    i.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
 
   const handleAddMedicine = async () => {
     if (!newName.trim() || !newQty.trim() || !newPrice.trim()) {
@@ -191,18 +212,113 @@ export default function Inventory() {
     }
   };
 
+  const [filterMode, setFilterMode] = useState<'all' | 'low' | 'instock'>('all');
+
+  const filteredInventory = useMemo(() => {
+    return inventory.filter((item) => {
+      const q = searchQuery.toLowerCase();
+      const matchesSearch =
+        item.name.toLowerCase().includes(q) ||
+        (item.strength && item.strength.toLowerCase().includes(q));
+
+      if (!matchesSearch) return false;
+      if (filterMode === 'low') return item.quantity <= 10;
+      if (filterMode === 'instock') return item.quantity > 10;
+      return true;
+    });
+  }, [inventory, searchQuery, filterMode]);
+
   const renderItem = ({ item }: { item: any }) => {
-    const isLow = item.quantity < 50;
+    const isOutOfStock = item.quantity <= 0;
+    const isLow = item.quantity > 0 && item.quantity < 30;
+
     return (
-      <Pressable style={({pressed})=>[styles.tableRow, pressed && {opacity: 0.5}, { borderBottomColor: theme.border }]} onPress={() => handleEdit(item)}>
-        <View style={styles.colMed}>
-          <Text style={[styles.medName, { color: theme.text.primary }]}>{item.name}</Text>
-          <Text style={[styles.medStrength, { color: theme.textDim }]}>{item.strength}</Text>
+      <Pressable
+        style={({ pressed }) => [
+          styles.itemCard,
+          pressed && { opacity: 0.88 },
+          { backgroundColor: theme.card, borderColor: theme.border },
+        ]}
+        onPress={() => handleEdit(item)}
+      >
+        <View style={styles.itemHeader}>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.medName, { color: theme.text.primary }]}>{item.name}</Text>
+            {item.strength ? (
+              <View style={[styles.strengthChip, { backgroundColor: theme.surfaceSecondary }]}>
+                <Text style={[styles.strengthText, { color: theme.textMuted }]}>{item.strength}</Text>
+              </View>
+            ) : null}
+          </View>
+
+          <View style={styles.itemRight}>
+            <Text style={[styles.priceText, { color: '#10b981' }]}>GHS {item.price.toFixed(2)}</Text>
+            <Text style={[styles.stockQty, { color: theme.textMuted }]}>{item.quantity} units</Text>
+          </View>
         </View>
-        <Text style={[styles.colQty, { color: theme.text.primary }, isLow && { color: theme.warning }]}>
-          {item.quantity}
-        </Text>
-        <Text style={[styles.colPrice, { color: primaryColor }]}>{item.price.toFixed(2)}</Text>
+
+        <View style={styles.itemFooter}>
+          <View
+            style={[
+              styles.statusPill,
+              isOutOfStock
+                ? { backgroundColor: '#fef2f2' }
+                : isLow
+                ? { backgroundColor: '#fffbeb' }
+                : { backgroundColor: '#ecfdf5' },
+            ]}
+          >
+            <View
+              style={[
+                styles.statusDot,
+                {
+                  backgroundColor: isOutOfStock
+                    ? '#ef4444'
+                    : isLow
+                    ? '#f59e0b'
+                    : '#10b981',
+                },
+              ]}
+            />
+            <Text
+              style={[
+                styles.statusPillText,
+                {
+                  color: isOutOfStock
+                    ? '#b91c1c'
+                    : isLow
+                    ? '#b45309'
+                    : '#047857',
+                },
+              ]}
+            >
+              {isOutOfStock ? 'Out of Stock' : isLow ? 'Low Stock' : 'In Stock'}
+            </Text>
+          </View>
+
+          <Pressable
+            style={({ pressed }) => [
+              styles.editBtn,
+              pressed && { opacity: 0.6 },
+              { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
+            ]}
+            onPress={() =>
+              router.push({
+                pathname: '/(pharmacy)/add-medicine',
+                params: {
+                  editId: item.id,
+                  name: item.name,
+                  strength: item.strength,
+                  quantity: String(item.quantity),
+                  price: String(item.price),
+                },
+              })
+            }
+          >
+            <Ionicons name="create-outline" size={14} color={theme.text.primary} />
+            <Text style={[styles.editBtnText, { color: theme.text.primary }]}>Edit</Text>
+          </Pressable>
+        </View>
       </Pressable>
     );
   };
@@ -212,19 +328,13 @@ export default function Inventory() {
       {/* Header */}
       <Header
         title="Inventory"
-        showBack
-        onBack={() => router.push('/(pharmacy)/(tabs)/dashboard')}
         right={
           <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
             <Pressable
-              style={({ pressed }) => [styles.fabSmall, pressed && { opacity: 0.5 }, { backgroundColor: primaryColor }]}
-              onPress={() => setShowAddForm((v) => !v)}
+              style={({ pressed }) => [styles.fabSmall, pressed && { opacity: 0.8 }, { backgroundColor: '#10b981' }]}
+              onPress={() => router.push('/(pharmacy)/add-medicine')}
             >
-              {showAddForm ? (
-                <Ionicons name="chevron-up" size={22} color="#fff" />
-              ) : (
-                <Ionicons name="add" size={22} color="#fff" />
-              )}
+              <Ionicons name="add" size={22} color="#fff" />
             </Pressable>
             <Pressable
               style={({ pressed }) => [styles.uploadBtn, pressed && { opacity: 0.5 }, { borderColor: theme.border }]}
@@ -235,98 +345,99 @@ export default function Inventory() {
           </View>
         }
       />
-
-      {/* Add New Medicine inline form */}
-      {showAddForm && (
-        <View style={[styles.addForm, { backgroundColor: theme.successBg, borderColor: theme.successBorder }]}>
-          <Text style={[styles.addFormTitle, { color: theme.successText }]}>Add New Medicine</Text>
-          <View style={styles.addFormRow}>
-            <TextInput
-              style={[styles.addInput, { borderColor: theme.successBorder, backgroundColor: theme.card, color: theme.text.primary }]}
-              placeholder="Medicine Name"
-              placeholderTextColor={theme.text.muted}
-              value={newName}
-              onChangeText={setNewName}
-            />
-            <TextInput
-              style={[styles.addInput, { borderColor: theme.successBorder, backgroundColor: theme.card, color: theme.text.primary }]}
-              placeholder="Strength"
-              placeholderTextColor={theme.text.muted}
-              value={newStrength}
-              onChangeText={setNewStrength}
-            />
-          </View>
-          <View style={styles.addFormRow}>
-            <TextInput
-              style={[styles.addInput, { borderColor: theme.successBorder, backgroundColor: theme.card, color: theme.text.primary }]}
-              placeholder="Quantity"
-              placeholderTextColor={theme.text.muted}
-              keyboardType="numeric"
-              value={newQty}
-              onChangeText={setNewQty}
-            />
-            <TextInput
-              style={[styles.addInput, { borderColor: theme.successBorder, backgroundColor: theme.card, color: theme.text.primary }]}
-              placeholder="Price ($/unit)"
-              placeholderTextColor={theme.text.muted}
-              keyboardType="decimal-pad"
-              value={newPrice}
-              onChangeText={setNewPrice}
-            />
-          </View>
-          <Pressable style={({pressed})=>[styles.addBtn, pressed && {opacity: 0.5}, { backgroundColor: primaryColor }]} onPress={handleAddMedicine} disabled={saving}>
-            {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.addBtnText}>Add Medicine</Text>}
-          </Pressable>
-        </View>
-      )}
-
-      {/* Search */}
+      {/* Search Bar & Filter Chips */}
       <View style={styles.searchRow}>
-        <View style={[styles.searchBar, { backgroundColor: theme.surfaceSecondary }]}>
-          <Ionicons name="search-outline" size={15} color={theme.text.muted} style={{ marginRight: 6 }} />
+        <View style={[styles.searchBar, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
+          <Ionicons name="search-outline" size={16} color={theme.textMuted} style={{ marginRight: 6 }} />
           <TextInput
             style={[styles.searchInput, { color: theme.text.primary }]}
-            placeholder="Search inventory..."
-            placeholderTextColor={theme.text.muted}
+            placeholder="Search medicine name or strength..."
+            placeholderTextColor={theme.textMuted}
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
+          {searchQuery ? (
+            <Pressable onPress={() => setSearchQuery('')}>
+              <Ionicons name="close-circle" size={16} color={theme.textMuted} />
+            </Pressable>
+          ) : null}
         </View>
       </View>
 
-      {/* Table Header */}
-      <View style={[styles.tableHeader, { backgroundColor: theme.surfaceSecondary }]}>
-        <Text style={[styles.thMed, { color: theme.textDim }]}>MEDICINE</Text>
-        <Text style={[styles.thQty, { color: theme.textDim }]}>QTY</Text>
-        <Text style={[styles.thPrice, { color: theme.textDim }]}>PRICE ($)</Text>
+      {/* Filter Chips */}
+      <View style={styles.chipRow}>
+        <Pressable
+          style={[
+            styles.chip,
+            filterMode === 'all'
+              ? { backgroundColor: '#10b981', borderColor: '#10b981' }
+              : { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
+          ]}
+          onPress={() => setFilterMode('all')}
+        >
+          <Text style={[styles.chipText, { color: filterMode === 'all' ? '#ffffff' : theme.text.primary }]}>
+            All Items ({inventory.length})
+          </Text>
+        </Pressable>
+
+        <Pressable
+          style={[
+            styles.chip,
+            filterMode === 'low'
+              ? { backgroundColor: '#10b981', borderColor: '#10b981' }
+              : { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
+          ]}
+          onPress={() => setFilterMode('low')}
+        >
+          <Text style={[styles.chipText, { color: filterMode === 'low' ? '#ffffff' : theme.text.primary }]}>
+            Low Stock
+          </Text>
+        </Pressable>
+
+        <Pressable
+          style={[
+            styles.chip,
+            filterMode === 'instock'
+              ? { backgroundColor: '#10b981', borderColor: '#10b981' }
+              : { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
+          ]}
+          onPress={() => setFilterMode('instock')}
+        >
+          <Text style={[styles.chipText, { color: filterMode === 'instock' ? '#ffffff' : theme.text.primary }]}>
+            In Stock
+          </Text>
+        </Pressable>
       </View>
 
-      {/* Table List */}
+      {/* Item List */}
       {loading ? (
-        <View style={styles.listContent}>
-          {[1, 2, 3, 4, 5].map((i) => (
-            <View key={i} style={[styles.tableRow, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
-              <View style={{ flex: 2, gap: 4 }}>
-                <Skeleton width="70%" height={16} />
-                <Skeleton width="40%" height={12} />
-              </View>
-              <Skeleton width={30} height={16} style={{ flex: 1 }} />
-              <Skeleton width={45} height={16} style={{ flex: 1 }} />
-            </View>
+        <View style={{ padding: SPACING.xl, gap: 12 }}>
+          {[1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} width="100%" height={80} borderRadius={16} />
           ))}
         </View>
       ) : (
         <FlatList
           data={filteredInventory}
           keyExtractor={(item) => item.id}
-          showsVerticalScrollIndicator={false}
           renderItem={renderItem}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={{ padding: SPACING.xl, gap: 12, paddingBottom: 100 }}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={primaryColor} colors={[primaryColor]} />
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor="#10b981"
+              colors={['#10b981']}
+            />
           }
           ListEmptyComponent={
-            <Text style={[styles.emptyText, { color: theme.textDim }]}>No medicines found.</Text>
+            <View style={styles.emptyContainer}>
+              <Ionicons name="cube-outline" size={48} color={theme.textMuted} />
+              <Text style={[styles.emptyTitle, { color: theme.text.primary }]}>No medicines found</Text>
+              <Text style={[styles.emptySub, { color: theme.textMuted }]}>
+                {searchQuery ? 'Try matching a different keyword' : 'Tap + above to add your first medicine'}
+              </Text>
+            </View>
           }
         />
       )}
@@ -478,33 +589,113 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 
-  tableHeader: {
+  chipRow: {
     flexDirection: 'row',
-    paddingVertical: 10,
     paddingHorizontal: SPACING.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.05)',
+    paddingBottom: SPACING.sm,
+    gap: 8,
   },
-  thMed: { flex: 2, fontSize: FONT_SIZE.sm, fontWeight: '700' },
-  thQty: { width: 50, fontSize: FONT_SIZE.sm, fontWeight: '700', textAlign: 'center' },
-  thPrice: { width: 75, fontSize: FONT_SIZE.sm, fontWeight: '700', textAlign: 'center' },
+  chip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: RADIUS.pill,
+    borderWidth: 1.2,
+  },
+  chipText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
 
-  listContent: { paddingBottom: 40 },
-  emptyText: { textAlign: 'center', marginTop: 40, fontSize: FONT_SIZE.lg },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-
-  tableRow: {
+  itemCard: {
+    borderRadius: RADIUS.xl,
+    padding: SPACING.lg,
+    borderWidth: 1.5,
+    gap: 12,
+  },
+  itemHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  medName: {
+    fontSize: FONT_SIZE.xl,
+    fontWeight: '700',
+  },
+  strengthChip: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: RADIUS.pill,
+    marginTop: 4,
+  },
+  strengthText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  itemRight: {
+    alignItems: 'flex-end',
+  },
+  priceText: {
+    fontSize: FONT_SIZE.xl,
+    fontWeight: '800',
+  },
+  stockQty: {
+    fontSize: FONT_SIZE.md,
+    marginTop: 2,
+  },
+  itemFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.04)',
+  },
+  statusPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: SPACING.lg,
-    borderBottomWidth: 1,
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: RADIUS.pill,
   },
-  colMed: { flex: 2 },
-  medName: { fontSize: FONT_SIZE.lg, fontWeight: '600' },
-  medStrength: { fontSize: FONT_SIZE.sm, marginTop: 2 },
-  colQty: { width: 50, fontSize: FONT_SIZE.lg, fontWeight: '700', textAlign: 'center' },
-  colPrice: { width: 75, fontSize: FONT_SIZE.lg, fontWeight: '600', textAlign: 'center' },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  statusPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  editBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: RADIUS.pill,
+    borderWidth: 1.2,
+  },
+  editBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+    gap: 8,
+  },
+  emptyTitle: {
+    fontSize: FONT_SIZE.xl,
+    fontWeight: '700',
+  },
+  emptySub: {
+    fontSize: FONT_SIZE.md,
+    textAlign: 'center',
+  },
+
   iconBtn: {
     width: 36,
     height: 36,

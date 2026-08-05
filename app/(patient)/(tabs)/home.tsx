@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
@@ -21,16 +21,13 @@ import { Header } from '@/components/ui/Header';
 
 export default function Home() {
   const router = useRouter();
-  const { profile, user } = useAuthStore();
+  const { profile, user, appUser, refreshProfile, fetchAppUser } = useAuthStore();
   const { theme, primaryColor } = useThemeContext();
   const firstName = profile?.full_name?.split(' ')[0] ?? 'there';
 
-  // Nearby pharmacies come from the shared store (populated by the pharmacies screen)
-  // No re-fetch needed — the store holds device-location-based results independently of auth.
   const { pharmacies: allPharmacies, loading: pharmLoading, loadNearby } = usePharmacyStore();
-  const pharmacies = [...allPharmacies].sort((a, b) => a.distanceKm - b.distanceKm).slice(0, 3);
+  const pharmacies = useMemo(() => allPharmacies.slice(0, 3), [allPharmacies]);
 
-  // Notification unread count + realtime subscription
   const { unreadCount, fetchNotifications, subscribe, unsubscribe } = useNotificationStore();
   useEffect(() => {
     if (!user?.id) return;
@@ -42,7 +39,6 @@ export default function Home() {
   const [prescriptions, setPrescriptions] = useState<any[]>([]);
   const [rxLoading, setRxLoading] = useState(true);
 
-  // Load pharmacies from device GPS (not user-dependent)
   useEffect(() => {
     if (allPharmacies.length === 0) {
       loadNearby();
@@ -80,7 +76,12 @@ export default function Home() {
             console.warn('Error parsing medicines from prescription:', err);
           }
           if (meds.length === 0) meds = ['Prescription Scan'];
-          return { id: rx.id, date: dateStr, medicines: meds };
+          return {
+            id: rx.id,
+            date: dateStr,
+            medicines: meds,
+            rawMedicines: (typeof rx.ai_interpretation === 'object' && rx.ai_interpretation?.medicines) || [],
+          };
         })
       );
     } catch (e: any) {
@@ -94,8 +95,6 @@ export default function Home() {
     fetchPrescriptions();
   }, [fetchPrescriptions]);
 
-  const loading = rxLoading;
-
   const getGreeting = () => {
     const h = new Date().getHours();
     if (h < 12) return 'Good Morning';
@@ -107,32 +106,42 @@ export default function Home() {
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([fetchPrescriptions(), loadNearby()]);
+    await Promise.all([
+      fetchPrescriptions(),
+      loadNearby(),
+      refreshProfile(),
+      fetchAppUser(),
+      user?.id ? fetchNotifications(user.id) : Promise.resolve(),
+    ]);
     setRefreshing(false);
   };
 
+  const alertCount = (appUser?.allergies?.length ?? 0) + (appUser?.existing_conditions?.length ?? 0);
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
-      {/* Header */}
+      {/* Top Navigation Bar */}
       <Header
         title=""
         left={
-          <View style={{ flexDirection: 'row', gap: 4, alignItems: 'center' }}>
-            <Text style={[styles.greeting, { color: theme.textMuted }]}>{getGreeting()}</Text>
-            <Text style={[styles.name, { color: theme.text }]}>{firstName}</Text>
+          <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+            <Text style={[styles.greeting, { color: theme.textMuted }]}>{getGreeting()},</Text>
+            <Text style={[styles.name, { color: theme.text.primary }]}>{firstName}</Text>
           </View>
         }
         right={
           <Pressable
-            style={({ pressed }) => [styles.notifBtn, pressed && { opacity: 0.5 }, { backgroundColor: theme.surfaceSecondary }]}
+            style={({ pressed }) => [
+              styles.notifBtn,
+              pressed && { opacity: 0.6 },
+              { backgroundColor: theme.card, borderColor: theme.border },
+            ]}
             onPress={() => router.push('/(patient)/notifications')}
           >
-            <Ionicons name="notifications-outline" size={20} color={unreadCount > 0 ? primaryColor : theme.textMuted} />
+            <Ionicons name="notifications-outline" size={19} color={unreadCount > 0 ? primaryColor : theme.textMuted} />
             {unreadCount > 0 && (
               <View style={[styles.notifBadge, { backgroundColor: primaryColor }]}>
-                <Text style={styles.notifBadgeText}>
-                  {unreadCount > 9 ? '9+' : String(unreadCount)}
-                </Text>
+                <Text style={styles.notifBadgeText}>{unreadCount > 9 ? '9+' : String(unreadCount)}</Text>
               </View>
             )}
           </Pressable>
@@ -145,170 +154,214 @@ export default function Home() {
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={primaryColor} colors={[primaryColor]} />
         }
       >
-
-          {/* Quick Actions */}
-          <View style={styles.section}>
+        {/* Professional 2-Card Quick Actions */}
+        <View style={styles.section}>
+          <View style={[styles.sectionHeader]}>
             <Text style={[styles.sectionLabel, { color: theme.textDim }]}>QUICK ACTIONS</Text>
-            <View style={styles.actionsRow}>
-              <QuickAction
-                icon="scan-outline"
-                label="Scan Prescription"
-                color={theme.patientPrimary}
-                bg={theme.patientSecondary}
-                cardBg={theme.card}
-                labelColor={theme.text}
-                onPress={() => router.push('/(patient)/scan')}
-              />
-              <QuickAction
-                icon="chatbubble-outline"
-                label="AI Chat"
-                color={primaryColor}
-                bg={theme.patientSecondary}
-                cardBg={theme.card}
-                labelColor={theme.text}
-                onPress={() => router.replace('/(patient)/(tabs)/chat')}
-              />
-            </View>
+          </View>
+          <View style={styles.actionsRow}>
+            <Pressable
+              style={({ pressed }) => [
+                styles.actionCard,
+                pressed && { opacity: 0.85 },
+                { backgroundColor: theme.card, borderColor: theme.border },
+              ]}
+              onPress={() => router.push('/(patient)/scan')}
+            >
+              <View style={styles.actionTopRow}>
+                <View style={[styles.actionIconCircle, { backgroundColor: primaryColor + '15' }]}>
+                  <Ionicons name="scan" size={22} color={primaryColor} />
+                </View>
+                <View style={[styles.tagBadge, { backgroundColor: primaryColor + '12' }]}>
+                  <Text style={[styles.tagBadgeText, { color: primaryColor }]}>AI Extraction</Text>
+                </View>
+              </View>
+              <Text style={[styles.actionTitle, { color: theme.text.primary }]}>Scan Prescription</Text>
+              <Text style={[styles.actionDesc, { color: theme.textMuted }]}>Extract meds &amp; check stock</Text>
+            </Pressable>
+
+            <Pressable
+              style={({ pressed }) => [
+                styles.actionCard,
+                pressed && { opacity: 0.85 },
+                { backgroundColor: theme.card, borderColor: theme.border },
+              ]}
+              onPress={() => router.replace('/(patient)/(tabs)/chat')}
+            >
+              <View style={styles.actionTopRow}>
+                <View style={[styles.actionIconCircle, { backgroundColor: primaryColor + '15' }]}>
+                  <Ionicons name="sparkles" size={20} color={primaryColor} />
+                </View>
+                <View style={[styles.tagBadge, { backgroundColor: primaryColor + '15' }]}>
+                  <Text style={[styles.tagBadgeText, { color: primaryColor }]}>Instant AI</Text>
+                </View>
+              </View>
+              <Text style={[styles.actionTitle, { color: theme.text.primary }]}>AI Assistant</Text>
+              <Text style={[styles.actionDesc, { color: theme.textMuted }]}>Dosage, safety &amp; side effects</Text>
+            </Pressable>
+          </View>
+        </View>
+
+        {/* Recent Prescriptions */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionLabel, { color: theme.textDim }]}>RECENT PRESCRIPTIONS</Text>
+            <Pressable style={({ pressed }) => [pressed && { opacity: 0.5 }]} onPress={() => router.push('/(patient)/prescription-history')}>
+              <Text style={[styles.viewAll, { color: primaryColor }]}>View All</Text>
+            </Pressable>
           </View>
 
-          {/* Recent Prescriptions */}
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionLabel, { color: theme.textDim }]}>RECENT PRESCRIPTIONS</Text>
-              <Pressable style={({pressed})=>[pressed && { opacity: 0.5 }]} onPress={() => router.push('/(patient)/prescription-history')}>
-                <Text style={[styles.viewAll, { color: primaryColor }]}>View All</Text>
-              </Pressable>
+          {rxLoading ? (
+            <View style={{ gap: 10 }}>
+              {[1, 2].map((i) => (
+                <View key={i} style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
+                  <Skeleton width={44} height={44} borderRadius={12} style={{ marginRight: 12 }} />
+                  <View style={{ flex: 1, gap: 6 }}>
+                    <Skeleton width="50%" height={16} />
+                    <Skeleton width="80%" height={14} />
+                  </View>
+                </View>
+              ))}
             </View>
-            {loading ? (
-              <View style={{ gap: 10 }}>
-                {[1, 2].map((i) => (
-                  <View key={i} style={[styles.card, { backgroundColor: theme.card }]}>
-                    <Skeleton width={40} height={40} borderRadius={RADIUS.pill} style={{ marginRight: 12 }} />
-                    <View style={{ flex: 1, gap: 6 }}>
-                      <Skeleton width="60%" height={16} />
-                      <Skeleton width="80%" height={14} />
-                    </View>
-                  </View>
-                ))}
+          ) : prescriptions.length === 0 ? (
+            <View style={[styles.emptyCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+              <View style={[styles.emptyIconCircle, { backgroundColor: primaryColor + '15' }]}>
+                <Ionicons name="document-text-outline" size={24} color={primaryColor} />
               </View>
-            ) : prescriptions.length === 0 ? (
-              <View style={[styles.emptyCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
-                <Ionicons name="document-text-outline" size={28} color={theme.textDim} />
-                <Text style={[styles.emptyText, { color: theme.textMuted }]}>No prescriptions scanned yet.</Text>
-                <Pressable style={({pressed})=>[styles.scanLinkBtn, pressed && { opacity: 0.5 }, { backgroundColor: primaryColor }]} onPress={() => router.push('/(patient)/scan')}>
-                  <Text style={styles.scanLinkText}>Scan Now</Text>
-                </Pressable>
-              </View>
-            ) : (
-              prescriptions.map((rx) => (
-                <Pressable
-                  key={rx.id}
-                  style={({pressed})=>[styles.card, { backgroundColor: theme.card }, pressed && { opacity: 0.5 }]}
-                  onPress={() => router.push('/(patient)/prescription-history')}
-                >
-                  <View style={[styles.cardIcon, { backgroundColor: theme.patientSecondary }]}>
-                    <Ionicons name="document-text-outline" size={20} color={theme.patientPrimary} />
-                  </View>
-                  <View style={styles.cardBody}>
-                    <Text style={[styles.cardTitle, { color: theme.text }]}>{rx.date}</Text>
-                    <Text style={[styles.cardSub, { color: theme.textMuted }]} numberOfLines={1}>
-                      {rx.medicines[0]}{rx.medicines.length > 1 ? ` +${rx.medicines.length - 1} more` : ''}
-                    </Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={16} color={theme.textDim} />
-                </Pressable>
-              ))
-            )}
-          </View>
-
-          {/* Nearby Pharmacies */}
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionLabel, { color: theme.textDim }]}>NEARBY PHARMACIES</Text>
-              <Pressable style={({pressed})=>[pressed && { opacity: 0.5 }]} onPress={() => router.push('/(patient)/pharmacies')}>
-                <Text style={[styles.viewAll, { color: primaryColor }]}>See All</Text>
-              </Pressable>
-            </View>
-            {pharmLoading ? (
-              <View style={{ gap: 10 }}>
-                {[1, 2, 3].map((i) => (
-                  <View key={i} style={[styles.pharmacyCard, { backgroundColor: theme.card }]}>
-                    <Skeleton width={38} height={38} borderRadius={RADIUS.pill} style={{ marginRight: 12 }} />
-                    <View style={{ flex: 1, gap: 6 }}>
-                      <Skeleton width="70%" height={16} />
-                      <Skeleton width="40%" height={14} />
-                    </View>
-                  </View>
-                ))}
-              </View>
-            ) : pharmacies.length === 0 ? (
-              <Text style={[styles.emptyText, { color: theme.textDim, paddingVertical: 10 }]}>
-                No pharmacies found nearby. Open the pharmacies tab to search.
+              <Text style={[styles.emptyTitle, { color: theme.text.primary }]}>No Prescriptions Scanned</Text>
+              <Text style={[styles.emptyText, { color: theme.textMuted }]}>
+                Scan your medical prescription paper to verify drug safety &amp; locate stock nearby.
               </Text>
-            ) : (
-              pharmacies.map((p) => (
-                <Pressable
-                  key={p.id}
-                  style={({pressed})=>[styles.pharmacyCard, { backgroundColor: theme.card }, pressed && { opacity: 0.5 }]}
-                  onPress={() =>
-                    router.push({
-                      pathname: '/(patient)/pharmacies',
-                      params: {
-                        selectedId: p.id,
-                      },
-                    })
-                  }
-                >
-                  <View style={[styles.pharmacyIcon, { backgroundColor: theme.pharmacySecondary }]}>
-                    <Ionicons name="location-outline" size={18} color={theme.pharmacyPrimary} />
-                  </View>
-                  <View style={styles.cardBody}>
-                    <Text style={[styles.pharmacyName, { color: theme.text }]} numberOfLines={1}>{p.name}</Text>
-                    <View style={styles.pharmacyMeta}>
-                      <Text style={[styles.distance, { color: theme.textMuted }]}>{p.distanceKm} km</Text>
-                      <Text style={[styles.distance, { color: theme.textDim }]}>·</Text>
-                      <Text style={[styles.distance, { color: theme.textMuted }]}>{p.walkMinutes} min walk</Text>
-                    </View>
-                  </View>
-                  <Ionicons name="chevron-forward" size={16} color={theme.textDim} />
-                </Pressable>
-              ))
-            )}
-          </View>
-        </ScrollView>
-    </SafeAreaView>
-  );
-}
+              <Pressable
+                style={({ pressed }) => [styles.scanLinkBtn, pressed && { opacity: 0.8 }, { backgroundColor: primaryColor }]}
+                onPress={() => router.push('/(patient)/scan')}
+              >
+                <Ionicons name="camera-outline" size={15} color="#ffffff" style={{ marginRight: 6 }} />
+                <Text style={styles.scanLinkText}>Scan Prescription Now</Text>
+              </Pressable>
+            </View>
+          ) : (
+            prescriptions.map((rx) => (
+              <Pressable
+                key={rx.id}
+                style={({ pressed }) => [
+                  styles.card,
+                  pressed && { opacity: 0.85 },
+                  { backgroundColor: theme.card, borderColor: theme.border },
+                ]}
+                onPress={() => {
+                  const medsToPass = rx.rawMedicines.length > 0
+                    ? rx.rawMedicines
+                    : rx.medicines.map((name: string) => ({ name, strength: null, dosage: null, frequency: null, duration: null, route: null, instructions: null, confidence: 0 }));
+                  router.push({
+                    pathname: '/(patient)/ocr-result',
+                    params: {
+                      medicines: JSON.stringify(medsToPass),
+                      prescriptionId: rx.id,
+                    },
+                  });
+                }}
+              >
+                <View style={[styles.cardIcon, { backgroundColor: primaryColor + '12' }]}>
+                  <Ionicons name="document-text" size={20} color={primaryColor} />
+                </View>
+                <View style={styles.cardBody}>
+                  <Text style={[styles.cardTitle, { color: theme.text.primary }]}>{rx.date}</Text>
+                  <Text style={[styles.cardSub, { color: theme.textMuted }]} numberOfLines={1}>
+                    {rx.medicines[0]}
+                    {rx.medicines.length > 1 ? ` +${rx.medicines.length - 1} more` : ''}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={theme.textDim} />
+              </Pressable>
+            ))
+          )}
+        </View>
 
-function QuickAction({
-  icon, label, color, bg, cardBg, labelColor, onPress,
-}: {
-  icon: any; label: string; color: string; bg: string; cardBg: string; labelColor: string; onPress: () => void;
-}) {
-  return (
-    <Pressable style={({pressed})=>[styles.actionBtn, { backgroundColor: cardBg }, pressed && { opacity: 0.5 }]} onPress={onPress}>
-      <View style={[styles.actionIcon, { backgroundColor: bg }]}>
-        <Ionicons name={icon} size={22} color={color} />
-      </View>
-      <Text style={[styles.actionLabel, { color: labelColor }]}>{label}</Text>
-    </Pressable>
+        {/* Nearby Pharmacies */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionLabel, { color: theme.textDim }]}>NEARBY PHARMACIES</Text>
+            <Pressable style={({ pressed }) => [pressed && { opacity: 0.5 }]} onPress={() => router.push('/(patient)/pharmacies')}>
+              <Text style={[styles.viewAll, { color: primaryColor }]}>See All</Text>
+            </Pressable>
+          </View>
+
+          {pharmLoading ? (
+            <View style={{ gap: 10 }}>
+              {[1, 2, 3].map((i) => (
+                <View key={i} style={[styles.pharmacyCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+                  <Skeleton width={44} height={44} borderRadius={12} style={{ marginRight: 12 }} />
+                  <View style={{ flex: 1, gap: 6 }}>
+                    <Skeleton width="70%" height={16} />
+                    <Skeleton width="45%" height={14} />
+                  </View>
+                </View>
+              ))}
+            </View>
+          ) : pharmacies.length === 0 ? (
+            <View style={[styles.emptyCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+              <Ionicons name="location-outline" size={28} color={theme.textDim} />
+              <Text style={[styles.emptyText, { color: theme.textMuted }]}>
+                No registered pharmacies found nearby. Tap below to search across Ghana.
+              </Text>
+              <Pressable
+                style={({ pressed }) => [styles.scanLinkBtn, pressed && { opacity: 0.8 }, { backgroundColor: primaryColor }]}
+                onPress={() => router.push('/(patient)/pharmacies')}
+              >
+                <Text style={styles.scanLinkText}>Explore Pharmacies</Text>
+              </Pressable>
+            </View>
+          ) : (
+            pharmacies.map((p) => (
+              <Pressable
+                key={p.id}
+                style={({ pressed }) => [
+                  styles.pharmacyCard,
+                  pressed && { opacity: 0.85 },
+                  { backgroundColor: theme.card, borderColor: theme.border },
+                ]}
+                onPress={() =>
+                  router.push({
+                    pathname: '/(patient)/pharmacies',
+                    params: { selectedId: p.id },
+                  })
+                }
+              >
+                <View style={[styles.pharmacyIcon, { backgroundColor: primaryColor + '12' }]}>
+                  <Ionicons name="business" size={20} color={primaryColor} />
+                </View>
+                <View style={styles.cardBody}>
+                  <Text style={[styles.pharmacyName, { color: theme.text.primary }]} numberOfLines={1}>{p.name}</Text>
+                  <View style={styles.pharmacyMeta}>
+                    <Ionicons name="navigate-outline" size={12} color={theme.textMuted} />
+                    <Text style={[styles.distance, { color: theme.textMuted }]}>{p.distanceKm} km</Text>
+                    <Text style={[styles.distance, { color: theme.textDim }]}>·</Text>
+                    <Text style={[styles.distance, { color: theme.textMuted }]}>{p.walkMinutes} min walk</Text>
+                  </View>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={theme.textDim} />
+              </Pressable>
+            ))
+          )}
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-
-  // Header
-  greeting: { fontSize: FONT_SIZE.lg },
-  name: { fontSize: FONT_SIZE.xl, fontWeight: '700' },
+  greeting: { fontSize: 16, fontWeight: '500' },
+  name: { fontSize: 18, fontWeight: '700' },
   notifBtn: {
     width: 40,
     height: 40,
-    borderRadius: RADIUS.pill,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
+    borderWidth: 1,
   },
   notifBadge: {
     position: 'absolute',
@@ -328,91 +381,105 @@ const styles = StyleSheet.create({
     lineHeight: 12,
   },
 
-  // Sections
-  section: { paddingHorizontal: SPACING.xl, paddingTop: SPACING.md },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.sm },
-  sectionLabel: { fontSize: FONT_SIZE.md, fontWeight: '700', letterSpacing: 0.8, textTransform: 'uppercase' },
-  viewAll: { fontSize: FONT_SIZE.md, fontWeight: '600', letterSpacing: 0.8 },
+  // Hero Status Banner
+  heroWrapper: { paddingHorizontal: SPACING.xl, paddingTop: SPACING.sm },
+  heroCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 14,
+    borderRadius: 18,
+    borderWidth: 1.2,
+  },
+  heroLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
+  pulseCircle: { width: 34, height: 34, borderRadius: 17, justifyContent: 'center', alignItems: 'center' },
+  heroTitle: { fontSize: 13, fontWeight: '700' },
+  heroSub: { fontSize: 11, marginTop: 1 },
+  heroBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12 },
+  heroBadgeText: { fontSize: 11, fontWeight: '700' },
 
-  // Quick Actions
-  actionsRow: { flexDirection: 'row', gap: SPACING.md },
-  actionBtn: {
+  // Sections
+  section: { paddingHorizontal: SPACING.xl, paddingTop: SPACING.lg },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.sm },
+  sectionLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 0.8, textTransform: 'uppercase' },
+  viewAll: { fontSize: 13, fontWeight: '700' },
+
+  // Quick Actions (2-Card Professional Grid)
+  actionsRow: { flexDirection: 'row', gap: 12 },
+  actionCard: {
     flex: 1,
-    borderRadius: RADIUS.xl,
-    padding: SPACING.lg,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderRadius: 18,
+    padding: 16,
+    borderWidth: 1.2,
   },
-  actionIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: RADIUS.lg,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: SPACING.sm,
-  },
-  actionLabel: { fontSize: FONT_SIZE.md, fontWeight: '600' },
+  actionTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  actionIconCircle: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center' },
+  tagBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
+  tagBadgeText: { fontSize: 10, fontWeight: '700' },
+  actionTitle: { fontSize: 14, fontWeight: '700', marginBottom: 2 },
+  actionDesc: { fontSize: 11, lineHeight: 15 },
 
   // Prescription Cards
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: RADIUS.lg,
+    borderRadius: 16,
     padding: 14,
     marginBottom: 10,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderWidth: 1.2,
   },
   cardIcon: {
     width: 44,
     height: 44,
-    borderRadius: RADIUS.md,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: SPACING.md,
+    marginRight: 12,
   },
   cardBody: { flex: 1 },
-  cardTitle: { fontSize: FONT_SIZE.lg, fontWeight: '700', marginBottom: 2 },
-  cardSub: { fontSize: FONT_SIZE.md },
+  rxRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 },
+  cardTitle: { fontSize: 14, fontWeight: '700' },
+  rxVerifiedPill: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 7, paddingVertical: 2, borderRadius: 10 },
+  rxVerifiedText: { fontSize: 10, fontWeight: '700', color: '#10b981' },
+  cardSub: { fontSize: 13 },
 
   emptyCard: {
-    borderRadius: RADIUS.xl,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
-    padding: 24,
+    padding: 20,
     alignItems: 'center',
-    gap: 8,
     marginTop: 4,
   },
-  emptyText: { fontSize: FONT_SIZE.lg, textAlign: 'center' },
+  emptyIconCircle: { width: 48, height: 48, borderRadius: 24, justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
+  emptyTitle: { fontSize: 14, fontWeight: '700', marginBottom: 4 },
+  emptyText: { fontSize: 12, textAlign: 'center', lineHeight: 18, marginBottom: 12 },
   scanLinkBtn: {
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    borderRadius: RADIUS.pill,
-    marginTop: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
   },
-  scanLinkText: { color: '#fff', fontWeight: '600', fontSize: FONT_SIZE.sm },
+  scanLinkText: { color: '#ffffff', fontWeight: '700', fontSize: 13 },
 
   // Pharmacy Cards
   pharmacyCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: RADIUS.lg,
+    borderRadius: 16,
     padding: 14,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
   },
   pharmacyIcon: {
     width: 44,
     height: 44,
-    borderRadius: RADIUS.pill,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: SPACING.md,
+    marginRight: 12,
   },
-  pharmacyName: { fontSize: FONT_SIZE.lg, fontWeight: '700', marginBottom: 2 },
-  pharmacyMeta: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
-  distance: { fontSize: FONT_SIZE.md },
+  pharmacyName: { fontSize: 14, fontWeight: '700', marginBottom: 3 },
+  pharmacyMeta: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  distance: { fontSize: 12 },
 });

@@ -4,6 +4,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import {
   BottomSheetModal,
   BottomSheetView,
+  BottomSheetScrollView,
   BottomSheetBackdrop,
   type BottomSheetBackdropProps,
 } from '@gorhom/bottom-sheet';
@@ -45,6 +46,9 @@ const AppBottomSheet = forwardRef<any, AppBottomSheetProps>(
         snapPoints={snapPoints}
         enableDynamicSizing={enableDynamicSizing}
         enablePanDownToClose
+        keyboardBehavior="extend"
+        keyboardBlurBehavior="restore"
+        android_keyboardInputMode="adjustResize"
         backdropComponent={renderBackdrop}
         backgroundStyle={{ backgroundColor: theme.card }}
         handleIndicatorStyle={{ backgroundColor: theme.textDim, width: 40 }}
@@ -67,11 +71,17 @@ const AppBottomSheet = forwardRef<any, AppBottomSheetProps>(
               </View>
             )}
             
-              <View style={[styles.side, { alignItems: "flex-end" }]}>
-                {rightBtn}
-              </View>
+            <View style={[styles.side, { alignItems: "flex-end" }]}>
+              {rightBtn}
+            </View>
           </View>
-          {children}
+          <BottomSheetScrollView
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingBottom: 60 }}
+          >
+            {children}
+          </BottomSheetScrollView>
         </BottomSheetView>
       </BottomSheetModal>
     );

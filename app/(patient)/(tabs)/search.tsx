@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -6,209 +6,228 @@ import {
   FlatList,
   TextInput,
   Pressable,
+  ScrollView,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useThemeContext } from '@/hooks/useThemeContext';
 import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
-import { supabase } from '@/lib/supabase';
 import Skeleton from '@/components/ui/Skeleton';
 import { Header } from '@/components/ui/Header';
+import { searchMasterMedicines, type MedicineItem } from '@/lib/medicineCatalogue';
+import { useRecentSearchesStore } from '@/store/recentSearchesStore';
+import { useNetworkStore } from '@/store/networkStore';
 
-interface InventoryResult {
-  id: string;
-  name: string;
-  genericName?: string | null;
-  brandName?: string | null;
-  strength: string;
-  dosageForm?: string | null;
-  pharmacyName: string;
-  pharmacyId: string;
-  price: number;
-  quantity: number;
-  isAlternative?: boolean;
-}
+const CATEGORIES = [
+  'All',
+  'Pain Relief',
+  'Antibiotics',
+  'Diabetes',
+  'Heart & BP',
+  'Gastro',
+  'Allergy',
+  'Antimalarial',
+];
 
-const RECENT_SEARCHES = ['Paracetamol', 'Amoxicillin', 'Metformin', 'Ibuprofen'];
+const POPULAR_MEDICINES = [
+  { name: 'Paracetamol', category: 'Pain Relief', strength: '500mg' },
+  { name: 'Amoxicillin', category: 'Antibiotic', strength: '500mg' },
+  { name: 'Metformin', category: 'Diabetes', strength: '850mg' },
+  { name: 'Ibuprofen', category: 'Pain Relief', strength: '400mg' },
+  { name: 'Coartem', category: 'Antimalarial', strength: '80/480mg' },
+  { name: 'Omeprazole', category: 'Gastro', strength: '20mg' },
+  { name: 'Lisinopril', category: 'Heart & BP', strength: '10mg' },
+  { name: 'Cetirizine', category: 'Allergy', strength: '10mg' },
+];
 
 export default function SearchMedicines() {
   const router = useRouter();
   const { theme, primaryColor } = useThemeContext();
 
+  const {
+    recentSearches,
+    loadRecentSearches,
+    addRecentSearch,
+    removeRecentSearch,
+    clearAllRecentSearches,
+  } = useRecentSearchesStore();
+
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<InventoryResult[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [results, setResults] = useState<MedicineItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const runSearch = useCallback(async (term: string) => {
-    const trimmed = term.trim();
-    if (!trimmed) {
-      setResults([]);
-      setSearched(false);
-      return;
-    }
+  useEffect(() => {
+    loadRecentSearches();
+  }, []);
 
-    setLoading(true);
-    setSearched(true);
+  const runSearch = useCallback(
+    async (term: string, cat?: string) => {
+      const trimmed = term.trim();
+      const activeCat = cat !== undefined ? cat : selectedCategory;
 
-    try {
-      // 1. Direct query on inventory across generic_name, brand_name, medicine_name
-      const { data, error } = await supabase
-        .from('inventory')
-        .select(`
-          id,
-          medicine_name,
-          generic_name,
-          brand_name,
-          strength,
-          dosage_form,
-          price,
-          quantity,
-          pharmacies ( id, name )
-        `)
-        .or(`generic_name.ilike.%${trimmed}%,brand_name.ilike.%${trimmed}%,medicine_name.ilike.%${trimmed}%`)
-        .gt('quantity', 0)
-        .order('medicine_name', { ascending: true })
-        .limit(30);
-
-      if (error) throw error;
-
-      const directMatches: InventoryResult[] = (data ?? []).map((item: any) => ({
-        id: item.id,
-        name: item.medicine_name,
-        genericName: item.generic_name,
-        brandName: item.brand_name,
-        strength: item.strength ?? '',
-        dosageForm: item.dosage_form ?? '',
-        pharmacyName: item.pharmacies?.name ?? 'Pharmacy',
-        pharmacyId: item.pharmacies?.id ?? '',
-        price: parseFloat(item.price) || 0,
-        quantity: item.quantity,
-        isAlternative: false,
-      }));
-
-      // 2. If we matched a brand name, fetch generic alternatives sharing the same generic_name
-      const matchedGenerics = Array.from(
-        new Set(directMatches.map((m) => m.genericName).filter(Boolean) as string[])
-      );
-
-      let alternativeMatches: InventoryResult[] = [];
-      if (matchedGenerics.length > 0) {
-        const directIds = new Set(directMatches.map((m) => m.id));
-        const { data: altData } = await supabase
-          .from('inventory')
-          .select(`
-            id,
-            medicine_name,
-            generic_name,
-            brand_name,
-            strength,
-            dosage_form,
-            price,
-            quantity,
-            pharmacies ( id, name )
-          `)
-          .in('generic_name', matchedGenerics)
-          .gt('quantity', 0)
-          .limit(20);
-
-        if (altData) {
-          alternativeMatches = altData
-            .filter((item: any) => !directIds.has(item.id))
-            .map((item: any) => ({
-              id: item.id,
-              name: item.medicine_name,
-              genericName: item.generic_name,
-              brandName: item.brand_name,
-              strength: item.strength ?? '',
-              dosageForm: item.dosage_form ?? '',
-              pharmacyName: item.pharmacies?.name ?? 'Pharmacy',
-              pharmacyId: item.pharmacies?.id ?? '',
-              price: parseFloat(item.price) || 0,
-              quantity: item.quantity,
-              isAlternative: true,
-            }));
-        }
+      if (!trimmed && activeCat === 'All') {
+        setResults([]);
+        setSearched(false);
+        return;
       }
 
-      setResults([...directMatches, ...alternativeMatches]);
-    } catch (e: any) {
-      console.warn('Search error:', e.message);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+      if (!useNetworkStore.getState().isConnected) {
+        useNetworkStore.getState().triggerOfflineNotice();
+      }
+
+      setLoading(true);
+      setSearched(true);
+
+      if (trimmed) {
+        addRecentSearch(trimmed);
+      }
+
+      try {
+        const matches = await searchMasterMedicines(trimmed, activeCat);
+        setResults(matches);
+      } catch (e: any) {
+        console.warn('Search error:', e.message);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [selectedCategory, addRecentSearch]
+  );
 
   const handleQueryChange = (text: string) => {
     setQuery(text);
     if (debounceRef.current) clearTimeout(debounceRef.current);
 
-    if (!text.trim()) {
+    if (!text.trim() && selectedCategory === 'All') {
       setResults([]);
       setSearched(false);
       return;
     }
 
     debounceRef.current = setTimeout(() => {
-      runSearch(text);
+      runSearch(text, selectedCategory);
     }, 300);
   };
 
-  const handleSubmit = () => runSearch(query);
-  const handleChip = (term: string) => {
+  const handleCategorySelect = (cat: string) => {
+    setSelectedCategory(cat);
+    if (query.trim() || cat !== 'All') {
+      runSearch(query, cat);
+    } else {
+      setResults([]);
+      setSearched(false);
+    }
+  };
+
+  const handleChipSelect = (term: string) => {
     setQuery(term);
     runSearch(term);
+  };
+
+  const handleSelectMedicine = (med: MedicineItem) => {
+    router.push({
+      pathname: '/(patient)/medicine/[id]',
+      params: { id: med.id },
+    });
   };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
       <Header title="Search Medicines" />
 
-      {/* Search Input Bar */}
+      {/* ── Search Input & Filter Bar ── */}
       <View style={[styles.searchWrapper, { backgroundColor: theme.card }]}>
-        <View style={[styles.searchBar, { backgroundColor: theme.surfaceSecondary, borderWidth: 1, borderColor: theme.border }]}>
-          <Ionicons name="search" size={18} color={theme.text.muted} style={{ marginRight: 8 }} />
+        <View
+          style={[
+            styles.searchBar,
+            { backgroundColor: theme.surfaceSecondary, borderWidth: 1, borderColor: theme.border },
+          ]}
+        >
+          <Ionicons name="search" size={18} color={theme.textMuted} style={{ marginRight: 8 }} />
           <TextInput
             style={[styles.searchInput, { color: theme.text.primary }]}
-            placeholder="Search generic or brand name..."
-            placeholderTextColor={theme.text.muted}
+            placeholder="Search generic or brand name (e.g. Paracetamol)..."
+            placeholderTextColor={theme.textMuted}
             value={query}
             onChangeText={handleQueryChange}
-            onSubmitEditing={handleSubmit}
-            autoFocus
+            onSubmitEditing={() => runSearch(query)}
             returnKeyType="search"
           />
           {query.length > 0 && (
-            <Pressable onPress={() => { setQuery(''); setResults([]); setSearched(false); }}>
-              <Ionicons name="close" size={20} color={theme.text.muted} />
+            <Pressable
+              onPress={() => {
+                setQuery('');
+                if (selectedCategory === 'All') {
+                  setResults([]);
+                  setSearched(false);
+                } else {
+                  runSearch('', selectedCategory);
+                }
+              }}
+              style={{ padding: 4 }}
+            >
+              <Ionicons name="close-circle" size={18} color={theme.textMuted} />
             </Pressable>
           )}
         </View>
+
+        {/* ── Horizontal Category Filter Chips ── */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.categoryScroll}
+        >
+          {CATEGORIES.map((cat) => {
+            const isSelected = selectedCategory === cat;
+            return (
+              <Pressable
+                key={cat}
+                style={({ pressed }) => [
+                  styles.categoryChip,
+                  isSelected
+                    ? { backgroundColor: primaryColor, borderColor: primaryColor }
+                    : { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
+                  pressed && { opacity: 0.7 },
+                ]}
+                onPress={() => handleCategorySelect(cat)}
+              >
+                <Text
+                  style={[
+                    styles.categoryChipText,
+                    { color: isSelected ? '#ffffff' : theme.text.primary },
+                  ]}
+                >
+                  {cat}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
       </View>
 
-      {/* Loading Skeleton */}
+      {/* ── Loading Skeleton ── */}
       {loading && (
         <View style={styles.listContent}>
-          {[1, 2, 3].map((i) => (
+          {[1, 2, 3, 4].map((i) => (
             <View key={i} style={[styles.medicineCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
-              <Skeleton width={38} height={38} borderRadius={RADIUS.pill} style={{ marginRight: 12 }} />
+              <Skeleton width={44} height={44} borderRadius={RADIUS.md} style={{ marginRight: 14 }} />
               <View style={{ flex: 1, gap: 6 }}>
-                <Skeleton width="60%" height={16} />
-                <Skeleton width="40%" height={14} />
+                <Skeleton width="65%" height={16} />
+                <Skeleton width="45%" height={13} />
               </View>
-              <View style={{ alignItems: 'flex-end', gap: 6 }}>
-                <Skeleton width={50} height={16} />
-                <Skeleton width={60} height={12} />
-              </View>
+              <Skeleton width={60} height={24} borderRadius={RADIUS.pill} />
             </View>
           ))}
         </View>
       )}
 
-      {/* Search Results List */}
+      {/* ── Search Results List ── */}
       {!loading && searched && (
         <FlatList
           data={results}
@@ -216,112 +235,129 @@ export default function SearchMedicines() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.listContent}
           ListEmptyComponent={
-            <Text style={[styles.emptyText, { color: theme.textDim }]}>
-              No medicines found for "{query}". Try searching by generic active ingredient (e.g. Paracetamol).
-            </Text>
+            <View style={styles.emptyContainer}>
+              <Ionicons name="search-outline" size={48} color={theme.textDim} style={{ marginBottom: 12 }} />
+              <Text style={[styles.emptyTitle, { color: theme.text.primary }]}>No Medicines Found</Text>
+              <Text style={[styles.emptySub, { color: theme.textMuted }]}>
+                We couldn't find matches for "{query}". Try searching by generic active ingredient (e.g. Paracetamol, Amoxicillin).
+              </Text>
+            </View>
           }
           renderItem={({ item }) => (
             <Pressable
               style={({ pressed }) => [
                 styles.medicineCard,
                 { backgroundColor: theme.card, borderColor: theme.border },
-                item.isAlternative && { borderStyle: 'dashed', borderColor: theme.textDim },
-                pressed && { opacity: 0.5 },
+                pressed && { opacity: 0.7, backgroundColor: theme.surfaceSecondary },
               ]}
-              onPress={() =>
-                router.push({
-                  pathname: '/(patient)/pharmacies',
-                  params: {
-                    query: item.genericName || item.name,
-                    selectedId: item.pharmacyId,
-                  },
-                })
-              }
+              onPress={() => handleSelectMedicine(item)}
             >
               <View style={[styles.medIcon, { backgroundColor: theme.patientSecondary }]}>
-                <Ionicons name="medkit-outline" size={18} color={primaryColor} />
+                <Ionicons name="medkit" size={20} color={primaryColor} />
               </View>
 
               <View style={styles.medBody}>
-                {/* Brand & Generic Labels */}
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                  <Text style={[styles.medName, { color: theme.text.primary }]}>
-                    {item.brandName ? item.brandName : item.name}
-                  </Text>
-                  {item.brandName ? (
-                    <View style={[styles.badgePill, { backgroundColor: theme.patientSecondary }]}>
-                      <Text style={[styles.badgePillText, { color: primaryColor }]}>Brand</Text>
-                    </View>
-                  ) : (
-                    <View style={[styles.badgePill, { backgroundColor: '#dcfce7' }]}>
-                      <Text style={[styles.badgePillText, { color: '#16a34a' }]}>Generic</Text>
-                    </View>
-                  )}
-                  {item.isAlternative && (
-                    <View style={[styles.badgePill, { backgroundColor: '#fef3c7' }]}>
-                      <Text style={[styles.badgePillText, { color: '#d97706' }]}>Alternative</Text>
-                    </View>
-                  )}
+                  <Text style={[styles.medName, { color: theme.text.primary }]}>{item.name}</Text>
+                  <View style={[styles.badgePill, { backgroundColor: theme.patientSecondary }]}>
+                    <Text style={[styles.badgePillText, { color: primaryColor }]}>{item.strength}</Text>
+                  </View>
                 </View>
 
-                <Text style={[styles.medSub, { color: theme.textMuted }]}>
-                  {item.genericName ? `Generic: ${item.genericName} · ` : ''}
-                  {item.strength ? `${item.strength} · ` : ''}
-                  {item.pharmacyName}
+                <Text style={[styles.medSub, { color: theme.textMuted }]} numberOfLines={1}>
+                  Generic: {item.genericName} · {item.category}
                 </Text>
+
+                {item.brandNames && item.brandNames.length > 0 && (
+                  <Text style={[styles.brandSub, { color: theme.textDim }]} numberOfLines={1}>
+                    Brands: {item.brandNames.join(', ')}
+                  </Text>
+                )}
               </View>
 
-              <View style={styles.priceCol}>
-                <Text style={[styles.priceText, { color: primaryColor }]}>GH₵{item.price.toFixed(2)}</Text>
-                <Text style={[styles.qtyText, { color: theme.textDim }]}>{item.quantity} in stock</Text>
+              <View style={{ alignItems: 'flex-end', justifyContent: 'center' }}>
+                <Ionicons name="chevron-forward" size={18} color={theme.textDim} />
               </View>
             </Pressable>
           )}
         />
       )}
 
-      {/* Default View: Recent + Popular Generics */}
+      {/* ── Default View: Recent Searches + Popular Medicines ── */}
       {!loading && !searched && (
-        <FlatList
-          data={[]}
-          renderItem={() => null}
-          showsVerticalScrollIndicator={false}
-          ListHeaderComponent={
-            <>
-              {/* Recent Searches */}
-              <View style={styles.section}>
+        <ScrollView showsVerticalScrollIndicator={false}>
+          {/* Recent Searches */}
+          {recentSearches.length > 0 && (
+            <View style={styles.section}>
+              <View style={styles.sectionHeaderRow}>
                 <Text style={[styles.sectionLabel, { color: theme.textDim }]}>RECENT SEARCHES</Text>
-                {RECENT_SEARCHES.map((term) => (
-                  <Pressable
-                    key={term}
-                    style={({ pressed }) => [styles.recentRow, { borderBottomColor: theme.border }, pressed && { opacity: 0.7 }]}
-                    onPress={() => handleChip(term)}
-                  >
-                    <Ionicons name="time-outline" size={18} color={theme.text.muted} style={{ marginRight: 12 }} />
-                    <Text style={[styles.recentText, { color: theme.text.primary }]}>{term}</Text>
-                    <Ionicons name="arrow-forward-outline" size={18} color={theme.textDim} />
-                  </Pressable>
-                ))}
+                <Pressable
+                  onPress={() => {
+                    Alert.alert('Clear History', 'Are you sure you want to clear your recent search history?', [
+                      { text: 'Clear All', style: 'destructive', onPress: clearAllRecentSearches },
+                      { text: 'Cancel', style: 'cancel' },
+                    ]);
+                  }}
+                >
+                  <Text style={[styles.clearText, { color: primaryColor }]}>Clear All</Text>
+                </Pressable>
               </View>
 
-              {/* Quick Search Chips */}
-              <View style={styles.section}>
-                <Text style={[styles.sectionLabel, { color: theme.textDim }]}>POPULAR MEDICINES</Text>
-                <View style={styles.chipsRow}>
-                  {['Paracetamol', 'Amoxicillin', 'Metformin', 'Ibuprofen', 'Augmentin', 'Panadol', 'Omeprazole'].map((chip) => (
+              <View style={[styles.recentCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+                {recentSearches.map((term, index) => (
+                  <View
+                    key={term}
+                    style={[
+                      styles.recentRow,
+                      index < recentSearches.length - 1 && { borderBottomWidth: 1, borderBottomColor: theme.border },
+                    ]}
+                  >
                     <Pressable
-                      key={chip}
-                      style={({ pressed }) => [styles.chip, { backgroundColor: theme.patientSecondary }, pressed && { opacity: 0.7 }]}
-                      onPress={() => handleChip(chip)}
+                      style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}
+                      onPress={() => handleChipSelect(term)}
                     >
-                      <Text style={[styles.chipText, { color: primaryColor }]}>{chip}</Text>
+                      <Ionicons name="time-outline" size={18} color={theme.textMuted} style={{ marginRight: 12 }} />
+                      <Text style={[styles.recentText, { color: theme.text.primary }]}>{term}</Text>
                     </Pressable>
-                  ))}
-                </View>
+                    <Pressable onPress={() => removeRecentSearch(term)} style={{ padding: 6 }}>
+                      <Ionicons name="close" size={16} color={theme.textDim} />
+                    </Pressable>
+                  </View>
+                ))}
               </View>
-            </>
-          }
-        />
+            </View>
+          )}
+
+          {/* Popular Medicines Grid */}
+          <View style={[styles.section, { paddingTop: 0 }]}>
+            <Text style={[styles.sectionLabel, { color: theme.textDim }]}>POPULAR MEDICINES & GENERICS</Text>
+
+            <View style={styles.popularGrid}>
+              {POPULAR_MEDICINES.map((item) => (
+                <Pressable
+                  key={item.name}
+                  style={({ pressed }) => [
+                    styles.popularCard,
+                    { backgroundColor: theme.card, borderColor: theme.border },
+                    pressed && { opacity: 0.7, backgroundColor: theme.surfaceSecondary },
+                  ]}
+                  onPress={() => handleChipSelect(item.name)}
+                >
+                  <View style={[styles.popularIconCircle, { backgroundColor: theme.patientSecondary }]}>
+                    <Ionicons name="medkit-outline" size={18} color={primaryColor} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.popularName, { color: theme.text.primary }]}>{item.name}</Text>
+                    <Text style={[styles.popularSub, { color: theme.textMuted }]}>
+                      {item.strength} · {item.category}
+                    </Text>
+                  </View>
+                  <Ionicons name="arrow-forward" size={16} color={theme.textDim} />
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        </ScrollView>
       )}
     </SafeAreaView>
   );
@@ -330,7 +366,7 @@ export default function SearchMedicines() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
 
-  searchWrapper: { padding: SPACING.lg, paddingBottom: 0 },
+  searchWrapper: { paddingHorizontal: SPACING.lg, paddingTop: 6, paddingBottom: 10 },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -340,38 +376,73 @@ const styles = StyleSheet.create({
   },
   searchInput: { flex: 1, fontSize: FONT_SIZE.md },
 
-  section: { paddingHorizontal: SPACING.xl, paddingTop: SPACING.lg },
+  categoryScroll: { gap: 8, paddingTop: 10 },
+  categoryChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: RADIUS.pill,
+    borderWidth: 1,
+  },
+  categoryChipText: { fontSize: 12, fontWeight: '600' },
+
+  section: { padding: SPACING.lg },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
   sectionLabel: {
-    fontSize: FONT_SIZE.md,
+    fontSize: 11,
     fontWeight: '700',
     letterSpacing: 0.8,
     textTransform: 'uppercase',
-    marginBottom: 8,
   },
+  clearText: { fontSize: 12, fontWeight: '600' },
 
+  recentCard: {
+    borderRadius: RADIUS.xl,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
   recentRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 14,
-    borderBottomWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
-  recentText: { flex: 1, fontSize: FONT_SIZE.lg },
+  recentText: { fontSize: FONT_SIZE.md, fontWeight: '500' },
 
-  chipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
-  chip: { borderRadius: RADIUS.pill, paddingHorizontal: 14, paddingVertical: 7 },
-  chipText: { fontSize: FONT_SIZE.md, fontWeight: '600' },
+  popularGrid: { gap: 10, marginTop: 8 },
+  popularCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: RADIUS.xl,
+    padding: 12,
+    borderWidth: 1,
+    gap: 12,
+  },
+  popularIconCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  popularName: { fontSize: FONT_SIZE.md, fontWeight: '700' },
+  popularSub: { fontSize: 12, marginTop: 1 },
 
   listContent: { padding: SPACING.lg, gap: 10 },
   medicineCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: RADIUS.lg,
+    borderRadius: RADIUS.xl,
     padding: 14,
     borderWidth: 1,
   },
   medIcon: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     borderRadius: RADIUS.md,
     justifyContent: 'center',
     alignItems: 'center',
@@ -379,10 +450,8 @@ const styles = StyleSheet.create({
   },
   medBody: { flex: 1 },
   medName: { fontSize: FONT_SIZE.md, fontWeight: '700' },
-  medSub: { fontSize: FONT_SIZE.sm, marginTop: 2 },
-  priceCol: { alignItems: 'flex-end' },
-  priceText: { fontSize: FONT_SIZE.md, fontWeight: '600' },
-  qtyText: { fontSize: FONT_SIZE.sm, marginTop: 2 },
+  medSub: { fontSize: 12, marginTop: 2 },
+  brandSub: { fontSize: 11, marginTop: 2 },
 
   badgePill: {
     paddingHorizontal: 7,
@@ -391,5 +460,12 @@ const styles = StyleSheet.create({
   },
   badgePillText: { fontSize: 10, fontWeight: '700' },
 
-  emptyText: { textAlign: 'center', marginTop: 40, fontSize: FONT_SIZE.md },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+    paddingHorizontal: SPACING.xl,
+  },
+  emptyTitle: { fontSize: 18, fontWeight: '700', marginBottom: 6 },
+  emptySub: { fontSize: 13, textAlign: 'center', lineHeight: 18 },
 });

@@ -13,28 +13,56 @@ import {
   ActivityIndicator,
   BackHandler,
   Modal,
+  Share,
+  PanResponder,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useThemeContext } from '@/hooks/useThemeContext';
 import { useChatStore, type Consultation } from '@/store/chatStore';
 import { useAuthStore } from '@/store/authStore';
+import { useNetworkStore } from '@/store/networkStore';
 import { FormattedMarkdown } from '@/components/ui/FormattedMarkdown';
 
-const SUGGESTION_CHIPS = [
-  'What is this medicine for?',
-  'Explain my prescription.',
-  'Find this medicine nearby.',
-  'Can I take this after food?',
-  'What if I miss a dose?',
+const FEATURED_PROMPTS = [
+  {
+    icon: 'medkit-outline',
+    color: '#10b981',
+    title: 'Explain My Prescription',
+    desc: 'Understand purpose & dosages of scanned medicines',
+    prompt: 'Can you explain the usage and guidelines for my prescribed medicines?',
+  },
+  {
+    icon: 'shield-checkmark-outline',
+    color: '#ef4444',
+    title: 'Check Safety & Interactions',
+    desc: 'Avoid dangerous drug-drug interactions',
+    prompt: 'Check if there are any known interactions or contraindications for my current medicines.',
+  },
+  {
+    icon: 'location-outline',
+    color: '#3b82f6',
+    title: 'Find Nearby Pharmacies',
+    desc: 'Check inventory at verified pharmacies',
+    prompt: 'Help me find nearby pharmacies that have my medicine in stock.',
+  },
+  {
+    icon: 'time-outline',
+    color: '#8b5cf6',
+    title: 'Dosage & Schedule Tips',
+    desc: 'Best times and meal guidelines for taking meds',
+    prompt: 'What is the best daily schedule and meal timing for taking my medications?',
+  },
 ];
 
 export default function AIChat() {
   const router = useRouter();
+  const { initialQuery } = useLocalSearchParams<{ initialQuery?: string }>();
   const { theme, primaryColor } = useThemeContext();
   const insets = useSafeAreaInsets();
-  const { user, profile } = useAuthStore();
+  const { user, profile, appUser } = useAuthStore();
+  const isProfileIncomplete = !appUser?.age || !appUser?.weight || ((appUser?.allergies?.length || 0) === 0 && (appUser?.existing_conditions?.length || 0) === 0);
   const {
     consultations,
     activeConsultation,
@@ -57,11 +85,67 @@ export default function AIChat() {
   const [showNewConsultModal, setShowNewConsultModal] = useState(false);
   const [newTopicTitle, setNewTopicTitle] = useState('');
   const [showBannerDetails, setShowBannerDetails] = useState(true);
+  const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
 
   const slideAnim = useRef(new Animated.Value(-320)).current;
   const overlayOpacity = useRef(new Animated.Value(0)).current;
 
+  // Swipe to dismiss missing health profile banner
+  const [bannerDismissed, setBannerDismissed] = useState(false);
+  const bannerPan = useRef(new Animated.ValueXY()).current;
+  const bannerOpacity = useRef(new Animated.Value(1)).current;
+
+  const bannerPanResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        return Math.abs(gestureState.dx) > 8 || Math.abs(gestureState.dy) > 8;
+      },
+      onPanResponderMove: Animated.event([null, { dx: bannerPan.x, dy: bannerPan.y }], {
+        useNativeDriver: false,
+      }),
+      onPanResponderRelease: (_, gestureState) => {
+        if (
+          Math.abs(gestureState.dx) > 60 ||
+          gestureState.dy < -30 ||
+          Math.abs(gestureState.vx) > 0.4
+        ) {
+          Animated.parallel([
+            Animated.timing(bannerPan, {
+              toValue: { x: gestureState.dx > 0 ? 350 : -350, y: gestureState.dy },
+              duration: 200,
+              useNativeDriver: false,
+            }),
+            Animated.timing(bannerOpacity, {
+              toValue: 0,
+              duration: 200,
+              useNativeDriver: false,
+            }),
+          ]).start(() => setBannerDismissed(true));
+        } else {
+          Animated.spring(bannerPan, {
+            toValue: { x: 0, y: 0 },
+            useNativeDriver: false,
+          }).start();
+        }
+      },
+    })
+  ).current;
+
+  const handleDismissBanner = () => {
+    Animated.timing(bannerOpacity, {
+      toValue: 0,
+      duration: 150,
+      useNativeDriver: false,
+    }).start(() => setBannerDismissed(true));
+  };
+
   const userId = user?.id;
+
+  useEffect(() => {
+    if (initialQuery && initialQuery.trim()) {
+      setInputText(initialQuery);
+    }
+  }, [initialQuery]);
 
   // Initialize consultations & select active thread
   useEffect(() => {
@@ -124,12 +208,27 @@ export default function AIChat() {
     (text?: string) => {
       const msgText = (text ?? inputText).trim();
       if (!msgText || loading) return;
+
+      if (!useNetworkStore.getState().isConnected) {
+        useNetworkStore.getState().triggerOfflineNotice();
+      }
+
       setInputText('');
       setInputHeight(MIN_HEIGHT);
       sendMessage(userId, msgText);
     },
     [inputText, loading, userId, sendMessage]
   );
+
+  const handleCopyMessage = async (msgId: string, content: string) => {
+    try {
+      await Share.share({ message: content });
+      setCopiedMsgId(msgId);
+      setTimeout(() => setCopiedMsgId(null), 2000);
+    } catch (e) {
+      console.warn('Share error:', e);
+    }
+  };
 
   const handleSelectConsultation = async (consultationId: string) => {
     closeSidebar();
@@ -151,7 +250,6 @@ export default function AIChat() {
     });
     await selectConsultation(userId, created.id);
 
-    // Initial message
     sendMessage(userId, `I would like to start a consultation about: ${newTopicTitle.trim()}. Please explain what I should know.`);
   };
 
@@ -186,7 +284,7 @@ export default function AIChat() {
         },
         { text: 'Cancel', style: 'cancel' },
       ],
-      {cancelable: true}
+      { cancelable: true }
     );
   };
 
@@ -214,8 +312,12 @@ export default function AIChat() {
               },
             ]}
           >
+            {/* Sidebar Header */}
             <View style={[styles.sidebarHeader, { paddingTop: Math.max(insets.top, 16) + 8, borderBottomColor: theme.border }]}>
-              <Text style={[styles.sidebarTitle, { color: theme.text.primary }]}>Consultations</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.sidebarTitle, { color: theme.text.primary }]}>Consultations</Text>
+                <Text style={[styles.sidebarSub, { color: theme.textDim }]}>Clinical AI Chat Threads</Text>
+              </View>
               <Pressable onPress={closeSidebar} style={({ pressed }) => [pressed && { opacity: 0.5 }, { padding: 4 }]}>
                 <Ionicons name="close" size={22} color={theme.textDim} />
               </Pressable>
@@ -224,53 +326,54 @@ export default function AIChat() {
             <View style={styles.sidebarBody}>
               {/* Start New Consultation Button */}
               <Pressable
-                style={({ pressed }) => [pressed && { opacity: 0.5 }, styles.newChatBtn, { backgroundColor: primaryColor }]}
+                style={({ pressed }) => [pressed && { opacity: 0.8 }, styles.newChatBtn, { backgroundColor: primaryColor }]}
                 onPress={() => {
                   closeSidebar();
                   setShowNewConsultModal(true);
                 }}
               >
-                <Ionicons name="add" size={18} color="#fff" />
+                <Ionicons name="add-circle" size={18} color="#fff" />
                 <Text style={styles.newChatText}>Start New Consultation</Text>
               </Pressable>
 
               {/* 1. General Assistant */}
-                <Text style={[styles.sidebarSection, { color: theme.textDim, marginTop: 16 }]}>
-                  GENERAL ASSISTANT
-                </Text>
+              <Text style={[styles.sidebarSection, { color: theme.textDim, marginTop: 14 }]}>ACTIVE ASSISTANT</Text>
 
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.chatItem,
-                    pressed && { opacity: 0.5 },
-                    isGeneral && { backgroundColor: theme.patientSecondary, borderColor: theme.patient.primary, borderWidth: 1 },
-                  ]}
-                  onPress={async () => {
-                    if (userId) {
-                      const gen = await getOrCreateGeneralConsultation(userId);
-                      handleSelectConsultation(gen.id);
-                    }
-                  }}
-                >
-                  <Ionicons name="chatbubbles-outline" size={18} color={primaryColor} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.chatItemText, { color: theme.text.primary, fontWeight: isGeneral ? '700' : '500' }]}>
-                      General Assistant
-                    </Text>
-                    <Text style={[styles.chatItemSub, { color: theme.textDim }]}>Everyday health questions</Text>
-                  </View>
-                </Pressable>
-
-                {/* 2. Prescription Consultations */}
-                <Text style={[styles.sidebarSection, { color: theme.textDim, marginTop: 10 }]}>
-                  PRESCRIPTION CONSULTATIONS
-                </Text>
-
-              <ScrollView showsVerticalScrollIndicator={false}>             
-                {prescriptionConsultations.length === 0 ? (
-                  <Text style={[styles.emptySectionText, { color: theme.textDim }]}>
-                    No prescription consultations yet. Scan a prescription to start one!
+              <Pressable
+                style={({ pressed }) => [
+                  styles.chatItem,
+                  pressed && { opacity: 0.5 },
+                  isGeneral && { backgroundColor: theme.patientSecondary, borderColor: primaryColor + '40', borderWidth: 1 },
+                ]}
+                onPress={async () => {
+                  if (userId) {
+                    const gen = await getOrCreateGeneralConsultation(userId);
+                    handleSelectConsultation(gen.id);
+                  }
+                }}
+              >
+                <View style={[styles.chatIconBox, { backgroundColor: primaryColor + '18' }]}>
+                  <Ionicons name="sparkles" size={18} color={primaryColor} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.chatItemText, { color: theme.text.primary, fontWeight: isGeneral ? '700' : '500' }]}>
+                    General AI Assistant
                   </Text>
+                  <Text style={[styles.chatItemSub, { color: theme.textDim }]}>Everyday health &amp; medicine questions</Text>
+                </View>
+              </Pressable>
+
+              {/* 2. Prescription Consultations */}
+              <Text style={[styles.sidebarSection, { color: theme.textDim, marginTop: 16 }]}>PAST CONSULTATIONS</Text>
+
+              <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
+                {prescriptionConsultations.length === 0 ? (
+                  <View style={styles.emptyDrawerBox}>
+                    <Ionicons name="chatbubbles-outline" size={28} color={theme.textDim} />
+                    <Text style={[styles.emptySectionText, { color: theme.textDim }]}>
+                      No saved consultations yet. Scan a prescription or start a topic consultation above!
+                    </Text>
+                  </View>
                 ) : (
                   prescriptionConsultations.map((item) => {
                     const isSelected = activeConsultation?.id === item.id;
@@ -281,7 +384,7 @@ export default function AIChat() {
                             styles.chatItem,
                             { flex: 1 },
                             pressed && { opacity: 0.5 },
-                            isSelected && { backgroundColor: theme.patientSecondary, borderWidth: 1, borderColor: theme.patientPrimary },
+                            isSelected && { backgroundColor: theme.patientSecondary, borderWidth: 1, borderColor: primaryColor + '40' },
                           ]}
                           onPress={() => handleSelectConsultation(item.id)}
                         >
@@ -320,7 +423,7 @@ export default function AIChat() {
                 )}
               </ScrollView>
 
-              <View style={{ borderTopWidth: 1, borderTopColor: theme.border }}>
+              <View style={{ borderTopWidth: 1, borderTopColor: theme.border, paddingTop: 8 }}>
                 <Pressable style={({ pressed }) => [styles.chatItem, pressed && { opacity: 0.5 }]} onPress={handleClearCurrentThread}>
                   <Ionicons name="trash-outline" size={18} color={theme.error} />
                   <Text style={[styles.chatItemText, { color: theme.error }]}>Clear Current Thread</Text>
@@ -345,10 +448,11 @@ export default function AIChat() {
             {activeConsultation?.title || 'PharmFindr AI'}
           </Text>
           <View style={styles.badgeRow}>
-            <Text style={[styles.onlineText, { color: theme.success }]}>● Online</Text>
-            <View style={[styles.typePill, { backgroundColor: isGeneral ? theme.surfaceSecondary : theme.patientSecondary }]}>
+            <View style={styles.onlineDot} />
+            <Text style={[styles.onlineText, { color: '#10b981' }]}>Clinical AI Online</Text>
+            <View style={[styles.typePill, { backgroundColor: isGeneral ? theme.surfaceSecondary : primaryColor + '18' }]}>
               <Text style={[styles.typePillText, { color: isGeneral ? theme.textDim : primaryColor }]}>
-                {isGeneral ? 'General Chat' : 'Consultation'}
+                {isGeneral ? 'General' : 'Consultation'}
               </Text>
             </View>
           </View>
@@ -365,10 +469,7 @@ export default function AIChat() {
       {/* ── Active Consultation Prescription Context Banner ── */}
       {!isGeneral && hasMedicines && (
         <View style={[styles.prescriptionBanner, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
-          <Pressable
-            style={styles.bannerHeader}
-            onPress={() => setShowBannerDetails((v) => !v)}
-          >
+          <Pressable style={styles.bannerHeader} onPress={() => setShowBannerDetails((v) => !v)}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
               <Ionicons name="medkit" size={18} color={primaryColor} />
               <Text style={[styles.bannerTitle, { color: theme.text.primary }]}>
@@ -382,7 +483,8 @@ export default function AIChat() {
             <View style={styles.bannerContent}>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.medsRow}>
                 {activeConsultation?.medicines?.map((med: any, idx: number) => (
-                  <View key={idx} style={[styles.medPill, { backgroundColor: theme.patientSecondary, borderColor: primaryColor + '40' }]}>
+                  <View key={idx} style={[styles.medPill, { backgroundColor: primaryColor + '12', borderColor: primaryColor + '30' }]}>
+                    <Ionicons name="medical" size={12} color={primaryColor} />
                     <Text style={[styles.medPillText, { color: primaryColor }]}>
                       {med.name} {med.strength || ''}
                     </Text>
@@ -392,22 +494,14 @@ export default function AIChat() {
 
               <View style={styles.bannerActions}>
                 <Pressable
-                  style={({ pressed }) => [styles.bannerBtn, pressed && { opacity: 0.5 }, { backgroundColor: primaryColor }]}
+                  style={({ pressed }) => [styles.bannerBtn, pressed && { opacity: 0.7 }, { backgroundColor: primaryColor }]}
                   onPress={() => {
                     const searchMed = activeConsultation?.medicines?.[0]?.name || '';
                     router.push({ pathname: '/(patient)/pharmacies', params: { query: searchMed } });
                   }}
                 >
                   <Ionicons name="location-outline" size={14} color="#fff" />
-                  <Text style={styles.bannerBtnText}>Find Pharmacies</Text>
-                </Pressable>
-
-                <Pressable
-                  style={({ pressed }) => [styles.bannerBtnOutline, pressed && { opacity: 0.5 }, { borderColor: theme.border}]}
-                  onPress={() => router.push('/(patient)/reservations-history')}
-                >
-                  <Ionicons name="bag-handle-outline" size={14} color={theme.text.primary} />
-                  <Text style={[styles.bannerBtnOutlineText, { color: theme.text.primary }]}>Reservations</Text>
+                  <Text style={styles.bannerBtnText}>Find Nearby Pharmacies</Text>
                 </Pressable>
               </View>
             </View>
@@ -415,9 +509,44 @@ export default function AIChat() {
         </View>
       )}
 
+      {/* ── Missing Health Profile Recommendation Banner (Swipeable / Dismissible) ── */}
+      {isProfileIncomplete && !bannerDismissed && (
+        <Animated.View
+          {...bannerPanResponder.panHandlers}
+          style={[
+            styles.missingProfileBanner,
+            bannerPan.getLayout(),
+            {
+              opacity: bannerOpacity,
+              backgroundColor: '#eff6ff',
+              borderColor: '#bfdbfe',
+            },
+          ]}
+        >
+          <Pressable
+            style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}
+            onPress={() => router.push('/(patient)/health-profile')}
+          >
+            <Ionicons name="sparkles" size={15} color="#2563eb" style={{ marginRight: 6 }} />
+            <Text style={{ fontSize: 12, color: '#1e40af', flex: 1, fontWeight: '500' }}>
+              Complete your <Text style={{ fontWeight: '700', textDecorationLine: 'underline' }}>Health Profile</Text> (Age, Weight, Allergies) for customized AI safety alerts.
+            </Text>
+          </Pressable>
+
+          {/* Dismiss Button */}
+          <Pressable
+            hitSlop={8}
+            onPress={handleDismissBanner}
+            style={({ pressed }) => [{ padding: 2 }, pressed && { opacity: 0.5 }]}
+          >
+            <Ionicons name="close" size={16} color="#2563eb" />
+          </Pressable>
+        </Animated.View>
+      )}
+
       {/* ── Main Chat Area ── */}
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={{ flex: 1 }}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 60 + insets.top : 0}
       >
@@ -428,18 +557,46 @@ export default function AIChat() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
+          {/* Welcome Hero Card when thread is fresh/empty */}
           {messages.length === 0 && !loading && (
-            <View style={{ alignItems: "center", justifyContent: "center", height: 400 }}>
-              <View style={[styles.bubble, { backgroundColor: theme.card }]}>
-                <Text style={[styles.bubbleTextAI, { color: theme.text.primary }]}>
-                  {isGeneral
-                    ? `Hello ${firstName}! 👋`
-                    : `Welcome to your consultation for ${activeConsultation?.title}. How can I assist you with these medicines?`}
+            <View style={styles.welcomeHeroContainer}>
+              <View style={[styles.welcomeCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+                <View style={[styles.welcomeIconCircle, { backgroundColor: primaryColor + '15' }]}>
+                  <Ionicons name="sparkles" size={26} color={primaryColor} />
+                </View>
+                <Text style={[styles.welcomeTitle, { color: theme.text.primary }]}>
+                  {isGeneral ? `Hello ${firstName}! 👋` : activeConsultation?.title}
                 </Text>
+                <Text style={[styles.welcomeSubText, { color: theme.textMuted }]}>
+                  I'm your clinical AI assistant. Ask me about medicine usage, side effects, dosages, or search for nearby pharmacy availability.
+                </Text>
+
+                <View style={styles.featuredGrid}>
+                  {FEATURED_PROMPTS.map((promptItem) => (
+                    <Pressable
+                      key={promptItem.title}
+                      style={({ pressed }) => [
+                        styles.featuredCard,
+                        { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
+                        pressed && { opacity: 0.7 },
+                      ]}
+                      onPress={() => handleSend(promptItem.prompt)}
+                    >
+                      <View style={[styles.promptIconBox, { backgroundColor: promptItem.color + '15' }]}>
+                        <Ionicons name={promptItem.icon as any} size={18} color={promptItem.color} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.promptTitle, { color: theme.text.primary }]}>{promptItem.title}</Text>
+                        <Text style={[styles.promptDesc, { color: theme.textMuted }]}>{promptItem.desc}</Text>
+                      </View>
+                    </Pressable>
+                  ))}
+                </View>
               </View>
             </View>
           )}
 
+          {/* Messages */}
           {messages.map((msg) => (
             <View
               key={msg.id}
@@ -453,45 +610,52 @@ export default function AIChat() {
                   <Text style={styles.bubbleTextUser}>{msg.content}</Text>
                 </View>
               ) : (
-                <View style={[styles.bubbleAIContainer, { backgroundColor: theme.card }]}>
-                  <FormattedMarkdown content={msg.content} />
+                <View style={styles.aiBubbleWrapper}>
+                  <View style={[styles.aiHeaderRow]}>
+                    <View style={[styles.aiBadgeCircle, { backgroundColor: primaryColor + '18' }]}>
+                      <Ionicons name="sparkles" size={13} color={primaryColor} />
+                    </View>
+                    <Text style={[styles.aiBadgeName, { color: theme.textMuted }]}>PharmFindr Clinical AI</Text>
+                  </View>
+
+                  <View style={[styles.bubbleAIContainer, { backgroundColor: theme.card, borderColor: theme.border }]}>
+                    <FormattedMarkdown content={msg.content} />
+
+                    {/* Copy & Actions Toolbar */}
+                    <View style={styles.msgToolbar}>
+                      <Pressable
+                        style={({ pressed }) => [styles.toolbarBtn, pressed && { opacity: 0.6 }]}
+                        onPress={() => handleCopyMessage(msg.id, msg.content)}
+                      >
+                        <Ionicons
+                          name={copiedMsgId === msg.id ? 'checkmark' : 'copy-outline'}
+                          size={13}
+                          color={copiedMsgId === msg.id ? '#10b981' : theme.textDim}
+                        />
+                        <Text style={[styles.toolbarBtnText, { color: copiedMsgId === msg.id ? '#10b981' : theme.textDim }]}>
+                          {copiedMsgId === msg.id ? 'Copied' : 'Copy'}
+                        </Text>
+                      </Pressable>
+                    </View>
+                  </View>
                 </View>
               )}
             </View>
           ))}
 
+          {/* Animated Loading Indicator */}
           {loading && (
             <View style={[styles.msgRow, styles.msgRowAI]}>
-              <View style={[styles.aiAvatarSmall, { backgroundColor: primaryColor }]}>
-                <Ionicons name="chatbubble-ellipses" size={12} color="#fff" />
+              <View style={[styles.aiBadgeCircle, { backgroundColor: primaryColor + '18' }]}>
+                <Ionicons name="sparkles" size={13} color={primaryColor} />
               </View>
-              <View style={{ backgroundColor: theme.card }}>
+              <View style={[styles.loadingBubble, { backgroundColor: theme.card, borderColor: theme.border }]}>
                 <ActivityIndicator size="small" color={primaryColor} />
+                <Text style={[styles.loadingText, { color: theme.textDim }]}>Analyzing...</Text>
               </View>
             </View>
           )}
         </ScrollView>
-
-        {/* Suggestion Chips */}
-        {messages.length === 0 && (
-          <ScrollView
-            horizontal
-            style={{ maxHeight: 44 }}
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.chipsRow}
-            keyboardShouldPersistTaps="handled"
-          >
-            {SUGGESTION_CHIPS.map((chip) => (
-              <Pressable
-                key={chip}
-                style={({ pressed }) => [styles.chip, pressed && { opacity: 0.5 }, { backgroundColor: theme.card, borderColor: theme.border }]}
-                onPress={() => handleSend(chip)}
-              >
-                <Text style={[styles.chipText, { color: theme.text.primary }]}>{chip}</Text>
-              </Pressable>
-            ))}
-          </ScrollView>
-        )}
 
         {/* Input Bar */}
         <View style={[styles.inputContainer, { backgroundColor: theme.card, borderTopColor: theme.border }]}>
@@ -501,27 +665,31 @@ export default function AIChat() {
               {
                 backgroundColor: theme.surfaceSecondary,
                 color: theme.text.primary,
+                borderColor: theme.border,
                 height: Math.max(MIN_HEIGHT, inputHeight),
               },
             ]}
-            placeholder={isGeneral ? 'Ask general health question...' : 'Ask about your prescription...'}
+            placeholder={isGeneral ? 'Ask health or medicine question...' : 'Ask about this prescription...'}
             placeholderTextColor={theme.textDim}
             value={inputText}
             onChangeText={setInputText}
             multiline
+            returnKeyType="send"
+            blurOnSubmit={true}
+            onSubmitEditing={() => handleSend()}
             onContentSizeChange={(e) => setInputHeight(Math.min(120, e.nativeEvent.contentSize.height))}
           />
           <Pressable
             style={({ pressed }) => [
               styles.sendBtn,
-              pressed && { opacity: 0.5 },
+              pressed && { opacity: 0.7 },
               { backgroundColor: inputText.trim() ? primaryColor : theme.surfaceSecondary },
             ]}
             disabled={!inputText.trim() || loading}
             onPress={() => handleSend()}
           >
             <Ionicons
-              name="send"
+              name="arrow-up"
               size={18}
               color={inputText.trim() ? '#fff' : theme.textDim}
             />
@@ -533,13 +701,17 @@ export default function AIChat() {
       <Modal visible={showNewConsultModal} transparent animationType="fade" onRequestClose={() => setShowNewConsultModal(false)}>
         <Pressable style={styles.modalOverlay} onPress={() => setShowNewConsultModal(false)}>
           <View style={[styles.modalCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
-            <Text style={[styles.modalTitle, { color: theme.text.primary }]}>Start a New Consultation</Text>
+            <Text style={[styles.modalTitle, { color: theme.text.primary }]}>Start New Consultation</Text>
             <Text style={[styles.modalSub, { color: theme.textDim }]}>
-              Organize your AI chat around a prescription or specific health topic.
+              Organize your AI chat around a prescription scan or specific medical topic.
             </Text>
 
             <Pressable
-              style={({ pressed }) => [styles.modalOption, pressed && { opacity: 0.5 }, { backgroundColor: theme.patientSecondary, borderColor: theme.patient.primary, borderWidth: 1 }]}
+              style={({ pressed }) => [
+                styles.modalOption,
+                pressed && { opacity: 0.7 },
+                { backgroundColor: primaryColor + '12', borderColor: primaryColor + '40', borderWidth: 1 },
+              ]}
               onPress={() => {
                 setShowNewConsultModal(false);
                 router.push('/(patient)/scan');
@@ -548,16 +720,16 @@ export default function AIChat() {
               <Ionicons name="camera-outline" size={22} color={primaryColor} />
               <View style={{ flex: 1 }}>
                 <Text style={[styles.optionTitle, { color: theme.text.primary }]}>Scan a Prescription</Text>
-                <Text style={[styles.optionSub, { color: theme.textDim }]}>Auto-create consultation from scan</Text>
+                <Text style={[styles.optionSub, { color: theme.textDim }]}>Auto-create consultation from Rx image scan</Text>
               </View>
-              <Ionicons name="chevron-forward" size={18} color={theme.patient.primary} />
+              <Ionicons name="chevron-forward" size={18} color={primaryColor} />
             </Pressable>
 
             <View style={{ marginVertical: 12 }}>
-              <Text style={[styles.inputLabel, { color: theme.text }]}>OR ENTER A TOPIC NAME</Text>
+              <Text style={[styles.inputLabel, { color: theme.text }]}>OR ENTER A SPECIFIC HEALTH TOPIC</Text>
               <TextInput
                 style={[styles.topicInput, { backgroundColor: theme.surfaceSecondary, color: theme.text.primary, borderColor: theme.border }]}
-                placeholder="e.g. Headache Questions, BP Meds..."
+                placeholder="e.g. Hypertension Meds, Allergy Questions..."
                 placeholderTextColor={theme.textDim}
                 value={newTopicTitle}
                 onChangeText={setNewTopicTitle}
@@ -575,7 +747,7 @@ export default function AIChat() {
               <Pressable
                 style={({ pressed }) => [
                   styles.modalConfirmBtn,
-                  pressed && { opacity: 0.5 },
+                  pressed && { opacity: 0.7 },
                   { backgroundColor: newTopicTitle.trim() ? primaryColor : theme.surfaceSecondary },
                 ]}
                 disabled={!newTopicTitle.trim()}
@@ -596,7 +768,7 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
     zIndex: 90,
   },
   sidebar: {
@@ -616,9 +788,9 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
   },
   sidebarTitle: { fontSize: 18, fontWeight: '700' },
+  sidebarSub: { fontSize: 11 },
   sidebarBody: { flex: 1, padding: 16, paddingBottom: 8 },
   newChatBtn: {
     flexDirection: 'row',
@@ -627,22 +799,30 @@ const styles = StyleSheet.create({
     gap: 8,
     height: 44,
     borderRadius: 22,
-    marginBottom: 12,
+    marginBottom: 8,
   },
-  newChatText: { color: '#fff', fontWeight: '600', fontSize: 14 },
-  sidebarSection: { fontSize: 11, fontWeight: '700', letterSpacing: 0.8, marginBottom: 8 },
-  emptySectionText: { fontSize: 12, fontStyle: 'italic', marginBottom: 12 },
+  newChatText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  sidebarSection: { fontSize: 10, fontWeight: '800', letterSpacing: 0.8, marginBottom: 8 },
+  emptyDrawerBox: { alignItems: 'center', justifyContent: 'center', padding: 20, gap: 8 },
+  emptySectionText: { fontSize: 12, textAlign: 'center', lineHeight: 16 },
   consultationRow: { flexDirection: 'row', alignItems: 'center' },
   chatItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
     padding: 10,
-    borderRadius: 8,
-    marginVertical: 2,
+    borderRadius: 10,
+    marginVertical: 3,
   },
-  chatItemText: { fontSize: 14, fontWeight: '500' },
-  chatItemSub: { fontSize: 11 },
+  chatIconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  chatItemText: { fontSize: 13, fontWeight: '600' },
+  chatItemSub: { fontSize: 11, marginTop: 1 },
 
   // Top Header
   header: {
@@ -661,11 +841,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerCenter: { alignItems: 'center', flex: 1, paddingHorizontal: 8 },
-  headerTitle: { fontSize: 16, fontWeight: '700', textAlign: 'center' },
+  headerTitle: { fontSize: 15, fontWeight: '700', textAlign: 'center' },
   badgeRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
+  onlineDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#10b981' },
   onlineText: { fontSize: 10, fontWeight: '600' },
-  typePill: { paddingHorizontal: 6, paddingVertical: 1, borderRadius: 8 },
-  typePillText: { fontSize: 9, fontWeight: '600' },
+  typePill: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8 },
+  typePillText: { fontSize: 9, fontWeight: '700' },
 
   // Prescription Banner
   prescriptionBanner: {
@@ -678,8 +859,11 @@ const styles = StyleSheet.create({
   bannerContent: { marginTop: 8 },
   medsRow: { gap: 6, paddingBottom: 8 },
   medPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: 5,
     borderRadius: 12,
     borderWidth: 1,
   },
@@ -690,43 +874,87 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
+    gap: 6,
     paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
+    paddingVertical: 8,
+    borderRadius: 18,
   },
-  bannerBtnText: { color: '#fff', fontSize: 12, fontWeight: '600' },
+  bannerBtnText: { color: '#fff', fontSize: 12, fontWeight: '700' },
   bannerBtnOutline: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
+    gap: 6,
     paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
+    paddingVertical: 8,
+    borderRadius: 18,
     borderWidth: 1,
   },
   bannerBtnOutlineText: { fontSize: 12, fontWeight: '600' },
 
   // Chat Area
   messageList: { flex: 1 },
-  messageContent: { padding: 16, gap: 12 },
-  msgRow: { flexDirection: 'row', gap: 8, alignItems: 'flex-end', marginBottom: 6 },
+  messageContent: { padding: 16, paddingBottom: 0, gap: 12 },
+  msgRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
   msgRowUser: { justifyContent: 'flex-end' },
   msgRowAI: { justifyContent: 'flex-start' },
-  aiAvatarSmall: {
-    width: 24,
-    height: 24,
+
+  welcomeHeroContainer: {
+    paddingVertical: 10,
+  },
+  welcomeCard: {
+    borderRadius: 16,
+    padding: 18,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  welcomeIconCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  welcomeTitle: { fontSize: 18, fontWeight: '700', textAlign: 'center', marginBottom: 6 },
+  welcomeSubText: { fontSize: 13, textAlign: 'center', lineHeight: 18, marginBottom: 18 },
+
+  featuredGrid: { width: '100%', gap: 10 },
+  featuredCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 12,
     borderRadius: 12,
+    borderWidth: 1,
+  },
+  promptIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
   },
+  promptTitle: { fontSize: 13, fontWeight: '700' },
+  promptDesc: { fontSize: 11, marginTop: 1 },
+
+  aiBubbleWrapper: { width: '100%', gap: 4 },
+  aiHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 },
+  aiBadgeCircle: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  aiBadgeName: { fontSize: 11, fontWeight: '700' },
+
   bubble: {
-    maxWidth: '80%',
+    maxWidth: '82%',
     borderRadius: 18,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 11,
   },
   bubbleUser: {
     borderBottomRightRadius: 4,
@@ -735,17 +963,54 @@ const styles = StyleSheet.create({
     maxWidth: '100%',
     borderRadius: 16,
     padding: 16,
+    borderWidth: 1,
   },
-  bubbleTextUser: { color: '#fff', fontSize: 14, lineHeight: 20 },
-  bubbleTextAI: { fontSize: 14, lineHeight: 20 },
-  chipsRow: { paddingHorizontal: 16, gap: 8, paddingBottom: 8 },
-  chip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+  bubbleTextUser: { color: '#fff', fontSize: 14, lineHeight: 20, fontWeight: '500' },
+
+  msgToolbar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    marginTop: 10,
+    paddingTop: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(0,0,0,0.06)',
+  },
+  toolbarBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  toolbarBtnText: { fontSize: 11, fontWeight: '600' },
+
+  loadingBubble: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     borderRadius: 16,
     borderWidth: 1,
   },
-  chipText: { fontSize: 12, fontWeight: '500' },
+  loadingText: { fontSize: 12, fontWeight: '500' },
+
+  missingProfileBanner: {
+    position: 'absolute',
+    top: 50,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    marginHorizontal: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderRadius: 8,
+  },
+
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -757,6 +1022,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     borderRadius: 20,
+    borderWidth: 1,
     paddingHorizontal: 16,
     paddingTop: 10,
     paddingBottom: 10,
@@ -785,7 +1051,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   modalTitle: { fontSize: 18, fontWeight: '700', marginBottom: 4 },
-  modalSub: { fontSize: 13, marginBottom: 16 },
+  modalSub: { fontSize: 13, marginBottom: 16, lineHeight: 18 },
   modalOption: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -795,7 +1061,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   optionTitle: { fontSize: 14, fontWeight: '700' },
-  optionSub: { fontSize: 11 },
+  optionSub: { fontSize: 11, marginTop: 1 },
   inputLabel: { fontSize: 10, fontWeight: '700', letterSpacing: 0.8, marginBottom: 4 },
   topicInput: {
     height: 44,

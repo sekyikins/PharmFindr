@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
@@ -8,6 +8,10 @@ import {
   Pressable,
   Alert,
   ActivityIndicator,
+  BackHandler,
+  KeyboardAvoidingView,
+  Platform,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,26 +22,111 @@ import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
 import AppBottomSheet from '@/components/ui/AppBottomSheet';
 import { Header } from '@/components/ui/Header';
 
+// Master medical suggestion databases for dynamic autocomplete
+const ALLERGIES_DB = [
+  'Penicillin',
+  'Amoxicillin',
+  'Aspirin',
+  'Sulfa Drugs',
+  'Ibuprofen',
+  'Latex',
+  'Codeine',
+  'Ciprofloxacin',
+  'Erythromycin',
+  'Tetracycline',
+  'Morphine',
+  'Naproxen',
+  'Paracetamol',
+  'Cephalosporins',
+  'Clarithromycin',
+];
+
+const CONDITIONS_DB = [
+  'Asthma',
+  'Hypertension (High BP)',
+  'Diabetes (Type 2)',
+  'Diabetes (Type 1)',
+  'Kidney Disease',
+  'Liver Disease',
+  'GERD / Acid Reflux',
+  'Epilepsy / Seizures',
+  'Glaucoma',
+  'Heart Failure',
+  'High Cholesterol',
+  'Pregnancy / Lactation',
+  'G6PD Deficiency',
+  'Peptic Ulcer',
+];
+
+const MEDICATIONS_DB = [
+  'Metformin',
+  'Omeprazole',
+  'Lisinopril',
+  'Amlodipine',
+  'Atorvastatin',
+  'Coartem (Artemether/Lumefantrine)',
+  'Losartan',
+  'Amoxicillin',
+  'Paracetamol',
+  'Hydrochlorothiazide',
+  'Simvastatin',
+  'Levothyroxine',
+  'Ibuprofen',
+  'Ciprofloxacin',
+  'Augmentin',
+];
+
 export default function HealthProfile() {
   const router = useRouter();
   const { theme, primaryColor } = useThemeContext();
-  const { appUser, fetchAppUser, updateAppUser } = useAuthStore();
+  const { appUser, fetchAppUser, updateAppUser, user } = useAuthStore();
 
+  const handleGoBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.navigate('/(patient)/(tabs)/profile');
+    }
+  };
+
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      handleGoBack();
+      return true;
+    });
+    return () => sub.remove();
+  }, []);
+
+  // Biometrics
   const [age, setAge] = useState('');
   const [weight, setWeight] = useState('');
   const [height, setHeight] = useState('');
   const [gender, setGender] = useState('Prefer not to say');
   const genderSheetRef = useRef<any>(null);
 
-  const [allergiesText, setAllergiesText] = useState('');
-  const [conditionsText, setConditionsText] = useState('');
-  const [medicationsText, setMedicationsText] = useState('');
+  // Safety lists (Tag arrays)
+  const [allergiesList, setAllergiesList] = useState<string[]>([]);
+  const [conditionsList, setConditionsList] = useState<string[]>([]);
+  const [medicationsList, setMedicationsList] = useState<string[]>([]);
 
+  // Input fields for adding custom tags
+  const [customAllergy, setCustomAllergy] = useState('');
+  const [customCondition, setCustomCondition] = useState('');
+  const [customMedication, setCustomMedication] = useState('');
+
+  // Toggles
   const [hasAllergies, setHasAllergies] = useState(false);
   const [hasConditions, setHasConditions] = useState(false);
   const [hasMedications, setHasMedications] = useState(false);
 
   const [saving, setSaving] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchAppUser();
+    setRefreshing(false);
+  };
 
   useEffect(() => {
     fetchAppUser();
@@ -55,38 +144,118 @@ export default function HealthProfile() {
       const meds = appUser.current_medications || [];
 
       setHasAllergies(allergies.length > 0);
-      setAllergiesText(allergies.join(', '));
+      setAllergiesList(allergies);
 
       setHasConditions(conditions.length > 0);
-      setConditionsText(conditions.join(', '));
+      setConditionsList(conditions);
 
       setHasMedications(meds.length > 0);
-      setMedicationsText(meds.join(', '));
+      setMedicationsList(meds);
     }
   }, [appUser]);
+
+  // Real-Time BMI Calculation
+  const bmiData = useMemo(() => {
+    const w = parseFloat(weight);
+    const h = parseFloat(height);
+    if (!w || !h || w <= 0 || h <= 0) return null;
+    const heightInMeters = h / 100;
+    const bmi = w / (heightInMeters * heightInMeters);
+    let category = 'Normal';
+    let color = '#10b981';
+
+    if (bmi < 18.5) {
+      category = 'Underweight';
+      color = '#3b82f6';
+    } else if (bmi >= 25 && bmi < 29.9) {
+      category = 'Overweight';
+      color = '#f59e0b';
+    } else if (bmi >= 30) {
+      category = 'Obese';
+      color = '#ef4444';
+    }
+
+    return { value: bmi.toFixed(1), category, color };
+  }, [weight, height]);
+
+  // Active Guardrails Count
+  const activeGuardrailCount = (hasAllergies ? 1 : 0) + (hasConditions ? 1 : 0) + (hasMedications ? 1 : 0);
+
+  // Tag Handlers
+  const addTag = (type: 'allergies' | 'conditions' | 'medications', val: string) => {
+    const clean = val.trim();
+    if (!clean) return;
+
+    if (type === 'allergies') {
+      if (!allergiesList.includes(clean)) setAllergiesList([...allergiesList, clean]);
+      setCustomAllergy('');
+      setHasAllergies(true);
+    } else if (type === 'conditions') {
+      if (!conditionsList.includes(clean)) setConditionsList([...conditionsList, clean]);
+      setCustomCondition('');
+      setHasConditions(true);
+    } else if (type === 'medications') {
+      if (!medicationsList.includes(clean)) setMedicationsList([...medicationsList, clean]);
+      setCustomMedication('');
+      setHasMedications(true);
+    }
+  };
+
+  const removeTag = (type: 'allergies' | 'conditions' | 'medications', val: string) => {
+    if (type === 'allergies') {
+      const updated = allergiesList.filter((item) => item !== val);
+      setAllergiesList(updated);
+      if (updated.length === 0) setHasAllergies(false);
+    } else if (type === 'conditions') {
+      const updated = conditionsList.filter((item) => item !== val);
+      setConditionsList(updated);
+      if (updated.length === 0) setHasConditions(false);
+    } else if (type === 'medications') {
+      const updated = medicationsList.filter((item) => item !== val);
+      setMedicationsList(updated);
+      if (updated.length === 0) setHasMedications(false);
+    }
+  };
+
+  // Dynamic suggestion filtering while typing
+  const allergySuggestions = customAllergy.trim()
+    ? ALLERGIES_DB.filter(
+        (item) =>
+          item.toLowerCase().includes(customAllergy.trim().toLowerCase()) &&
+          !allergiesList.includes(item)
+      )
+    : [];
+
+  const conditionSuggestions = customCondition.trim()
+    ? CONDITIONS_DB.filter(
+        (item) =>
+          item.toLowerCase().includes(customCondition.trim().toLowerCase()) &&
+          !conditionsList.includes(item)
+      )
+    : [];
+
+  const medicationSuggestions = customMedication.trim()
+    ? MEDICATIONS_DB.filter(
+        (item) =>
+          item.toLowerCase().includes(customMedication.trim().toLowerCase()) &&
+          !medicationsList.includes(item)
+      )
+    : [];
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      const splitTags = (str: string) =>
-        str
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean);
-
       await updateAppUser({
         age: age ? parseInt(age, 10) : null,
         weight: weight ? parseFloat(weight) : null,
         height: height ? parseFloat(height) : null,
         gender: gender || null,
-        allergies: hasAllergies ? splitTags(allergiesText) : [],
-        existing_conditions: hasConditions ? splitTags(conditionsText) : [],
-        current_medications: hasMedications ? splitTags(medicationsText) : [],
+        allergies: hasAllergies ? allergiesList : [],
+        existing_conditions: hasConditions ? conditionsList : [],
+        current_medications: hasMedications ? medicationsList : [],
       });
 
-      Alert.alert('Success', 'Health parameters updated successfully!', [
-        { text: 'OK', onPress: () => router.navigate('/(patient)/(tabs)/profile') },
-      ]);
+      Alert.alert('Parameters Saved', 'Your health & clinical safety profile has been updated successfully.');
     } catch (e: any) {
       Alert.alert('Error', e.message || 'Failed to update profile.');
     } finally {
@@ -99,184 +268,405 @@ export default function HealthProfile() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
       {/* Header */}
-      <Header title="Health Parameters" showBack onBack={() => router.canGoBack() ? router.back() : router.navigate('/(patient)/(tabs)/profile')} />
+      <Header title="Health Parameters" showBack onBack={handleGoBack} />
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        {/* Info card */}
-        <View style={[styles.infoBox, { backgroundColor: theme.patientSecondary + '66', borderColor: primaryColor + '30' }]}>
-          <Ionicons name="shield-checkmark" size={20} color={primaryColor} />
-          <Text style={[styles.infoText, { color: theme.text.primary }]}>
-            Your health details help assess dosages, risks, and drug interactions accurately.
-          </Text>
-        </View>
-
-        {/* Biometrics */}
-        <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>Biometrics &amp; Demographics</Text>
-
-        <View style={styles.rowTwo}>
-          <View style={styles.col}>
-            <Text style={[styles.label, { color: theme.textDim }]}>AGE (YEARS)</Text>
-            <TextInput
-              style={[styles.input, { backgroundColor: theme.card, color: theme.text.primary, borderColor: theme.border }]}
-              placeholder="e.g. 28"
-              placeholderTextColor={theme.textDim}
-              keyboardType="number-pad"
-              value={age}
-              onChangeText={setAge}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{ flex: 1 }}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          automaticallyAdjustKeyboardInsets={true}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor={primaryColor}
+              colors={[primaryColor]}
             />
-          </View>
-
-          <View style={styles.col}>
-            <Text style={[styles.label, { color: theme.textDim }]}>WEIGHT (KG)</Text>
-            <TextInput
-              style={[styles.input, { backgroundColor: theme.card, color: theme.text.primary, borderColor: theme.border }]}
-              placeholder="e.g. 70.5"
-              placeholderTextColor={theme.textDim}
-              keyboardType="decimal-pad"
-              value={weight}
-              onChangeText={setWeight}
-            />
-          </View>
-        </View>
-
-        <View style={styles.rowTwo}>
-          <View style={styles.col}>
-            <Text style={[styles.label, { color: theme.textDim }]}>HEIGHT (CM)</Text>
-            <TextInput
-              style={[styles.input, { backgroundColor: theme.card, color: theme.text.primary, borderColor: theme.border }]}
-              placeholder="e.g. 175"
-              placeholderTextColor={theme.textDim}
-              keyboardType="decimal-pad"
-              value={height}
-              onChangeText={setHeight}
-            />
-          </View>
-
-          <View style={styles.col}>
-            <Text style={[styles.label, { color: theme.textDim }]}>GENDER</Text>
-            <Pressable
-              style={({pressed})=>[
-                styles.dropdownTrigger, pressed && {opacity: 0.5}, 
-                { backgroundColor: theme.card, borderColor: theme.border },
-              ]}
-              onPress={() => genderSheetRef.current?.present?.() ?? genderSheetRef.current?.expand?.()}
-            >
-              <Text style={[styles.dropdownValue, { color: theme.text.primary }]}>
-                {gender || 'Select Gender'}
-              </Text>
-              <Ionicons name="chevron-down" size={16} color={theme.textDim} />
-            </Pressable>
-          </View>
-        </View>
-
-        {/* Safety & Medical Context */}
-        <Text style={[styles.sectionTitle, { color: theme.text.primary, marginTop: 24 }]}>Safety &amp; Interaction Parameters</Text>
-
-        {/* 1. Allergies */}
-        <View style={styles.paramBox}>
-          <View style={styles.paramHeader}>
-            <Text style={[styles.label, { color: theme.textDim, marginBottom: 0 }]}>KNOWN DRUG ALLERGIES?</Text>
-            <View style={[styles.toggleRow, { backgroundColor: theme.surfaceSecondary }]}>
-              <Pressable
-                style={({pressed})=>[styles.toggleSegment, pressed && {opacity: 0.5}, !hasAllergies && [styles.toggleActiveSegment, { backgroundColor: theme.card }]]}
-                onPress={() => setHasAllergies(false)}
-              >
-                <Text style={[styles.toggleSegmentText, { color: !hasAllergies ? theme.text.primary : theme.textDim }]}>No</Text>
-              </Pressable>
-              <Pressable
-                style={({pressed})=>[styles.toggleSegment, pressed && {opacity: 0.5}, hasAllergies && [styles.toggleActiveSegment, { backgroundColor: primaryColor }]]}
-                onPress={() => setHasAllergies(true)}
-              >
-                <Text style={[styles.toggleSegmentText, { color: hasAllergies ? '#fff' : theme.textDim }]}>Yes</Text>
-              </Pressable>
-            </View>
-          </View>
-          {hasAllergies && (
-            <TextInput
-              style={[styles.input, styles.textArea, { backgroundColor: theme.card, color: theme.text.primary, borderColor: theme.border, marginTop: 10 }]}
-              placeholder="Enter allergies (e.g. Penicillin, Aspirin, Sulfa)"
-              placeholderTextColor={theme.textDim}
-              multiline
-              value={allergiesText}
-              onChangeText={setAllergiesText}
-            />
-          )}
-        </View>
-
-        {/* 2. Existing Conditions */}
-        <View style={styles.paramBox}>
-          <View style={styles.paramHeader}>
-            <Text style={[styles.label, { color: theme.textDim, marginBottom: 0 }]}>EXISTING MEDICAL CONDITIONS?</Text>
-            <View style={[styles.toggleRow, { backgroundColor: theme.surfaceSecondary }]}>
-              <Pressable
-                style={({pressed})=>[styles.toggleSegment, pressed && {opacity: 0.5}, !hasConditions && [styles.toggleActiveSegment, { backgroundColor: theme.card }]]}
-                onPress={() => setHasConditions(false)}
-              >
-                <Text style={[styles.toggleSegmentText, { color: !hasConditions ? theme.text.primary : theme.textDim }]}>No</Text>
-              </Pressable>
-              <Pressable
-                style={({pressed})=>[styles.toggleSegment, pressed && {opacity: 0.5}, hasConditions && [styles.toggleActiveSegment, { backgroundColor: primaryColor }]]}
-                onPress={() => setHasConditions(true)}
-              >
-                <Text style={[styles.toggleSegmentText, { color: hasConditions ? '#fff' : theme.textDim }]}>Yes</Text>
-              </Pressable>
-            </View>
-          </View>
-          {hasConditions && (
-            <TextInput
-              style={[styles.input, styles.textArea, { backgroundColor: theme.card, color: theme.text.primary, borderColor: theme.border, marginTop: 10 }]}
-              placeholder="Enter conditions (e.g. Asthma, Hypertension, Diabetes)"
-              placeholderTextColor={theme.textDim}
-              multiline
-              value={conditionsText}
-              onChangeText={setConditionsText}
-            />
-          )}
-        </View>
-
-        {/* 3. Current Medications */}
-        <View style={styles.paramBox}>
-          <View style={styles.paramHeader}>
-            <Text style={[styles.label, { color: theme.textDim, marginBottom: 0 }]}>TAKING CURRENT MEDICATIONS?</Text>
-            <View style={[styles.toggleRow, { backgroundColor: theme.surfaceSecondary }]}>
-              <Pressable
-                style={({pressed})=>[styles.toggleSegment, pressed && {opacity: 0.5}, !hasMedications && [styles.toggleActiveSegment, { backgroundColor: theme.card }]]}
-                onPress={() => setHasMedications(false)}
-              >
-                <Text style={[styles.toggleSegmentText, { color: !hasMedications ? theme.text.primary : theme.textDim }]}>No</Text>
-              </Pressable>
-              <Pressable
-                style={({pressed})=>[styles.toggleSegment, pressed && {opacity: 0.5}, hasMedications && [styles.toggleActiveSegment, { backgroundColor: primaryColor }]]}
-                onPress={() => setHasMedications(true)}
-              >
-                <Text style={[styles.toggleSegmentText, { color: hasMedications ? '#fff' : theme.textDim }]}>Yes</Text>
-              </Pressable>
-            </View>
-          </View>
-          {hasMedications && (
-            <TextInput
-              style={[styles.input, styles.textArea, { backgroundColor: theme.card, color: theme.text.primary, borderColor: theme.border, marginTop: 10 }]}
-              placeholder="Enter medications (e.g. Metformin 500mg, Lisinopril 10mg)"
-              placeholderTextColor={theme.textDim}
-              multiline
-              value={medicationsText}
-              onChangeText={setMedicationsText}
-            />
-          )}
-        </View>
-
-        <Pressable
-          style={({pressed})=>[styles.saveBtn, pressed && {opacity: 0.5}, { backgroundColor: primaryColor }]}
-          onPress={handleSave}
-          disabled={saving}
+          }
         >
-          {saving ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.saveBtnText}>Save Parameters</Text>
-          )}
-        </Pressable>
-      </ScrollView>
+          {/* ── SECTION 1: BIOMETRICS & METRICS ── */}
+          <View style={styles.sectionHeaderRow}>
+            <Ionicons name="fitness-outline" size={18} color={primaryColor} />
+            <Text style={[styles.sectionTitleText, { color: theme.text.primary }]}>
+              Biometric Metrics
+            </Text>
+          </View>
+
+          <View style={[styles.metricsContainerCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+            {/* Grid 2x2 */}
+            <View style={styles.gridRow}>
+              {/* Age */}
+              <View style={styles.gridCol}>
+                <Text style={[styles.inputLabel, { color: theme.textDim }]}>AGE</Text>
+                <View style={[styles.inputWithSuffix, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
+                  <TextInput
+                    style={[styles.numericInput, { color: theme.text.primary }]}
+                    placeholder="25"
+                    placeholderTextColor={theme.textDim}
+                    keyboardType="number-pad"
+                    value={age}
+                    onChangeText={setAge}
+                  />
+                  <Text style={[styles.suffixBadge, { color: theme.textDim }]}>yrs</Text>
+                </View>
+              </View>
+
+              {/* Weight */}
+              <View style={styles.gridCol}>
+                <Text style={[styles.inputLabel, { color: theme.textDim }]}>WEIGHT</Text>
+                <View style={[styles.inputWithSuffix, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
+                  <TextInput
+                    style={[styles.numericInput, { color: theme.text.primary }]}
+                    placeholder="70.0"
+                    placeholderTextColor={theme.textDim}
+                    keyboardType="decimal-pad"
+                    value={weight}
+                    onChangeText={setWeight}
+                  />
+                  <Text style={[styles.suffixBadge, { color: theme.textDim }]}>kg</Text>
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.gridRow}>
+              {/* Height */}
+              <View style={styles.gridCol}>
+                <Text style={[styles.inputLabel, { color: theme.textDim }]}>HEIGHT</Text>
+                <View style={[styles.inputWithSuffix, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
+                  <TextInput
+                    style={[styles.numericInput, { color: theme.text.primary }]}
+                    placeholder="175"
+                    placeholderTextColor={theme.textDim}
+                    keyboardType="decimal-pad"
+                    value={height}
+                    onChangeText={setHeight}
+                  />
+                  <Text style={[styles.suffixBadge, { color: theme.textDim }]}>cm</Text>
+                </View>
+              </View>
+
+              {/* Gender Dropdown */}
+              <View style={styles.gridCol}>
+                <Text style={[styles.inputLabel, { color: theme.textDim }]}>GENDER</Text>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.genderSelector,
+                    { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
+                    pressed && { opacity: 0.7 },
+                  ]}
+                  onPress={() => genderSheetRef.current?.present?.() ?? genderSheetRef.current?.expand?.()}
+                >
+                  <Text style={[styles.genderSelectorValue, { color: theme.text.primary }]} numberOfLines={1}>
+                    {gender || 'Select'}
+                  </Text>
+                  <Ionicons name="chevron-down" size={14} color={theme.textDim} />
+                </Pressable>
+              </View>
+            </View>
+
+            {/* Calculated BMI Callout */}
+            {bmiData && (
+              <View style={[styles.bmiBar, { backgroundColor: bmiData.color + '12', borderColor: bmiData.color + '30' }]}>
+                <Ionicons name="analytics-outline" size={18} color={bmiData.color} />
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.bmiTitle, { color: theme.text.primary }]}>
+                    Your Body Mass Index (BMI): <Text style={{ color: bmiData.color, fontWeight: '700' }}>{bmiData.value}</Text>
+                  </Text>
+                </View>
+                <View style={[styles.bmiStatusPill, { backgroundColor: bmiData.color }]}>
+                  <Text style={styles.bmiStatusText}>{bmiData.category}</Text>
+                </View>
+              </View>
+            )}
+          </View>
+
+          {/* ── SECTION 2: SAFETY & INTERACTION GUARDRAILS ── */}
+          <View style={[styles.sectionHeaderRow, { marginTop: 24 }]}>
+            <Ionicons name="shield-checkmark-sharp" size={18} color="#ef4444" />
+            <Text style={[styles.sectionTitleText, { color: theme.text.primary }]}>
+              Clinical Safety Guardrails
+            </Text>
+          </View>
+          <Text style={[styles.sectionHelperText, { color: theme.textMuted }]}>
+            Cross-referenced in real-time during drug searches and AI prescription scans.
+          </Text>
+
+          {/* 1. KNOWN DRUG ALLERGIES CARD */}
+          <View style={[styles.safetyCard, { backgroundColor: theme.card, borderColor: hasAllergies ? '#ef444450' : theme.border }]}>
+            <Pressable
+              style={styles.checkboxRow}
+              onPress={() => {
+                const nextState = !hasAllergies;
+                setHasAllergies(nextState);
+                if (!nextState) setAllergiesList([]);
+              }}
+            >
+              <Ionicons
+                name={hasAllergies ? 'checkbox' : 'square-outline'}
+                size={22}
+                color={hasAllergies ? '#ef4444' : theme.textDim}
+              />
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.cardTitleText, { color: theme.text.primary }]}>
+                  Known Drug Allergies
+                </Text>
+                <Text style={[styles.cardSubText, { color: theme.textMuted }]}>
+                  Filters active ingredients to prevent severe allergic reactions
+                </Text>
+              </View>
+            </Pressable>
+
+            {hasAllergies && (
+              <View style={styles.cardBody}>
+                {/* Active Tag Pills */}
+                {allergiesList.length > 0 && (
+                  <View style={styles.pillsWrap}>
+                    {allergiesList.map((item) => (
+                      <View key={item} style={[styles.tagPill, { backgroundColor: '#ef444415', borderColor: '#ef444440' }]}>
+                        <Ionicons name="warning-outline" size={13} color="#dc2626" />
+                        <Text style={[styles.tagPillText, { color: '#dc2626' }]}>{item}</Text>
+                        <Pressable onPress={() => removeTag('allergies', item)} hitSlop={6}>
+                          <Ionicons name="close-circle" size={15} color="#dc2626" />
+                        </Pressable>
+                      </View>
+                    ))}
+                  </View>
+                )}
+
+                {/* Add Input */}
+                <View style={styles.addInputRow}>
+                  <TextInput
+                    style={[styles.addInput, { backgroundColor: theme.surfaceSecondary, color: theme.text.primary, borderColor: theme.border }]}
+                    placeholder="Type allergy name (e.g. Penicillin)..."
+                    placeholderTextColor={theme.textDim}
+                    value={customAllergy}
+                    onChangeText={setCustomAllergy}
+                    onSubmitEditing={() => addTag('allergies', customAllergy)}
+                  />
+                  <Pressable
+                    style={({ pressed }) => [styles.addBtn, { backgroundColor: '#ef4444' }, pressed && { opacity: 0.7 }]}
+                    onPress={() => addTag('allergies', customAllergy)}
+                  >
+                    <Ionicons name="add" size={20} color="#ffffff" />
+                  </Pressable>
+                </View>
+
+                {/* Dynamic Autocomplete Suggestions List */}
+                {allergySuggestions.length > 0 && (
+                  <View style={[styles.suggestionsBox, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
+                    <Text style={[styles.suggestionHeader, { color: theme.textDim }]}>MATCHING ALLERGIES:</Text>
+                    {allergySuggestions.map((item) => (
+                      <Pressable
+                        key={item}
+                        style={({ pressed }) => [
+                          styles.suggestionRow,
+                          { borderBottomColor: theme.border },
+                          pressed && { backgroundColor: theme.card },
+                        ]}
+                        onPress={() => addTag('allergies', item)}
+                      >
+                        <Ionicons name="warning-outline" size={15} color="#ef4444" />
+                        <Text style={[styles.suggestionText, { color: theme.text.primary }]}>{item}</Text>
+                        <Ionicons name="add-circle-outline" size={18} color="#ef4444" />
+                      </Pressable>
+                    ))}
+                  </View>
+                )}
+              </View>
+            )}
+          </View>
+
+          {/* 2. EXISTING MEDICAL CONDITIONS CARD */}
+          <View style={[styles.safetyCard, { backgroundColor: theme.card, borderColor: hasConditions ? '#f59e0b50' : theme.border }]}>
+            <Pressable
+              style={styles.checkboxRow}
+              onPress={() => {
+                const nextState = !hasConditions;
+                setHasConditions(nextState);
+                if (!nextState) setConditionsList([]);
+              }}
+            >
+              <Ionicons
+                name={hasConditions ? 'checkbox' : 'square-outline'}
+                size={22}
+                color={hasConditions ? '#f59e0b' : theme.textDim}
+              />
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.cardTitleText, { color: theme.text.primary }]}>
+                  Existing Medical Conditions
+                </Text>
+                <Text style={[styles.cardSubText, { color: theme.textMuted }]}>
+                  Cross-checks contraindications against your medical history
+                </Text>
+              </View>
+            </Pressable>
+
+            {hasConditions && (
+              <View style={styles.cardBody}>
+                {/* Active Tag Pills */}
+                {conditionsList.length > 0 && (
+                  <View style={styles.pillsWrap}>
+                    {conditionsList.map((item) => (
+                      <View key={item} style={[styles.tagPill, { backgroundColor: '#f59e0b15', borderColor: '#f59e0b40' }]}>
+                        <Ionicons name="pulse-outline" size={13} color="#d97706" />
+                        <Text style={[styles.tagPillText, { color: '#d97706' }]}>{item}</Text>
+                        <Pressable onPress={() => removeTag('conditions', item)} hitSlop={6}>
+                          <Ionicons name="close-circle" size={15} color="#d97706" />
+                        </Pressable>
+                      </View>
+                    ))}
+                  </View>
+                )}
+
+                {/* Add Input */}
+                <View style={styles.addInputRow}>
+                  <TextInput
+                    style={[styles.addInput, { backgroundColor: theme.surfaceSecondary, color: theme.text.primary, borderColor: theme.border }]}
+                    placeholder="Type condition name (e.g. Asthma)..."
+                    placeholderTextColor={theme.textDim}
+                    value={customCondition}
+                    onChangeText={setCustomCondition}
+                    onSubmitEditing={() => addTag('conditions', customCondition)}
+                  />
+                  <Pressable
+                    style={({ pressed }) => [styles.addBtn, { backgroundColor: '#f59e0b' }, pressed && { opacity: 0.7 }]}
+                    onPress={() => addTag('conditions', customCondition)}
+                  >
+                    <Ionicons name="add" size={20} color="#ffffff" />
+                  </Pressable>
+                </View>
+
+                {/* Dynamic Autocomplete Suggestions List */}
+                {conditionSuggestions.length > 0 && (
+                  <View style={[styles.suggestionsBox, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
+                    <Text style={[styles.suggestionHeader, { color: theme.textDim }]}>MATCHING CONDITIONS:</Text>
+                    {conditionSuggestions.map((item) => (
+                      <Pressable
+                        key={item}
+                        style={({ pressed }) => [
+                          styles.suggestionRow,
+                          { borderBottomColor: theme.border },
+                          pressed && { backgroundColor: theme.card },
+                        ]}
+                        onPress={() => addTag('conditions', item)}
+                      >
+                        <Ionicons name="pulse-outline" size={15} color="#f59e0b" />
+                        <Text style={[styles.suggestionText, { color: theme.text.primary }]}>{item}</Text>
+                        <Ionicons name="add-circle-outline" size={18} color="#f59e0b" />
+                      </Pressable>
+                    ))}
+                  </View>
+                )}
+              </View>
+            )}
+          </View>
+
+          {/* 3. CURRENT MEDICATIONS CARD */}
+          <View style={[styles.safetyCard, { backgroundColor: theme.card, borderColor: hasMedications ? '#8b5cf650' : theme.border }]}>
+            <Pressable
+              style={styles.checkboxRow}
+              onPress={() => {
+                const nextState = !hasMedications;
+                setHasMedications(nextState);
+                if (!nextState) setMedicationsList([]);
+              }}
+            >
+              <Ionicons
+                name={hasMedications ? 'checkbox' : 'square-outline'}
+                size={22}
+                color={hasMedications ? '#8b5cf6' : theme.textDim}
+              />
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.cardTitleText, { color: theme.text.primary }]}>
+                  Current Medications
+                </Text>
+                <Text style={[styles.cardSubText, { color: theme.textMuted }]}>
+                  Monitors multi-drug interactions &amp; duplicate therapy risks
+                </Text>
+              </View>
+            </Pressable>
+
+            {hasMedications && (
+              <View style={styles.cardBody}>
+                {/* Active Tag Pills */}
+                {medicationsList.length > 0 && (
+                  <View style={styles.pillsWrap}>
+                    {medicationsList.map((item) => (
+                      <View key={item} style={[styles.tagPill, { backgroundColor: '#8b5cf615', borderColor: '#8b5cf640' }]}>
+                        <Ionicons name="medical-outline" size={13} color="#7c3aed" />
+                        <Text style={[styles.tagPillText, { color: '#7c3aed' }]}>{item}</Text>
+                        <Pressable onPress={() => removeTag('medications', item)} hitSlop={6}>
+                          <Ionicons name="close-circle" size={15} color="#7c3aed" />
+                        </Pressable>
+                      </View>
+                    ))}
+                  </View>
+                )}
+
+                {/* Add Input */}
+                <View style={styles.addInputRow}>
+                  <TextInput
+                    style={[styles.addInput, { backgroundColor: theme.surfaceSecondary, color: theme.text.primary, borderColor: theme.border }]}
+                    placeholder="Type medication name (e.g. Metformin)..."
+                    placeholderTextColor={theme.textDim}
+                    value={customMedication}
+                    onChangeText={setCustomMedication}
+                    onSubmitEditing={() => addTag('medications', customMedication)}
+                  />
+                  <Pressable
+                    style={({ pressed }) => [styles.addBtn, { backgroundColor: '#8b5cf6' }, pressed && { opacity: 0.7 }]}
+                    onPress={() => addTag('medications', customMedication)}
+                  >
+                    <Ionicons name="add" size={20} color="#ffffff" />
+                  </Pressable>
+                </View>
+
+                {/* Dynamic Autocomplete Suggestions List */}
+                {medicationSuggestions.length > 0 && (
+                  <View style={[styles.suggestionsBox, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
+                    <Text style={[styles.suggestionHeader, { color: theme.textDim }]}>MATCHING MEDICATIONS:</Text>
+                    {medicationSuggestions.map((item) => (
+                      <Pressable
+                        key={item}
+                        style={({ pressed }) => [
+                          styles.suggestionRow,
+                          { borderBottomColor: theme.border },
+                          pressed && { backgroundColor: theme.card },
+                        ]}
+                        onPress={() => addTag('medications', item)}
+                      >
+                        <Ionicons name="medical-outline" size={15} color="#8b5cf6" />
+                        <Text style={[styles.suggestionText, { color: theme.text.primary }]}>{item}</Text>
+                        <Ionicons name="add-circle-outline" size={18} color="#8b5cf6" />
+                      </Pressable>
+                    ))}
+                  </View>
+                )}
+              </View>
+            )}
+          </View>
+
+          {/* Sticky Save Button */}
+          <Pressable
+            style={({ pressed }) => [styles.saveBtn, pressed && { opacity: 0.8 }, { backgroundColor: primaryColor }]}
+            onPress={handleSave}
+            disabled={saving}
+          >
+            {saving ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <View style={styles.saveBtnInner}>
+                <Ionicons name="checkmark-circle-outline" size={20} color="#ffffff" />
+                <Text style={styles.saveBtnText}>Save Health Parameters</Text>
+              </View>
+            )}
+          </Pressable>
+        </ScrollView>
+      </KeyboardAvoidingView>
 
       {/* Gender Picker — Bottom Sheet */}
       <AppBottomSheet ref={genderSheetRef} snapPoints={['38%']} title="Select Gender">
@@ -298,16 +688,19 @@ export default function HealthProfile() {
               <Text
                 style={[
                   styles.genderOptionText,
-                  { color: gender === g ? primaryColor : theme.text.primary,
-                    fontWeight: gender === g ? '700' : '400' },
+                  {
+                    color: gender === g ? primaryColor : theme.text.primary,
+                    fontWeight: gender === g ? '700' : '400',
+                  },
                 ]}
               >
                 {g}
               </Text>
-              {gender === g
-                ? <Ionicons name="checkmark-circle" size={20} color={primaryColor} />
-                : <Ionicons name="ellipse-outline" size={20} color={theme.textDim} />
-              }
+              {gender === g ? (
+                <Ionicons name="checkmark-circle" size={20} color={primaryColor} />
+              ) : (
+                <Ionicons name="ellipse-outline" size={20} color={theme.textDim} />
+              )}
             </Pressable>
           ))}
         </View>
@@ -318,94 +711,194 @@ export default function HealthProfile() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: {
+  scroll: { padding: SPACING.xl, paddingTop: SPACING.sm },
+
+  // Section Headers
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  sectionTitleText: {
+    fontSize: FONT_SIZE.lg,
+    fontWeight: '700',
+  },
+  sectionHelperText: {
+    fontSize: 12,
+    marginBottom: 14,
+    lineHeight: 16,
+  },
+
+  // Biometrics Card Grid
+  metricsContainerCard: {
+    borderRadius: RADIUS.xl,
+    padding: 16,
+    borderWidth: 1,
+    gap: 12,
+    marginBottom: 10,
+  },
+  gridRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  gridCol: {
+    flex: 1,
+  },
+  inputLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.6,
+    marginBottom: 6,
+  },
+  inputWithSuffix: {
+    height: 44,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+  },
+  numericInput: {
+    flex: 1,
+    fontSize: FONT_SIZE.md,
+    fontWeight: '600',
+    height: '100%',
+  },
+  suffixBadge: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+
+  genderSelector: {
+    height: 44,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: SPACING.xl,
-    paddingVertical: SPACING.md,
-    borderBottomWidth: 1,
+    paddingHorizontal: 12,
   },
-  navBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: RADIUS.pill,
-    justifyContent: 'center',
-    alignItems: 'center',
+  genderSelectorValue: {
+    fontSize: FONT_SIZE.md,
+    fontWeight: '600',
   },
-  headerTitle: { fontSize: FONT_SIZE.xxl, fontWeight: '700' },
-  scroll: { padding: SPACING.xl },
-  infoBox: {
+
+  // BMI Bar
+  bmiBar: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+    padding: 12,
     borderRadius: RADIUS.lg,
-    padding: SPACING.md,
     borderWidth: 1,
-    marginBottom: 20,
+    marginTop: 4,
   },
-  infoText: { flex: 1, fontSize: FONT_SIZE.sm, lineHeight: 18 },
-  sectionTitle: { fontSize: FONT_SIZE.xl, fontWeight: '700', marginBottom: 14 },
-  rowTwo: { flexDirection: 'row', gap: 12, marginBottom: 16 },
-  col: { flex: 1 },
-  label: { fontSize: FONT_SIZE.sm, fontWeight: '600', marginBottom: 6 },
-  input: {
-    borderRadius: RADIUS.md,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderWidth: 1,
-    fontSize: FONT_SIZE.lg,
-  },
-  textArea: { height: 70, textAlignVertical: 'top' },
-  paramBox: {
-    marginBottom: 16,
-  },
-  paramHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  toggleRow: {
-    flexDirection: 'row',
-    borderRadius: RADIUS.pill,
-    padding: 2,
-  },
-  toggleSegment: {
-    paddingHorizontal: 14,
-    paddingVertical: 5,
-    borderRadius: RADIUS.pill,
-  },
-  toggleActiveSegment: {
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-  },
-  toggleSegmentText: {
+  bmiTitle: {
     fontSize: 12,
+  },
+  bmiStatusPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: RADIUS.pill,
+  },
+  bmiStatusText: {
+    color: '#ffffff',
+    fontSize: 10,
     fontWeight: '700',
   },
-  dropdownTrigger: {
+
+  // Safety Card UI
+  safetyCard: {
+    borderRadius: RADIUS.xl,
+    padding: 16,
+    borderWidth: 1,
+    marginBottom: 14,
+  },
+  checkboxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  cardTitleText: { fontSize: 14, fontWeight: '700' },
+  cardSubText: { fontSize: 11, marginTop: 2, lineHeight: 15 },
+
+  cardBody: {
+    marginTop: 14,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.06)',
+  },
+  pillsWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 12,
+  },
+  tagPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: RADIUS.pill,
+    borderWidth: 1,
+  },
+  tagPillText: { fontSize: 12, fontWeight: '700' },
+
+  addInputRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  addInput: {
+    flex: 1,
     height: 42,
     borderRadius: RADIUS.md,
     paddingHorizontal: 14,
     borderWidth: 1,
+    fontSize: 13,
+  },
+  addBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: RADIUS.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  // Dynamic Autocomplete Dropdown
+  suggestionsBox: {
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    marginTop: 6,
+    padding: 8,
+  },
+  suggestionHeader: { fontSize: 10, fontWeight: '700', letterSpacing: 0.5, marginBottom: 6, paddingHorizontal: 6 },
+  suggestionRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingVertical: 9,
+    paddingHorizontal: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  dropdownValue: { fontSize: FONT_SIZE.lg },
+  suggestionText: { flex: 1, fontSize: 13, marginLeft: 8, fontWeight: '600' },
+
   saveBtn: {
-    height: 48,
+    height: 52,
     borderRadius: RADIUS.pill,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 12,
+    marginTop: 20,
+  },
+  saveBtnInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   saveBtnText: { color: '#fff', fontSize: FONT_SIZE.lg, fontWeight: '700' },
-  // Bottom sheet gender option rows
+
+  // Bottom sheet gender options
   genderOptions: {
     paddingHorizontal: SPACING.xl,
     marginTop: SPACING.sm,

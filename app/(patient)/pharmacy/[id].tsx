@@ -170,9 +170,8 @@ const styles = StyleSheet.create({
   backBtn: {
     position: 'absolute', top: 12, left: 16, width: 36, height: 36,
     borderRadius: RADIUS.pill, justifyContent: 'center', alignItems: 'center',
-    shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 4, elevation: 4,
   },
-  scroll: { padding: SPACING.lg, paddingBottom: 40, gap: SPACING.lg },
+  scroll: { padding: SPACING.lg, gap: SPACING.lg },
   infoCard: { borderRadius: RADIUS.xl, padding: SPACING.lg, borderWidth: 1, gap: 8 },
   infoTitleRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 4 },
   pharmName: { fontSize: FONT_SIZE.title, fontWeight: '700', flex: 1, marginRight: 8 },

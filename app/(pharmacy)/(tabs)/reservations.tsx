@@ -26,15 +26,32 @@ export default function Reservations() {
     }
     try {
       // 1. Get pharmacy owned by current user
-      const { data: pharm, error: pharmErr } = await supabase
+      let pharmId: string | null = null;
+      const { data: pharm } = await supabase
         .from('pharmacies')
         .select('id')
         .eq('owner_id', user.id)
-        .single();
+        .maybeSingle();
 
-      if (pharmErr || !pharm) {
-        // No pharmacy record yet — show empty state gracefully
-        console.warn('No pharmacy found for user:', pharmErr?.message);
+      if (pharm?.id) {
+        pharmId = pharm.id;
+      } else {
+        let query = supabase.from('pharmacies').select('id');
+        if (user.phone) {
+          query = query.eq('phone', user.phone);
+        } else if (user.email) {
+          query = query.eq('email', user.email);
+        }
+
+        const { data: fallbackPharm } = await query.maybeSingle();
+        if (fallbackPharm?.id) {
+          pharmId = fallbackPharm.id;
+          await supabase.from('pharmacies').update({ owner_id: user.id }).eq('id', pharmId);
+        }
+      }
+
+      if (!pharmId) {
+        setReservations([]);
         setLoading(false);
         setRefreshing(false);
         return;
@@ -44,7 +61,7 @@ export default function Reservations() {
       const { data: resData, error: resErr } = await supabase
         .from('reservations')
         .select('*, app_users(full_name, phone)')
-        .eq('pharmacy_id', pharm.id)
+        .eq('pharmacy_id', pharmId)
         .order('created_at', { ascending: false });
 
       if (resErr) throw resErr;
@@ -124,41 +141,64 @@ export default function Reservations() {
     }
   };
 
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'accepted' | 'declined'>('all');
+
+  const filteredReservations = reservations.filter((r) => {
+    if (statusFilter === 'all') return true;
+    return r.status === statusFilter;
+  });
+
   const renderItem = ({ item }: { item: any }) => {
     const isPending = item.status === 'pending';
     const isAccepted = item.status === 'accepted';
 
     return (
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
+      <Pressable
+        style={({ pressed }) => [
+          styles.card,
+          pressed && { opacity: 0.9 },
+          { backgroundColor: theme.card, borderColor: theme.border },
+        ]}
+        onPress={() =>
+          router.push({
+            pathname: '/(pharmacy)/pharmacy-reservation/[id]',
+            params: { id: item.id },
+          })
+        }
+      >
         {/* Header */}
         <View style={styles.cardHeader}>
           <View style={{ flex: 1 }}>
             <Text style={[styles.patientId, { color: theme.text.primary }]}>{item.patientName}</Text>
-            <Text style={[styles.refText, { color: theme.textDim }]}>{item.ref} · {item.timeAgo}</Text>
+            <Text style={[styles.refText, { color: theme.textMuted }]}>{item.ref} · {item.timeAgo}</Text>
             {item.patientPhone !== 'N/A' && (
               <Pressable
                 onPress={() => Linking.openURL(`tel:${item.patientPhone}`)}
                 hitSlop={8}
-                style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }, pressed && { opacity: 0.6 }]}
+                style={({ pressed }) => [
+                  { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
+                  pressed && { opacity: 0.6 },
+                ]}
               >
-                <Ionicons name="call-outline" size={13} color={primaryColor} />
-                <Text style={[styles.phoneText, { color: primaryColor, textDecorationLine: 'underline' }]}>{item.patientPhone}</Text>
+                <Ionicons name="call-outline" size={13} color="#10b981" />
+                <Text style={{ color: '#10b981', fontSize: 12, fontWeight: '700' }}>{item.patientPhone}</Text>
               </Pressable>
             )}
           </View>
+
+          {isPending && (
+            <View style={[styles.badge, { backgroundColor: '#fffbeb', borderColor: '#fef3c7', borderWidth: 1 }]}>
+              <Text style={[styles.badgeText, { color: '#b45309' }]}>Pending</Text>
+            </View>
+          )}
           {isAccepted && (
-            <View style={[styles.badge, { backgroundColor: theme.successBg }]}>
-              <Text style={[styles.badgeText, { color: theme.successText }]}>Accepted</Text>
+            <View style={[styles.badge, { backgroundColor: '#ecfdf5', borderColor: '#a7f3d0', borderWidth: 1 }]}>
+              <Text style={[styles.badgeText, { color: '#047857' }]}>Accepted</Text>
             </View>
           )}
           {item.status === 'declined' && (
-            <View style={[styles.badge, { backgroundColor: theme.errorBg }]}>
-              <Text style={[styles.badgeText, { color: theme.errorText }]}>Declined</Text>
-            </View>
-          )}
-          {item.status === 'collected' && (
-            <View style={[styles.badge, { backgroundColor: theme.patientSecondary }]}>
-              <Text style={[styles.badgeText, { color: primaryColor }]}>Collected</Text>
+            <View style={[styles.badge, { backgroundColor: '#fef2f2', borderColor: '#fecaca', borderWidth: 1 }]}>
+              <Text style={[styles.badgeText, { color: '#b91c1c' }]}>Declined</Text>
             </View>
           )}
         </View>
@@ -166,8 +206,9 @@ export default function Reservations() {
         {/* Medicine chips */}
         <View style={styles.chipsRow}>
           {item.medicines.map((med: string, idx: number) => (
-            <View key={idx} style={[styles.chip, { backgroundColor: theme.patientSecondary }]}>
-              <Text style={[styles.chipText, { color: theme.patientPrimary }]}>{med}</Text>
+            <View key={idx} style={[styles.medChip, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
+              <Ionicons name="medkit-outline" size={12} color="#10b981" />
+              <Text style={[styles.medChipText, { color: theme.text.primary }]}>{med}</Text>
             </View>
           ))}
         </View>
@@ -175,51 +216,73 @@ export default function Reservations() {
         {/* Action buttons (pending only) */}
         {isPending && (
           <View style={styles.actionRow}>
-            <Pressable style={({pressed})=>[styles.acceptBtn, pressed && {opacity: 0.5}, { backgroundColor: primaryColor }]} onPress={() => handleAccept(item.id)}>
-              <Ionicons name="checkmark" size={15} color="#fff" />
-              <Text style={styles.actionBtnText}>Accept</Text>
+            <Pressable
+              style={({ pressed }) => [
+                styles.acceptBtn,
+                pressed && { opacity: 0.8 },
+                { backgroundColor: '#10b981' },
+              ]}
+              onPress={() => handleAccept(item.id)}
+            >
+              <Ionicons name="checkmark-circle" size={16} color="#fff" />
+              <Text style={styles.actionBtnText}>Accept Order</Text>
             </Pressable>
-            <Pressable style={({pressed})=>[styles.declineBtn, pressed && {opacity: 0.5}, { backgroundColor: theme.errorBg, borderColor: theme.errorBorder }]} onPress={() => handleDecline(item.id)}>
-              <Ionicons name="close" size={15} color={theme.error} />
-              <Text style={[styles.actionBtnText, { color: theme.error }]}>Decline</Text>
+            <Pressable
+              style={({ pressed }) => [
+                styles.declineBtn,
+                pressed && { opacity: 0.8 },
+                { backgroundColor: '#fef2f2', borderColor: '#fecaca', borderWidth: 1 },
+              ]}
+              onPress={() => handleDecline(item.id)}
+            >
+              <Ionicons name="close-circle-outline" size={16} color="#ef4444" />
+              <Text style={[styles.actionBtnText, { color: '#ef4444' }]}>Decline</Text>
             </Pressable>
           </View>
         )}
-      </View>
+      </Pressable>
     );
   };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
       {/* Header */}
-      <Header
-        title="Reservations"
-        showBack
-        onBack={() => router.push('/(pharmacy)/(tabs)/dashboard')}
-      />
+      <Header title="Reservations" />
+
+      {/* Filter Tabs */}
+      <View style={styles.filterRow}>
+        {(['all', 'pending', 'accepted', 'declined'] as const).map((mode) => (
+          <Pressable
+            key={mode}
+            style={[
+              styles.filterTab,
+              statusFilter === mode
+                ? { backgroundColor: '#10b981', borderColor: '#10b981' }
+                : { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
+            ]}
+            onPress={() => setStatusFilter(mode)}
+          >
+            <Text
+              style={[
+                styles.filterTabText,
+                { color: statusFilter === mode ? '#ffffff' : theme.text.primary },
+              ]}
+            >
+              {mode.charAt(0).toUpperCase() + mode.slice(1)}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
 
       {loading ? (
         <View style={styles.listContent}>
           {[1, 2, 3].map((i) => (
-            <View key={i} style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 }}>
-                <View style={{ gap: 4 }}>
-                  <Skeleton width={120} height={16} />
-                  <Skeleton width={80} height={12} />
-                </View>
-                <Skeleton width={70} height={22} borderRadius={RADIUS.pill} />
-              </View>
-              <Skeleton width="90%" height={14} style={{ marginBottom: 12 }} />
-              <View style={{ flexDirection: 'row', gap: 10 }}>
-                <Skeleton width={90} height={32} borderRadius={RADIUS.pill} />
-                <Skeleton width={90} height={32} borderRadius={RADIUS.pill} />
-              </View>
-            </View>
+            <Skeleton key={i} width="100%" height={110} borderRadius={16} />
           ))}
         </View>
       ) : (
         <FlatList
-          data={reservations}
+          data={filteredReservations}
           keyExtractor={(item) => item.id}
           showsVerticalScrollIndicator={false}
           renderItem={renderItem}
@@ -255,14 +318,31 @@ const styles = StyleSheet.create({
   },
   headerTitle: { fontSize: FONT_SIZE.xxl, fontWeight: '700' },
 
-  listContent: { padding: SPACING.lg, gap: 12 },
+  filterRow: {
+    flexDirection: 'row',
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.sm,
+    gap: 8,
+  },
+  filterTab: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: RADIUS.pill,
+    borderWidth: 1.2,
+  },
+  filterTabText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+
+  listContent: { padding: SPACING.lg, gap: 12, paddingBottom: 100 },
   emptyText: { textAlign: 'center', marginTop: 40, fontSize: FONT_SIZE.lg },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 
   card: {
     borderRadius: RADIUS.xl,
     padding: SPACING.lg,
-    borderWidth: 1,
+    borderWidth: 1.5,
     gap: 12,
   },
   cardHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
@@ -270,17 +350,25 @@ const styles = StyleSheet.create({
   refText: { fontSize: FONT_SIZE.sm, marginTop: 2 },
   phoneText: { fontSize: FONT_SIZE.sm, marginTop: 2 },
   badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: RADIUS.pill },
-  badgeText: { fontSize: FONT_SIZE.sm, fontWeight: '600' },
+  badgeText: { fontSize: 11, fontWeight: '700' },
 
   chipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  chip: { borderRadius: RADIUS.pill, paddingHorizontal: 10, paddingVertical: 4 },
-  chipText: { fontSize: FONT_SIZE.sm, fontWeight: '500' },
+  medChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderRadius: RADIUS.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderWidth: 1,
+  },
+  medChipText: { fontSize: 12, fontWeight: '600' },
 
   actionRow: { flexDirection: 'row', gap: 10, marginTop: 4 },
   acceptBtn: {
     flex: 1,
-    height: 38,
-    borderRadius: RADIUS.md,
+    height: 40,
+    borderRadius: RADIUS.pill,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -288,13 +376,12 @@ const styles = StyleSheet.create({
   },
   declineBtn: {
     flex: 1,
-    height: 38,
-    borderRadius: RADIUS.md,
+    height: 40,
+    borderRadius: RADIUS.pill,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
     gap: 6,
   },
-  actionBtnText: { color: '#fff', fontSize: FONT_SIZE.md, fontWeight: '600' },
+  actionBtnText: { color: '#fff', fontSize: 13, fontWeight: '700' },
 });

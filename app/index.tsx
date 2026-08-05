@@ -3,7 +3,7 @@ import { useRouter } from 'expo-router';
 import { useAuthStore } from '@/store/authStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const ONBOARDING_KEY = 'pharmafindr_onboarding_seen';
+const ONBOARDING_KEY = 'PharmFindr_onboarding_seen';
 
 export default function Index() {
   const { session, profile, loading, initialize } = useAuthStore();

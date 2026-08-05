@@ -16,7 +16,7 @@ export function FormattedMarkdown({ content, textColor }: FormattedMarkdownProps
   const color = textColor || theme.text.primary;
 
   // Split into lines
-  const lines = content.split('\n');
+  const lines = (content || '').split('\n');
 
   return (
     <View style={styles.container}>
@@ -24,6 +24,17 @@ export function FormattedMarkdown({ content, textColor }: FormattedMarkdownProps
         const trimmed = line.trim();
         if (!trimmed) {
           return <View key={lineIdx} style={{ height: 6 }} />;
+        }
+
+        // 0. Horizontal Rule / Divider (e.g. ---, ***, ___)
+        const isDivider = /^[-*_]{3,}$/.test(trimmed);
+        if (isDivider) {
+          return (
+            <View
+              key={lineIdx}
+              style={[styles.hr, { backgroundColor: theme.border || '#e5e7eb' }]}
+            />
+          );
         }
 
         // 1. Headers (# Header or ## Subheader)
@@ -147,5 +158,10 @@ const styles = StyleSheet.create({
   },
   italicText: {
     fontStyle: 'italic',
+  },
+  hr: {
+    height: 1,
+    width: '100%',
+    marginVertical: 8,
   },
 });

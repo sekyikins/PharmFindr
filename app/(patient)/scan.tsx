@@ -19,6 +19,8 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { useThemeContext } from '@/hooks/useThemeContext';
 import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
 
+import { logAuditEvent } from '@/lib/auditLogger';
+
 const { width } = Dimensions.get('window');
 
 export default function Scan() {
@@ -86,6 +88,12 @@ export default function Scan() {
 
       // Call Gemini multimodal OCR (never throws — returns [] on failure)
       const medicines = await parsePrescriptionImage(base64, 'image/jpeg');
+
+      await logAuditEvent({
+        action: 'SCAN_PRESCRIPTION',
+        resourceType: 'prescription',
+        metadata: { medicine_count: medicines.length },
+      });
 
       // Always navigate to results — ocr-result handles empty state
       router.push({
@@ -217,7 +225,6 @@ export default function Scan() {
                     styles.scanLine,
                     {
                       backgroundColor: primaryColor,
-                      shadowColor: primaryColor,
                       transform: [{ translateY: scanTranslateY }],
                     },
                   ]}
@@ -366,9 +373,6 @@ const styles = StyleSheet.create({
     left: '5%',
     right: '5%',
     height: 2,
-    shadowOpacity: 0.8,
-    shadowRadius: 8,
-    elevation: 5,
   },
   viewfinderText: {
     color: '#ffffff',

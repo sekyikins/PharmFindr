@@ -2,8 +2,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import { supabase } from './supabase';
 
-const DEVICE_ID_KEY = 'pharmafindr_device_id';
-const LAST_ACTIVE_KEY = 'pharmafindr_last_active_at';
+const DEVICE_ID_KEY = 'PharmFindr_device_id';
+const LAST_ACTIVE_KEY = 'PharmFindr_last_active_at';
 const INACTIVITY_TIMEOUT_MS = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
 
 /**
@@ -140,5 +140,32 @@ export async function revokeAllOtherSessions(): Promise<void> {
     await updateLastActiveTimestamp();
   } catch (e) {
     console.warn('Revoke all other sessions warning:', e);
+  }
+}
+
+/**
+ * Revoke a single specific device session by device ID.
+ */
+export async function revokeSpecificDeviceSession(targetDeviceId: string): Promise<ActiveSessionItem[]> {
+  try {
+    const { data: userRes } = await supabase.auth.getUser();
+    if (!userRes?.user) return [];
+
+    const metadata = userRes.user.user_metadata || {};
+    let activeSessions: ActiveSessionItem[] = metadata.active_sessions || [];
+
+    // Filter out target device session
+    activeSessions = activeSessions.filter((s) => s.device_id !== targetDeviceId);
+
+    await supabase.auth.updateUser({
+      data: {
+        active_sessions: activeSessions,
+      },
+    });
+
+    return activeSessions;
+  } catch (e) {
+    console.warn('Revoke specific session error:', e);
+    return [];
   }
 }

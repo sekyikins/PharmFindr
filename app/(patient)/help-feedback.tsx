@@ -8,6 +8,7 @@ import {
   TextInput,
   Image,
   Modal,
+  Linking,
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -16,36 +17,64 @@ import { useRouter } from 'expo-router';
 import { useThemeContext } from '@/hooks/useThemeContext';
 import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
 import { Header, HeaderIconBtn } from '@/components/ui/Header';
+import { TERMS_OF_SERVICE } from '@/constants/termsOfService';
+import { PRIVACY_POLICY } from '@/constants/privacyPolicy';
 
-const FAQS = [
+interface FaqItem {
+  id: string;
+  category: 'Reservations' | 'Prescriptions' | 'Pharmacies' | 'Account';
+  q: string;
+  a: string;
+}
+
+const FAQS: FaqItem[] = [
   {
+    id: 'f1',
+    category: 'Reservations',
     q: 'How do I search and reserve medicines near me?',
-    a: 'Use the Search tab or Scan Prescription button to find medicines at nearby pharmacies. Tap on a pharmacy result and select "Reserve Medicine".',
+    a: 'Use the Search tab or Scan Prescription button to find medicines at nearby registered pharmacies. Select your pharmacy and tap "Reserve Medicine" to hold your prescription items.',
   },
   {
+    id: 'f2',
+    category: 'Prescriptions',
     q: 'How does AI Prescription scanning work?',
-    a: 'Take a clear photo of your written prescription using the Scan tab. Our Gemini AI automatically extracts medicine names, dosages, and search results.',
+    a: 'Take a clear photo of your handwritten or printed prescription using the Scan tab. Our Gemini AI automatically extracts medicine names, dosages, and searches local pharmacy inventory.',
   },
   {
-    q: 'Are the pharmacies on PharmFindr verified?',
-    a: 'Yes, all partner pharmacies undergo strict verification and license check before listing inventory.',
+    id: 'f3',
+    category: 'Pharmacies',
+    q: 'Are all listed pharmacies verified on PharmFindr?',
+    a: 'Yes, all partner pharmacies undergo strict licensing checks with official healthcare regulatory authorities before inventory listing.',
   },
   {
+    id: 'f4',
+    category: 'Reservations',
     q: 'What should I do if my reservation is delayed?',
-    a: 'You can check reservation updates in the Notifications tab or contact the pharmacy directly using their phone number listed on the pharmacy details page.',
+    a: 'You can check real-time status updates in your Reservations tab or call the pharmacy directly using the phone button on their details page.',
+  },
+  {
+    id: 'f5',
+    category: 'Account',
+    q: 'How do I turn on Face ID or Fingerprint login?',
+    a: 'Go to Profile > Edit Account > Security & Privacy, and toggle on Biometric Lock. Ensure Face ID or fingerprint is enabled in your device settings.',
+  },
+  {
+    id: 'f6',
+    category: 'Account',
+    q: 'What happens if I lose internet connection?',
+    a: 'PharmFindr has built-in offline resilience. Your saved medicines and recent searches remain accessible, and any profile changes automatically sync once internet connection is restored.',
   },
 ];
+
+const FAQ_CATEGORIES = ['All', 'Reservations', 'Prescriptions', 'Pharmacies', 'Account'];
 
 export default function HelpAndFeedback() {
   const router = useRouter();
   const { theme, primaryColor } = useThemeContext();
 
-  const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
-
-  // Feedback State
-  const [feedbackCategory, setFeedbackCategory] = useState<'General' | 'Bug Report' | 'Feature Request'>('General');
-  const [feedbackText, setFeedbackText] = useState('');
-  const [submittingFeedback, setSubmittingFeedback] = useState(false);
+  const [faqSearchQuery, setFaqSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [expandedFaq, setExpandedFaq] = useState<string | null>(null);
 
   // App Info Modal State
   const [appInfoVisible, setAppInfoVisible] = useState(false);
@@ -53,157 +82,212 @@ export default function HelpAndFeedback() {
   // Terms & Privacy Modal State
   const [legalModalType, setLegalModalType] = useState<'terms' | 'privacy' | null>(null);
 
-  const handleSendFeedback = () => {
-    if (!feedbackText.trim()) {
-      Alert.alert('Validation Error', 'Please write a message before submitting.');
-      return;
-    }
-    setSubmittingFeedback(true);
-    setTimeout(() => {
-      setSubmittingFeedback(false);
-      setFeedbackText('');
-      Alert.alert('Thank You! 🙏', 'Your feedback has been sent to the PharmFindr support team.');
-    }, 600);
+  const filteredFaqs = FAQS.filter((item) => {
+    const matchesCat = selectedCategory === 'All' || item.category === selectedCategory;
+    const q = faqSearchQuery.trim().toLowerCase();
+    const matchesSearch = !q || item.q.toLowerCase().includes(q) || item.a.toLowerCase().includes(q);
+    return matchesCat && matchesSearch;
+  });
+
+  const handleContactSupportPhone = () => {
+    Linking.openURL('tel:+233556590885').catch(() => {
+      Alert.alert('Contact Support', 'Call support at +233 556 590 885.');
+    });
   };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
-      {/* ── Header ── */}
-      <Header title="Help & Feedback" showBack onBack={() => router.canGoBack() ? router.back() : router.navigate('/(patient)/(tabs)/profile')} />
+      <Header
+        title="Help & Support"
+        showBack
+        onBack={() => (router.canGoBack() ? router.back() : router.navigate('/(patient)/(tabs)/profile'))}
+      />
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* ── 1. HELP CENTER (FAQS) ── */}
-        <View>
-          <View style={styles.cardTitleRow}>
-            <Ionicons name="help-buoy-outline" size={22} color={primaryColor} />
-            <Text style={[styles.cardTitle, { color: theme.text.primary }]}>Help Center & FAQs</Text>
-          </View>
 
-          {FAQS.map((faq, idx) => {
-            const isOpen = expandedFaq === idx;
+        {/* ── 2. FAQ HELP CENTER ── */}
+        <View style={styles.sectionHeaderRow}>
+          <Text style={[styles.sectionHeading, { color: theme.textDim }]}>FREQUENTLY ASKED QUESTIONS</Text>
+        </View>
+
+        {/* FAQ Search Bar */}
+        <View style={[styles.searchBar, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
+          <Ionicons name="search" size={18} color={theme.textMuted} style={{ marginRight: 8 }} />
+          <TextInput
+            style={[styles.searchInput, { color: theme.text.primary }]}
+            placeholder="Search FAQs..."
+            placeholderTextColor={theme.textMuted}
+            value={faqSearchQuery}
+            onChangeText={setFaqSearchQuery}
+          />
+          {faqSearchQuery.length > 0 && (
+            <Pressable onPress={() => setFaqSearchQuery('')}>
+              <Ionicons name="close-circle" size={18} color={theme.textMuted} />
+            </Pressable>
+          )}
+        </View>
+
+        {/* FAQ Category Chips */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryScroll}>
+          {FAQ_CATEGORIES.map((cat) => {
+            const isSelected = selectedCategory === cat;
             return (
-              <View key={idx} style={[styles.faqItem, { borderBottomColor: theme.border }]}>
-                <Pressable
-                  style={({pressed})=>[styles.faqHeader, pressed && {opacity: 0.5}]}
-                  onPress={() => setExpandedFaq(isOpen ? null : idx)}
-                >
-                  <Text style={[styles.faqQuestion, { color: theme.text.primary }]}>{faq.q}</Text>
-                  <Ionicons name={isOpen ? 'chevron-up' : 'chevron-down'} size={18} color={theme.textDim} />
-                </Pressable>
-                {isOpen && (
-                  <Text style={[styles.faqAnswer, { color: theme.textMuted }]}>{faq.a}</Text>
-                )}
-              </View>
+              <Pressable
+                key={cat}
+                style={({ pressed }) => [
+                  styles.categoryChip,
+                  isSelected
+                    ? { backgroundColor: primaryColor, borderColor: primaryColor }
+                    : { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
+                  pressed && { opacity: 0.7 },
+                ]}
+                onPress={() => setSelectedCategory(cat)}
+              >
+                <Text style={[styles.categoryChipText, { color: isSelected ? '#ffffff' : theme.text.primary }]}>
+                  {cat}
+                </Text>
+              </Pressable>
             );
           })}
+        </ScrollView>
+
+        {/* FAQ Accordion List */}
+        <View style={[styles.faqCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+          {filteredFaqs.length > 0 ? (
+            filteredFaqs.map((faq, idx) => {
+              const isOpen = expandedFaq === faq.id;
+              return (
+                <View
+                  key={faq.id}
+                  style={[
+                    styles.faqItem,
+                    idx < filteredFaqs.length - 1 && { borderBottomWidth: 1, borderBottomColor: theme.border },
+                  ]}
+                >
+                  <Pressable
+                    style={({ pressed }) => [styles.faqHeader, pressed && { opacity: 0.6 }]}
+                    onPress={() => setExpandedFaq(isOpen ? null : faq.id)}
+                  >
+                    <Text style={[styles.faqQuestion, { color: theme.text.primary }]}>{faq.q}</Text>
+                    <Ionicons name={isOpen ? 'chevron-up' : 'chevron-down'} size={18} color={theme.textDim} />
+                  </Pressable>
+                  {isOpen && <Text style={[styles.faqAnswer, { color: theme.textMuted }]}>{faq.a}</Text>}
+                </View>
+              );
+            })
+          ) : (
+            <View style={{ padding: 24, alignItems: 'center' }}>
+              <Ionicons name="help-circle-outline" size={36} color={theme.textDim} style={{ marginBottom: 8 }} />
+              <Text style={[styles.noFaqText, { color: theme.textMuted }]}>
+                No FAQs matched "{faqSearchQuery}". Try adjusting your search term.
+              </Text>
+            </View>
+          )}
         </View>
 
-        {/* ── 2. SEND FEEDBACK ── */}
-        <View style={{ backgroundColor: theme.card, borderColor: theme.border, borderRadius: RADIUS.lg, marginTop: 10, padding: SPACING.md }}>
-          <View style={styles.cardTitleRow}>
-            <Ionicons name="chatbox-ellipses-outline" size={22} color={primaryColor} />
-            <Text style={[styles.cardTitle, { color: theme.text.primary }]}>Send Feedback</Text>
-          </View>
-          <Text style={[styles.cardSub, { color: theme.textMuted }]}>
-            We'd love to hear your thoughts, feature ideas, or bug reports!
-          </Text>
+        {/* ── 3. DIRECT CONTACT SUPPORT ── */}
+        <Text style={[styles.sectionHeading, { color: theme.textDim, marginTop: 24 }]}>DIRECT SUPPORT</Text>
+        <View style={[styles.menuCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+          <Pressable
+            style={({ pressed }) => [styles.menuRow, pressed && { opacity: 0.6 }]}
+            onPress={handleContactSupportPhone}
+          >
+            <View style={[styles.menuIconCircle, { backgroundColor: theme.patientSecondary }]}>
+              <Ionicons name="call-outline" size={18} color={primaryColor} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.menuTitle, { color: theme.text.primary }]}>Support Phone & WhatsApp</Text>
+              <Text style={[styles.menuSub, { color: theme.textMuted }]}>Available Mon–Sat, 8:00 AM – 8:00 PM</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={theme.textDim} />
+          </Pressable>
+        </View>
 
-          {/* Category Pills */}
-          <View style={styles.categoryRow}>
-            {(['General', 'Bug Report', 'Feature Request'] as const).map((cat) => {
-              const active = feedbackCategory === cat;
-              return (
-                <Pressable
-                  key={cat}
-                  style={({pressed})=>[
-                    styles.catPill, pressed && { opacity: 0.5 },
-                    {
-                      backgroundColor: active ? primaryColor : theme.surfaceSecondary,
-                      borderColor: active ? primaryColor : theme.border,
-                    },
-                  ]}
-                  onPress={() => setFeedbackCategory(cat)}
-                >
-                  <Text style={[styles.catPillText, { color: active ? '#ffffff' : theme.text.primary }]}>
-                    {cat}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
+        {/* ── 4. LEGAL & APP INFO ── */}
+        <Text style={[styles.sectionHeading, { color: theme.textDim, marginTop: 24 }]}>LEGAL & APP INFO</Text>
+        <View style={[styles.menuCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+          <Pressable
+            style={({ pressed }) => [styles.menuRow, pressed && { opacity: 0.6 }]}
+            onPress={() => setLegalModalType('terms')}
+          >
+            <View style={[styles.menuIconCircle, { backgroundColor: theme.surfaceSecondary }]}>
+              <Ionicons name="document-text-outline" size={18} color={theme.textMuted} />
+            </View>
+            <Text style={[styles.menuTitle, { flex: 1, color: theme.text.primary }]}>Terms of Service</Text>
+            <Ionicons name="chevron-forward" size={18} color={theme.textDim} />
+          </Pressable>
 
-          <TextInput
-            style={[styles.feedbackInput, { backgroundColor: theme.surface, color: theme.text.primary, borderColor: theme.border }]}
-            value={feedbackText}
-            onChangeText={setFeedbackText}
-            placeholder="Type your message here..."
-            placeholderTextColor={theme.textDim}
-            multiline
-            numberOfLines={4}
-            textAlignVertical="top"
-          />
+          <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />
 
           <Pressable
-            style={({pressed})=>[styles.submitBtn, pressed && {opacity: 0.5}, { backgroundColor: primaryColor }]}
-            onPress={handleSendFeedback}
-            disabled={submittingFeedback}
+            style={({ pressed }) => [styles.menuRow, pressed && { opacity: 0.6 }]}
+            onPress={() => setLegalModalType('privacy')}
           >
-            <Ionicons name="paper-plane-outline" size={18} color="#ffffff" style={{ marginRight: 8 }} />
-            <Text style={styles.submitBtnText}>{submittingFeedback ? 'Sending...' : 'Send Feedback'}</Text>
-          </Pressable>
-        </View>
-
-        {/* ── 3. LEGAL & APP INFO MENU ── */}
-        <View style={{ marginTop: 16, paddingVertical: 0 }}>
-          <Pressable style={({pressed})=>[styles.menuRow, pressed && { opacity: 0.5 }]} onPress={() => setLegalModalType('terms')}>
-            <View style={styles.menuRowLeft}>
-              <Ionicons name="document-text-outline" size={20} color={theme.textMuted} />
-              <Text style={[styles.menuRowText, { color: theme.text.primary }]}>Terms of Service</Text>
+            <View style={[styles.menuIconCircle, { backgroundColor: theme.surfaceSecondary }]}>
+              <Ionicons name="shield-checkmark-outline" size={18} color={theme.textMuted} />
             </View>
+            <Text style={[styles.menuTitle, { flex: 1, color: theme.text.primary }]}>Privacy Policy</Text>
             <Ionicons name="chevron-forward" size={18} color={theme.textDim} />
           </Pressable>
 
           <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />
 
-          <Pressable style={({pressed})=>[styles.menuRow, pressed && { opacity: 0.5 }]} onPress={() => setLegalModalType('privacy')}>
-            <View style={styles.menuRowLeft}>
-              <Ionicons name="shield-outline" size={20} color={theme.textMuted} />
-              <Text style={[styles.menuRowText, { color: theme.text.primary }]}>Privacy Policy</Text>
+          <Pressable
+            style={({ pressed }) => [styles.menuRow, pressed && { opacity: 0.6 }]}
+            onPress={() => setAppInfoVisible(true)}
+          >
+            <View style={[styles.menuIconCircle, { backgroundColor: theme.surfaceSecondary }]}>
+              <Ionicons name="information-circle-outline" size={18} color={primaryColor} />
             </View>
-            <Ionicons name="chevron-forward" size={18} color={theme.textDim} />
-          </Pressable>
-
-          <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />
-
-          <Pressable style={({pressed})=>[styles.menuRow, pressed && { opacity: 0.5 }]} onPress={() => setAppInfoVisible(true)}>
-            <View style={styles.menuRowLeft}>
-              <Ionicons name="information-circle-outline" size={20} color={primaryColor} />
-              <Text style={[styles.menuRowText, { color: theme.text.primary }]}>App Info</Text>
-            </View>
+            <Text style={[styles.menuTitle, { flex: 1, color: theme.text.primary }]}>App Info & Version</Text>
             <Ionicons name="chevron-forward" size={18} color={theme.textDim} />
           </Pressable>
         </View>
+
+        {/* Send Feedback Card */}
+          <Pressable
+            style={({ pressed }) => [
+              styles.hubCard,
+              { backgroundColor: theme.patientSecondary, borderColor: primaryColor },
+              pressed && { opacity: 0.7 },
+            ]}
+            onPress={() => router.push('/(patient)/send-feedback')}
+          >
+            <View style={[styles.hubIconCircle, { backgroundColor: primaryColor }]}>
+              <Ionicons name="chatbubbles" size={22} color="#ffffff" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.hubTitle, { color: theme.text.primary }]}>Send Feedback</Text>
+              <Text style={[styles.hubSub, { color: theme.textMuted }]}>
+                Share your ideas, feature requests, or report bugs
+              </Text>
+            </View>
+            <Ionicons name="arrow-forward" size={18} color={primaryColor} />
+          </Pressable>
       </ScrollView>
 
-      {/* ══ APP INFO MODAL (Centered display) ══ */}
+      {/* ══ APP INFO MODAL ══ */}
       <Modal visible={appInfoVisible} transparent animationType="fade" onRequestClose={() => setAppInfoVisible(false)}>
-        <Pressable style={[styles.modalOverlay]} onPress={() => setAppInfoVisible(false)}>
+        <Pressable style={styles.modalOverlay} onPress={() => setAppInfoVisible(false)}>
           <Pressable style={[styles.appInfoCard, { backgroundColor: theme.card }]} onPress={(e) => e.stopPropagation()}>
             <View style={styles.appInfoContent}>
-              <Image
-                source={require('@/assets/images/icon.png')}
-                style={styles.appInfoLogo}
-                resizeMode="contain"
-              />
+              <Image source={require('@/assets/images/icon.png')} style={styles.appInfoLogo} resizeMode="contain" />
               <Text style={[styles.appInfoTitle, { color: theme.text.primary }]}>PharmFindr</Text>
               <Text style={[styles.appInfoVersion, { color: primaryColor }]}>Version 1.0.0 (Build 100)</Text>
 
               <Text style={[styles.appInfoDesc, { color: theme.textMuted }]}>
-                Connecting patients with verified local pharmacies instantly. Search medicines, and scan prescriptions seamlessly.
+                Connecting patients with verified local pharmacies instantly. Search medicines, reserve stock, and scan prescriptions seamlessly.
               </Text>
               <Text style={[styles.appInfoCopyright, { color: theme.textDim }]}>
                 © 2026 PharmFindr Inc. All rights reserved.
               </Text>
+
+              <Pressable
+                style={({ pressed }) => [styles.modalCloseBtn, { backgroundColor: primaryColor }, pressed && { opacity: 0.7 }]}
+                onPress={() => setAppInfoVisible(false)}
+              >
+                <Text style={styles.modalCloseBtnText}>Close</Text>
+              </Pressable>
             </View>
           </Pressable>
         </Pressable>
@@ -214,19 +298,36 @@ export default function HelpAndFeedback() {
         <SafeAreaView style={[styles.legalModalContainer, { backgroundColor: theme.background }]}>
           <Header
             title={legalModalType === 'terms' ? 'Terms of Service' : 'Privacy Policy'}
-            right={
-              <HeaderIconBtn
-                name="close"
-                onPress={() => setLegalModalType(null)}
-              />
-            }
+            right={<HeaderIconBtn name="close" onPress={() => setLegalModalType(null)} />}
           />
-          <ScrollView contentContainerStyle={{ padding: 10 }}>
-            <Text style={[styles.legalText, { color: theme.text.primary }]}>
-              {legalModalType === 'terms'
-                ? `Welcome to PharmFindr.\n\n1. Acceptance of Terms\nBy accessing or using PharmFindr, you agree to comply with and be bound by these Terms of Service.\n\n2. Service Overview\nPharmFindr acts as an instant discovery and reservation platform connecting users with licensed pharmacies. We do not sell pharmaceuticals directly.\n\n3. Patient Responsibilities\nYou are responsible for verifying your prescription requirements with a licensed healthcare provider.`
-                : `PharmFindr Privacy Policy\n\n1. Information We Collect\nWe collect personal data such as your name, phone number, and location coordinates to facilitate pharmacy lookup and reservation services.\n\n2. Health & Safety Data\nPersonal health profile information (e.g. allergies, conditions) is encrypted and strictly used for safety warnings during medicine searches.\n\n3. Data Security\nWe do not share your private medical data with unverified third parties.`}
-            </Text>
+          <ScrollView contentContainerStyle={{ padding: SPACING.xl }} showsVerticalScrollIndicator={false}>
+            {legalModalType && (
+              <View style={{ gap: 18 }}>
+                <View style={[styles.legalMetaCard, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
+                  <Ionicons
+                    name={legalModalType === 'terms' ? 'document-text' : 'shield-checkmark'}
+                    size={24}
+                    color={primaryColor}
+                  />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.legalMetaTitle, { color: theme.text.primary }]}>
+                      {legalModalType === 'terms' ? 'PharmFindr Terms of Service' : 'PharmFindr Patient Privacy Policy'}
+                    </Text>
+                    <Text style={[styles.legalMetaSub, { color: theme.textMuted }]}>
+                      Version {legalModalType === 'terms' ? TERMS_OF_SERVICE.version : PRIVACY_POLICY.version} · Updated{' '}
+                      {legalModalType === 'terms' ? TERMS_OF_SERVICE.lastUpdated : PRIVACY_POLICY.lastUpdated}
+                    </Text>
+                  </View>
+                </View>
+
+                {(legalModalType === 'terms' ? TERMS_OF_SERVICE.sections : PRIVACY_POLICY.sections).map((sec) => (
+                  <View key={sec.id} style={[styles.legalSectionCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+                    <Text style={[styles.legalSectionTitle, { color: theme.text.primary }]}>{sec.title}</Text>
+                    <Text style={[styles.legalSectionContent, { color: theme.textMuted }]}>{sec.content}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
           </ScrollView>
         </SafeAreaView>
       </Modal>
@@ -236,188 +337,139 @@ export default function HelpAndFeedback() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: {
+  scrollContent: { paddingHorizontal: SPACING.xl, paddingVertical: SPACING.md },
+
+  hubCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: SPACING.xl,
-    paddingVertical: SPACING.md,
-    borderBottomWidth: 1,
+    borderRadius: RADIUS.xl,
+    padding: 16,
+    marginVertical: 10,
+    borderWidth: 1,
+    gap: 14,
   },
-  circleBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  hubIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  headerTitle: {
-    fontSize: FONT_SIZE.xxl,
-    fontWeight: '700',
-  },
-  scrollContent: {
-    padding: SPACING.md,
-    paddingBottom: 0,
-  },
+  hubTitle: { fontSize: 15, fontWeight: '700' },
+  hubSub: { fontSize: 12, marginTop: 2, lineHeight: 16 },
 
-  cardTitleRow: {
+  sectionHeading: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    marginBottom: 8,
+  },
+  sectionHeaderRow: { marginBottom: 4 },
+
+  searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    marginBottom: 12,
+    borderRadius: RADIUS.xl,
+    height: 44,
+    paddingHorizontal: SPACING.lg,
+    borderWidth: 1,
+    marginBottom: 10,
   },
-  cardTitle: {
-    fontSize: FONT_SIZE.xl,
-    fontWeight: '700',
-  },
-  cardSub: {
-    fontSize: FONT_SIZE.md,
-    marginBottom: 14,
-  },
+  searchInput: { flex: 1, fontSize: FONT_SIZE.md },
 
-  // FAQs
-  faqItem: {
-    borderBottomWidth: 1,
-    paddingVertical: 12,
-  },
-  faqHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  faqQuestion: {
-    flex: 1,
-    fontSize: FONT_SIZE.lg,
-    fontWeight: '600',
-    paddingRight: 10,
-  },
-  faqAnswer: {
-    fontSize: FONT_SIZE.md,
-    marginTop: 8,
-    lineHeight: 20,
-    borderTopWidth: 1,
-    
-  },
-
-  // Feedback
-  categoryRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 12,
-  },
-  catPill: {
-    paddingHorizontal: 12,
+  categoryScroll: { gap: 8, marginBottom: 14 },
+  categoryChip: {
+    paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: RADIUS.pill,
     borderWidth: 1,
   },
-  catPillText: {
-    fontSize: FONT_SIZE.sm,
-    fontWeight: '600',
-  },
-  feedbackInput: {
-    borderRadius: RADIUS.lg,
-    borderWidth: 1,
-    padding: 12,
-    fontSize: FONT_SIZE.lg,
-    height: 100,
-    marginBottom: 14,
-  },
-  submitBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: 48,
-    borderRadius: RADIUS.pill,
-  },
-  submitBtnText: {
-    color: '#ffffff',
-    fontSize: FONT_SIZE.lg,
-    fontWeight: '700',
-  },
+  categoryChipText: { fontSize: 12, fontWeight: '600' },
 
-  // Menu Rows
-  menuRow: {
+  faqCard: {
+    borderRadius: RADIUS.xl,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  faqItem: { padding: 16 },
+  faqHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 14,
-  },
-  menuRowLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: 12,
   },
-  menuRowText: {
-    fontSize: FONT_SIZE.lg,
-    fontWeight: '600',
+  faqQuestion: { flex: 1, fontSize: 14, fontWeight: '700' },
+  faqAnswer: { fontSize: 13, marginTop: 8, lineHeight: 19 },
+  noFaqText: { fontSize: 13, textAlign: 'center' },
+
+  menuCard: {
+    borderRadius: RADIUS.xl,
+    borderWidth: 1,
+    overflow: 'hidden',
   },
-  rowDivider: {
-    height: 1,
+  menuRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 12,
   },
+  menuIconCircle: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  menuTitle: { fontSize: 14, fontWeight: '600' },
+  menuSub: { fontSize: 11, marginTop: 1 },
+  rowDivider: { height: 1, marginLeft: 62 },
 
   // App Info Modal
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: SPACING.xl,
   },
   appInfoCard: {
-    width: '88%',
+    width: '100%',
     borderRadius: RADIUS.xl,
     padding: 24,
-    elevation: 10,
   },
-  appInfoContent: {
-    alignItems: 'center',
-  },
-  appInfoLogo: {
-    width: 90,
-    height: 90,
-    marginBottom: 16,
-  },
-  appInfoTitle: {
-    fontSize: 24,
-    fontWeight: '800',
-    marginBottom: 4,
-  },
-  appInfoVersion: {
-    fontSize: FONT_SIZE.lg,
-    fontWeight: '700',
-    marginBottom: 16,
-  },
-  appInfoDesc: {
-    fontSize: FONT_SIZE.sm,
-    textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: 16,
-  },
-  appInfoCopyright: {
-    textAlign: 'center',
-    fontSize: FONT_SIZE.sm,
-    marginBottom: 20,
-  },
-  appInfoCloseBtn: {
+  appInfoContent: { alignItems: 'center' },
+  appInfoLogo: { width: 64, height: 64, marginBottom: 12 },
+  appInfoTitle: { fontSize: 20, fontWeight: '700' },
+  appInfoVersion: { fontSize: 13, fontWeight: '700', marginTop: 2, marginBottom: 12 },
+  appInfoDesc: { fontSize: 13, textAlign: 'center', lineHeight: 18, marginBottom: 16 },
+  appInfoCopyright: { fontSize: 11, marginBottom: 20 },
+  modalCloseBtn: {
     width: '100%',
-    height: 46,
+    height: 44,
     borderRadius: RADIUS.pill,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  appInfoCloseText: {
-    color: '#ffffff',
-    fontSize: FONT_SIZE.lg,
-    fontWeight: '700',
-  },
+  modalCloseBtnText: { color: '#ffffff', fontSize: 14, fontWeight: '700' },
 
-  // Legal Modal
-  legalModalContainer: {
-    flex: 1,
+  legalModalContainer: { flex: 1 },
+  legalMetaCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    padding: 16,
+    borderRadius: RADIUS.xl,
+    borderWidth: 1,
   },
-  legalText: {
-    fontSize: FONT_SIZE.lg,
-    lineHeight: 24,
+  legalMetaTitle: { fontSize: 15, fontWeight: '700' },
+  legalMetaSub: { fontSize: 12, marginTop: 2 },
+  legalSectionCard: {
+    padding: 16,
+    borderRadius: RADIUS.xl,
+    borderWidth: 1,
   },
+  legalSectionTitle: { fontSize: 15, fontWeight: '700', marginBottom: 8 },
+  legalSectionContent: { fontSize: 13, lineHeight: 20 },
 });

@@ -18,6 +18,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
 import { Header } from '@/components/ui/Header';
 import Skeleton from '@/components/ui/Skeleton';
+import { logAuditEvent } from '@/lib/auditLogger';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -183,6 +184,7 @@ export default function ReservationScreen() {
     try {
       const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
       const pharmacyId = isUuid ? id : null;
+      const idempotencyKey = `idemp_${user.id}_${pharmacyId || 'pub'}_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
 
       const { error } = await supabase.from('reservations').insert({
         user_id: user.id,
@@ -193,9 +195,16 @@ export default function ReservationScreen() {
         status: 'pending',
         total_cost: totalCost,
         expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        idempotency_key: idempotencyKey,
       });
 
       if (error) throw error;
+
+      await logAuditEvent({
+        action: 'CREATE_RESERVATION',
+        resourceType: 'reservation',
+        metadata: { pharmacy_name: pharmName, total_cost: totalCost },
+      });
 
       Alert.alert(
         'Reservation Requested ✓',

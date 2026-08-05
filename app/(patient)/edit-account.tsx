@@ -7,12 +7,17 @@ import {
   Pressable,
   TextInput,
   Image,
-  Modal,
   Alert,
   ActivityIndicator,
-  Share,
+  Switch,
+  BackHandler,
+  PanResponder,
+  Animated,
+  StatusBar,
+  Platform,
+  KeyboardAvoidingView,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
@@ -20,14 +25,22 @@ import { useAuthStore } from '@/store/authStore';
 import { useThemeContext } from '@/hooks/useThemeContext';
 import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
 import { supabase } from '@/lib/supabase';
-import { BottomSheetModal } from '@gorhom/bottom-sheet';
+import { BottomSheetModal, BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import AppBottomSheet from '@/components/ui/AppBottomSheet';
 import AvatarPickerSheet from '@/components/ui/AvatarPickerSheet';
 import { Header } from '@/components/ui/Header';
+import {
+  getBiometricsPreference,
+  setBiometricsPreference,
+  getBiometricType,
+  isBiometricsSupported,
+  isBiometricsEnrolled,
+} from '@/lib/biometrics';
 
 export default function EditAccount() {
   const router = useRouter();
-  const { user, profile, updateProfile, uploadAvatar, updatePasswordAndRevokeOtherSessions } = useAuthStore();
+  const insets = useSafeAreaInsets();
+  const { user, profile, updateProfile, uploadAvatar, updatePasswordAndRevokeOtherSessions, signOut } = useAuthStore();
   const { theme, primaryColor } = useThemeContext();
 
   const [fullName, setFullName] = useState(profile?.full_name ?? '');
@@ -46,6 +59,97 @@ export default function EditAccount() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [changingPassword, setChangingPassword] = useState(false);
+
+  const phoneInputRef = useRef<TextInput>(null);
+  const usernameInputRef = useRef<TextInput>(null);
+
+  const [biometricsEnabled, setBiometricsEnabled] = useState(false);
+  const [biometricType, setBiometricType] = useState('Biometrics');
+
+  // Swipe-to-dismiss gesture handling for avatar image preview
+  const translateY = useRef(new Animated.Value(0)).current;
+  const previewOpacity = useRef(new Animated.Value(1)).current;
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, gestureState) => Math.abs(gestureState.dy) > 8,
+      onPanResponderMove: (_, gestureState) => {
+        translateY.setValue(gestureState.dy);
+        const newOpacity = Math.max(0.3, 1 - Math.abs(gestureState.dy) / 450);
+        previewOpacity.setValue(newOpacity);
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        if (Math.abs(gestureState.dy) > 110 || Math.abs(gestureState.vy) > 0.7) {
+          Animated.timing(translateY, {
+            toValue: gestureState.dy > 0 ? 600 : -600,
+            duration: 200,
+            useNativeDriver: true,
+          }).start(() => {
+            setAvatarModalVisible(false);
+            translateY.setValue(0);
+            previewOpacity.setValue(1);
+          });
+        } else {
+          Animated.parallel([
+            Animated.spring(translateY, { toValue: 0, useNativeDriver: true }),
+            Animated.timing(previewOpacity, { toValue: 1, duration: 150, useNativeDriver: true }),
+          ]).start();
+        }
+      },
+    })
+  ).current;
+
+  const handleGoBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.navigate('/(patient)/(tabs)/profile');
+    }
+  };
+
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (avatarModalVisible) {
+        setAvatarModalVisible(false);
+        return true;
+      }
+      handleGoBack();
+      return true;
+    });
+    return () => sub.remove();
+  }, [avatarModalVisible]);
+
+  useEffect(() => {
+    const initBio = async () => {
+      const pref = await getBiometricsPreference();
+      setBiometricsEnabled(pref);
+      const label = await getBiometricType();
+      setBiometricType(label);
+    };
+    initBio();
+  }, []);
+
+  const handleToggleBiometrics = async (val: boolean) => {
+    if (val) {
+      const supported = await isBiometricsSupported();
+      const enrolled = await isBiometricsEnrolled();
+
+      if (!supported || !enrolled) {
+        setBiometricsEnabled(false);
+        await setBiometricsPreference(false);
+        Alert.alert(
+          'Biometrics Not Set Up',
+          `Your device does not have ${biometricType} set up. Please enable Face ID, Touch ID, or fingerprint security in your device system settings first.`,
+          [{ text: 'OK', style: 'default' }]
+        );
+        return;
+      }
+    }
+
+    setBiometricsEnabled(val);
+    await setBiometricsPreference(val);
+  };
 
   useEffect(() => {
     if (profile) {
@@ -68,29 +172,40 @@ export default function EditAccount() {
   // Pick/Take Avatar
   const handlePickAvatar = async () => {
     if (profile?.avatar_url) {
-      // Has photo: open avatar viewer modal first
       setAvatarModalVisible(true);
       return;
     }
-    // No photo: open picker sheet directly
     avatarSheetRef.current?.present();
-  };
-
-  const handleShareAvatar = async () => {
-    if (!profile?.avatar_url) return;
-    try {
-      await Share.share({
-        message: `PharmFindr Profile Picture - ${profile.full_name ?? 'User'}`,
-        url: profile.avatar_url,
-      });
-    } catch (e: any) {
-      console.warn('Share error:', e.message);
-    }
   };
 
   const showAvatarPickerOptions = () => {
-    setAvatarModalVisible(false);
     avatarSheetRef.current?.present();
+  };
+
+  const handleRemoveAvatarConfirm = () => {
+    Alert.alert(
+      'Remove Profile Photo',
+      'Are you sure you want to remove your profile photo?',
+      [
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setUploadingAvatar(true);
+              await updateProfile({ avatar_url: null });
+              setAvatarModalVisible(false);
+              Alert.alert('Removed', 'Profile photo removed successfully.');
+            } catch (e: any) {
+              Alert.alert('Error', e.message || 'Failed to remove photo.');
+            } finally {
+              setUploadingAvatar(false);
+            }
+          },
+        },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
   };
 
   const handleSaveAccount = async () => {
@@ -105,12 +220,18 @@ export default function EditAccount() {
         phone: phone.trim(),
       });
       Alert.alert('Success', 'Account details updated successfully!');
-      router.back();
     } catch (e: any) {
       Alert.alert('Error', e.message || 'Failed to update account.');
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleSignOutConfirm = () => {
+    Alert.alert('Sign Out', 'Are you sure you want to sign out of PharmFindr?', [
+      { text: 'Sign Out', style: 'destructive', onPress: () => signOut() },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
   };
 
   // Secure Password Update Handler with Global Session Revocation
@@ -134,8 +255,7 @@ export default function EditAccount() {
 
     setChangingPassword(true);
     try {
-      // 1. Verify Current Password by re-authenticating
-      const userEmail = user?.email || `${profile?.phone}@pharmafindr.app`;
+      const userEmail = user?.email || `${profile?.phone}@PharmFindr.app`;
       const { error: signInErr } = await supabase.auth.signInWithPassword({
         email: userEmail,
         password: currentPassword,
@@ -145,7 +265,6 @@ export default function EditAccount() {
         throw new Error('Current password is incorrect.');
       }
 
-      // 2. Update to New Password & Revoke All Remote Sessions
       await updatePasswordAndRevokeOtherSessions(newPassword);
 
       Alert.alert(
@@ -165,39 +284,57 @@ export default function EditAccount() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
-      {/* ── Header ── */}
-      <Header title="Edit Account" showBack onBack={() => router.canGoBack() ? router.back() : router.navigate('/(patient)/(tabs)/profile')} />
+      {/* Header */}
+      <Header title="Account Settings" showBack onBack={handleGoBack} />
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* ── Expanded Avatar Section ── */}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{ flex: 1 }}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+
+        {/* Hero Avatar Section */}
         <View style={styles.avatarSection}>
-          <Pressable style={({pressed})=>[styles.avatarWrapper, pressed && { opacity: 0.5 }]} onPress={handlePickAvatar} disabled={uploadingAvatar}>
-            <View style={[styles.avatarCircle, { backgroundColor: primaryColor }]}>
-              {profile?.avatar_url ? (
-                <Image source={{ uri: profile.avatar_url }} style={styles.avatarImage} />
-              ) : (
-                <Text style={styles.avatarText}>{initials}</Text>
-              )}
+          <Pressable
+            style={({ pressed }) => [styles.avatarWrapper, pressed && { opacity: 0.85 }]}
+            onPress={handlePickAvatar}
+            disabled={uploadingAvatar}
+          >
+            <View style={[styles.avatarRing, { borderColor: primaryColor + '40' }]}>
+              <View style={[styles.avatarCircle, { backgroundColor: primaryColor }]}>
+                {profile?.avatar_url ? (
+                  <Image source={{ uri: profile.avatar_url }} style={styles.avatarImage} />
+                ) : (
+                  <Text style={styles.avatarText}>{initials}</Text>
+                )}
+              </View>
             </View>
-            <View style={[styles.editCameraBadge, { backgroundColor: theme.card }]}>
+
+            <View style={[styles.editCameraBadge, { backgroundColor: primaryColor }]}>
               {uploadingAvatar ? (
-                <ActivityIndicator size="small" color={primaryColor} />
+                <ActivityIndicator size="small" color="#ffffff" />
               ) : (
-                <Ionicons name="camera" size={16} color={primaryColor} />
+                <Ionicons name="camera" size={16} color="#ffffff" />
               )}
             </View>
           </Pressable>
-          <Text style={[styles.avatarSubtext, { color: theme.textDim }]}>
-            {profile?.avatar_url ? 'Tap avatar to view or change' : 'Tap to set profile picture'}
+
+          <Text style={[styles.profileNameText, { color: theme.text.primary }]}>{displayName}</Text>
+          <Text style={[styles.profileEmailText, { color: theme.textMuted }]}>
+            {user?.email || phone || 'Patient Account'}
           </Text>
         </View>
 
-        {/* ── Form Fields ── */}
-        <View style={styles.card}>
-          <Text style={[styles.sectionHeading, { color: theme.text.primary }]}>Personal Details</Text>
+        {/* Personal Details Card */}
+        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
+          <Text style={[styles.sectionHeading, { color: theme.text.primary }]}>PERSONAL INFORMATION</Text>
 
-          <Text style={[styles.fieldLabel, { color: theme.text }]}>FULL NAME</Text>
-          <View style={[styles.inputRow, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          <Text style={[styles.fieldLabel, { color: theme.textDim }]}>FULL NAME</Text>
+          <View style={[styles.inputRow, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
             <Ionicons name="person-outline" size={18} color={theme.textDim} style={styles.inputIcon} />
             <TextInput
               style={[styles.input, { color: theme.text.primary }]}
@@ -205,112 +342,238 @@ export default function EditAccount() {
               onChangeText={setFullName}
               placeholder="Enter full name"
               placeholderTextColor={theme.textDim}
+              returnKeyType="next"
+              blurOnSubmit={false}
+              onSubmitEditing={() => phoneInputRef.current?.focus()}
             />
           </View>
 
-          <Text style={[styles.fieldLabel, { color: theme.text }]}>PHONE NUMBER</Text>
-          <View style={[styles.inputRow, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          <Text style={[styles.fieldLabel, { color: theme.textDim }]}>PHONE NUMBER</Text>
+          <View style={[styles.inputRow, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
             <Ionicons name="call-outline" size={18} color={theme.textDim} style={styles.inputIcon} />
             <TextInput
+              ref={phoneInputRef}
               style={[styles.input, { color: theme.text.primary }]}
               value={phone}
               onChangeText={setPhone}
               placeholder="+233..."
               placeholderTextColor={theme.textDim}
               keyboardType="phone-pad"
+              returnKeyType="next"
+              blurOnSubmit={false}
+              onSubmitEditing={() => usernameInputRef.current?.focus()}
             />
           </View>
-          <Text style={[styles.hintText, { color: theme.textDim }]}>Phone number verification coming soon</Text>
 
-          <Text style={[styles.fieldLabel, { color: theme.text }]}>USERNAME</Text>
-          <View style={[styles.inputRow, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          <Text style={[styles.fieldLabel, { color: theme.textDim }]}>USERNAME</Text>
+          <View style={[styles.inputRow, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
             <Ionicons name="at-outline" size={18} color={theme.textDim} style={styles.inputIcon} />
             <TextInput
+              ref={usernameInputRef}
               style={[styles.input, { color: theme.text.primary }]}
               value={username}
               onChangeText={setUsername}
               placeholder="@username"
               placeholderTextColor={theme.textDim}
               autoCapitalize="none"
+              returnKeyType="done"
+              onSubmitEditing={handleSaveAccount}
             />
           </View>
         </View>
 
-        {/* ── Security Card ── */}
-        <View style={[styles.card, { marginTop: 8 }]}>
-          <Text style={[styles.sectionHeading, { color: theme.text.primary }]}>Security</Text>
+        {/* Security & Privacy Card */}
+        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
+          <Text style={[styles.sectionHeading, { color: theme.text.primary }]}>SECURITY & PRIVACY</Text>
 
           <Pressable
-            style={({pressed})=>[styles.securityRow, pressed && {opacity: 0.5}, { backgroundColor: theme.surfaceSecondary }]}
+            style={({ pressed }) => [
+              styles.securityRow,
+              pressed && { opacity: 0.6 },
+              { backgroundColor: theme.surfaceSecondary },
+            ]}
             onPress={() => passwordSheetRef.current?.present()}
           >
-            <View style={styles.securityRowLeft}>
-              <View style={[styles.securityIconCircle, { backgroundColor: primaryColor + '20' }]}>
-                <Ionicons name="lock-closed-outline" size={20} color={primaryColor} />
-              </View>
-              <View>
-                <Text style={[styles.securityTitle, { color: theme.text.primary }]}>Change Password</Text>
-                <Text style={[styles.securitySub, { color: theme.textMuted }]}>Requires current password verification</Text>
-              </View>
+            <View style={[styles.securityIconCircle, { backgroundColor: primaryColor + '20' }]}>
+              <Ionicons name="lock-closed-outline" size={20} color={primaryColor} />
+            </View>
+            <View style={{ flex: 1, paddingHorizontal: 12 }}>
+              <Text style={[styles.securityTitle, { color: theme.text.primary }]}>Change Password</Text>
+              <Text style={[styles.securitySub, { color: theme.textMuted }]}>Requires current password verification</Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color={theme.textDim} />
           </Pressable>
+
+          <Pressable
+            style={({ pressed }) => [
+              styles.securityRow,
+              pressed && { opacity: 0.6 },
+              { backgroundColor: theme.surfaceSecondary },
+            ]}
+            onPress={() => router.push('/(patient)/active-devices')}
+          >
+            <View style={[styles.securityIconCircle, { backgroundColor: primaryColor + '20' }]}>
+              <Ionicons name="hardware-chip-outline" size={20} color={primaryColor} />
+            </View>
+            <View style={{ flex: 1, paddingHorizontal: 12 }}>
+              <Text style={[styles.securityTitle, { color: theme.text.primary }]}>Active Devices</Text>
+              <Text style={[styles.securitySub, { color: theme.textMuted }]}>View & revoke active device logins</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={theme.textDim} />
+          </Pressable>
+
+          <View style={[styles.securityRow, { backgroundColor: theme.surfaceSecondary }]}>
+            <View style={[styles.securityIconCircle, { backgroundColor: primaryColor + '20' }]}>
+              <Ionicons name="finger-print-outline" size={20} color={primaryColor} />
+            </View>
+            <View style={{ flex: 1, paddingHorizontal: 12 }}>
+              <Text style={[styles.securityTitle, { color: theme.text.primary }]}>{biometricType} Lock</Text>
+              <Text style={[styles.securitySub, { color: theme.textMuted }]}>Require {biometricType} on app launch</Text>
+            </View>
+            <Switch
+              value={biometricsEnabled}
+              onValueChange={handleToggleBiometrics}
+              trackColor={{ false: theme.border, true: primaryColor }}
+              thumbColor="#ffffff"
+            />
+          </View>
         </View>
 
-        {/* ── Save Button ── */}
+        {/* Account Actions Card */}
+        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
+          <Text style={[styles.sectionHeading, { color: theme.text.primary }]}>ACCOUNT ACTIONS</Text>
+
+          <Pressable
+            style={({ pressed }) => [
+              styles.securityRow,
+              pressed && { opacity: 0.6 },
+              { backgroundColor: theme.errorBg, borderColor: theme.error + '40' },
+            ]}
+            onPress={handleSignOutConfirm}
+          >
+            <View style={[styles.securityIconCircle, { backgroundColor: theme.error + '20' }]}>
+              <Ionicons name="log-out-outline" size={20} color={theme.error} />
+            </View>
+            <View style={{ flex: 1, paddingHorizontal: 12 }}>
+              <Text style={[styles.securityTitle, { color: theme.error }]}>Sign Out</Text>
+              <Text style={[styles.securitySub, { color: theme.error + 'aa' }]}>Log out of your account on this device</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={theme.error} />
+          </Pressable>
+        </View>
+
+        {/* Save Button */}
         <Pressable
-          style={({pressed})=>[styles.saveBtn, pressed && {opacity: 0.5}, { backgroundColor: primaryColor }]}
+          style={({ pressed }) => [
+            styles.saveBtn,
+            pressed && { opacity: 0.7 },
+            { backgroundColor: primaryColor },
+          ]}
           onPress={handleSaveAccount}
           disabled={saving}
         >
-          {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Save Changes</Text>}
+          {saving ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.saveBtnText}>Save Account Changes</Text>}
         </Pressable>
       </ScrollView>
+      </KeyboardAvoidingView>
 
-      {/* ══ 1. WHATSAPP-STYLE FULL-SCREEN AVATAR VIEWER MODAL ══ */}
-      <Modal visible={avatarModalVisible} transparent animationType="fade" onRequestClose={() => setAvatarModalVisible(false)}>
-        <View style={styles.waAvatarModalContainer}>
-          {/* WhatsApp Header */}
-          <SafeAreaView edges={['top']} style={styles.waHeader}>
-            <View style={styles.waHeaderLeft}>
-              <Pressable style={({pressed})=>[styles.waBackBtn, pressed && { opacity: 0.5 }]} onPress={() => setAvatarModalVisible(false)}>
-                <Ionicons name="arrow-back" size={24} color="#ffffff" />
-              </Pressable>
-              <Text style={styles.waHeaderTitle}>Profile picture</Text>
-            </View>
+      {/* IMMERSIVE GESTURE DISMISSIBLE AVATAR VIEWER OVERLAY */}
+      {avatarModalVisible && (
+        <Animated.View style={[styles.waAvatarModalContainer, { opacity: previewOpacity }]}>
+          <StatusBar barStyle="light-content" backgroundColor="#0b0b0b" animated />
+          <Pressable style={{ flex: 1 }} onPress={() => setAvatarModalVisible(false)}>
+            <Animated.View
+              {...panResponder.panHandlers}
+              style={[
+                styles.waZoomContainer,
+                { transform: [{ translateY }] },
+              ]}
+            >
+              {profile?.avatar_url ? (
+                <Image source={{ uri: profile.avatar_url }} style={styles.waAvatarImage} resizeMode="contain" />
+              ) : (
+                <View style={[styles.avatarCircle, { width: 220, height: 220, borderRadius: 110, backgroundColor: primaryColor }]}>
+                  <Text style={[styles.avatarText, { fontSize: 72 }]}>{initials}</Text>
+                </View>
+              )}
+            </Animated.View>
+          </Pressable>
 
-            <View style={styles.waHeaderRight}>
-              <Pressable style={({pressed})=>[styles.waIconBtn, pressed && { opacity: 0.5 }]} onPress={showAvatarPickerOptions}>
-                <Ionicons name="pencil-outline" size={22} color="#ffffff" />
-              </Pressable>
-              <Pressable style={({pressed})=>[styles.waIconBtn, pressed && { opacity: 0.5 }]} onPress={handleShareAvatar}>
-                <Ionicons name="share-social-outline" size={22} color="#ffffff" />
-              </Pressable>
-            </View>
-          </SafeAreaView>
+          <View style={styles.avatarModalFooter}>
+            <Pressable style={styles.avatarActionBtn} onPress={showAvatarPickerOptions}>
+              <Ionicons name="camera-outline" size={20} color="#ffffff" />
+              <Text style={styles.avatarActionLabel}>Edit Photo</Text>
+            </Pressable>
+          </View>
+        </Animated.View>
+      )}
 
-          {/* Zoomable Image Container */}
-          <ScrollView
-            maximumZoomScale={3}
-            minimumZoomScale={1}
-            centerContent
-            showsHorizontalScrollIndicator={false}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.waZoomContainer}
-          >
-            {profile?.avatar_url ? (
-              <Image source={{ uri: profile.avatar_url }} style={styles.waAvatarImage} resizeMode="contain" />
-            ) : null}
-          </ScrollView>
-        </View>
-      </Modal>
+      {/* Avatar Picker Sheet */}
+      <AvatarPickerSheet
+        ref={avatarSheetRef}
+        hasPhoto={!!profile?.avatar_url}
+        onRemove={handleRemoveAvatarConfirm}
+        onCamera={async () => {
+          try {
+            setUploadingAvatar(true);
+            const { status } = await ImagePicker.requestCameraPermissionsAsync();
+            if (status !== 'granted') {
+              Alert.alert('Permission needed', 'Camera permission is required.');
+              setUploadingAvatar(false);
+              return;
+            }
+            const result = await ImagePicker.launchCameraAsync({
+              allowsEditing: true,
+              aspect: [1, 1],
+              quality: 0.8,
+            });
+            if (!result.canceled && result.assets?.[0]?.uri) {
+              await uploadAvatar(result.assets[0].uri);
+              Alert.alert('Success', 'Profile photo updated!');
+            }
+          } catch (e: any) {
+            Alert.alert('Upload Error', e.message || 'Failed to upload image.');
+          } finally {
+            setUploadingAvatar(false);
+          }
+        }}
+        onGallery={async () => {
+          try {
+            setUploadingAvatar(true);
+            const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (status !== 'granted') {
+              Alert.alert('Permission needed', 'Photo library permission is required.');
+              setUploadingAvatar(false);
+              return;
+            }
+            const result = await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ['images'],
+              allowsEditing: true,
+              aspect: [1, 1],
+              quality: 0.8,
+            });
+            if (!result.canceled && result.assets?.[0]?.uri) {
+              await uploadAvatar(result.assets[0].uri);
+              Alert.alert('Success', 'Profile photo updated!');
+            }
+          } catch (e: any) {
+            Alert.alert('Upload Error', e.message || 'Failed to upload image.');
+          } finally {
+            setUploadingAvatar(false);
+          }
+        }}
+      />
 
-      {/* ══ 2. SECURE PASSWORD CHANGE — Bottom Sheet ══ */}
-      <AppBottomSheet ref={passwordSheetRef} title="Change Password">
+      {/* Secure Password Change Bottom Sheet */}
+      <AppBottomSheet ref={passwordSheetRef} title="Change Account Password">
         <View style={styles.passwordSheetContent}>
-          <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>CURRENT PASSWORD</Text>
-          <TextInput
-            style={[styles.modalInput, { backgroundColor: theme.surface, color: theme.text.primary, borderColor: theme.border }]}
+          <Text style={[styles.passwordSub, { color: theme.textMuted }]}>
+            Changing your password will immediately sign out all other active device sessions for account security.
+          </Text>
+
+          <Text style={[styles.fieldLabel, { color: theme.textDim }]}>CURRENT PASSWORD</Text>
+          <BottomSheetTextInput
+            style={[styles.modalInput, { color: theme.text.primary, backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}
             value={currentPassword}
             onChangeText={setCurrentPassword}
             placeholder="Enter current password"
@@ -318,19 +581,19 @@ export default function EditAccount() {
             secureTextEntry
           />
 
-          <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>NEW PASSWORD</Text>
-          <TextInput
-            style={[styles.modalInput, { backgroundColor: theme.surface, color: theme.text.primary, borderColor: theme.border }]}
+          <Text style={[styles.fieldLabel, { color: theme.textDim }]}>NEW PASSWORD</Text>
+          <BottomSheetTextInput
+            style={[styles.modalInput, { color: theme.text.primary, backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}
             value={newPassword}
             onChangeText={setNewPassword}
-            placeholder="Minimum 6 characters"
+            placeholder="Enter new password (min 6 chars)"
             placeholderTextColor={theme.textDim}
             secureTextEntry
           />
 
-          <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>CONFIRM NEW PASSWORD</Text>
-          <TextInput
-            style={[styles.modalInput, { backgroundColor: theme.surface, color: theme.text.primary, borderColor: theme.border }]}
+          <Text style={[styles.fieldLabel, { color: theme.textDim, marginTop: 12 }]}>CONFIRM NEW PASSWORD</Text>
+          <BottomSheetTextInput
+            style={[styles.modalInput, { color: theme.text.primary, backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}
             value={confirmPassword}
             onChangeText={setConfirmPassword}
             placeholder="Re-enter new password"
@@ -340,113 +603,60 @@ export default function EditAccount() {
 
           <View style={styles.passwordActionRow}>
             <Pressable
-              style={({pressed})=>[styles.modalBtnCancel, pressed && {opacity: 0.5}, { borderColor: theme.border }]}
+              style={({ pressed }) => [styles.cancelPasswordBtn, pressed && { opacity: 0.5 }, { borderColor: theme.border }]}
               onPress={() => passwordSheetRef.current?.dismiss()}
             >
-              <Text style={[styles.modalBtnCancelText, { color: theme.text.primary }]}>Cancel</Text>
+              <Text style={[styles.cancelPasswordText, { color: theme.textMuted }]}>Cancel</Text>
             </Pressable>
             <Pressable
-              style={({pressed})=>[styles.modalBtnSave, pressed && {opacity: 0.5}, { backgroundColor: primaryColor }]}
+              style={({ pressed }) => [styles.confirmPasswordBtn, pressed && { opacity: 0.5 }, { backgroundColor: primaryColor }]}
               onPress={handleChangePasswordSubmit}
               disabled={changingPassword}
             >
-              {changingPassword
-                ? <ActivityIndicator color="#ffffff" />
-                : <Text style={styles.modalBtnSaveText}>Update</Text>
-              }
+              {changingPassword ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.confirmPasswordText}>Update Password</Text>}
             </Pressable>
           </View>
         </View>
       </AppBottomSheet>
-
-      {/* ══ 3. AVATAR PICKER — Bottom Sheet ══ */}
-      <AvatarPickerSheet
-        ref={avatarSheetRef}
-        hasPhoto={!!profile?.avatar_url}
-        onCamera={async () => {
-          const perm = await ImagePicker.requestCameraPermissionsAsync();
-          if (!perm.granted) {
-            Alert.alert('Permission Denied', 'Camera permission is required.');
-            return;
-          }
-          const result = await ImagePicker.launchCameraAsync({ allowsEditing: true, aspect: [1, 1], quality: 0.8 });
-          if (!result.canceled && result.assets?.[0]?.uri) {
-            setUploadingAvatar(true);
-            await uploadAvatar(result.assets[0].uri);
-            setUploadingAvatar(false);
-          }
-        }}
-        onGallery={async () => {
-          const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-          if (!perm.granted) {
-            Alert.alert('Permission Denied', 'Media library permission is required.');
-            return;
-          }
-          const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.8, legacy: true });
-          if (!result.canceled && result.assets?.[0]?.uri) {
-            setUploadingAvatar(true);
-            await uploadAvatar(result.assets[0].uri);
-            setUploadingAvatar(false);
-          }
-        }}
-        onRemove={async () => {
-          setUploadingAvatar(true);
-          await updateProfile({ avatar_url: null });
-          setUploadingAvatar(false);
-        }}
-      />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: SPACING.xl,
-    paddingVertical: SPACING.md,
-    borderBottomWidth: 1,
-  },
-  circleBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: FONT_SIZE.xxl,
-    fontWeight: '700',
-  },
-  scrollContent: {
-    padding: SPACING.xl,
-  },
+  scrollContent: { padding: SPACING.xl, paddingBottom: 160 },
 
   // Avatar Section
   avatarSection: {
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 24,
   },
   avatarWrapper: {
     position: 'relative',
   },
+  avatarRing: {
+    width: 108,
+    height: 108,
+    borderRadius: 54,
+    borderWidth: 3,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   avatarCircle: {
-    width: 104,
-    height: 104,
-    borderRadius: 52,
+    width: 98,
+    height: 98,
+    borderRadius: 49,
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
   },
   avatarImage: {
-    width: 104,
-    height: 104,
-    borderRadius: 52,
+    width: 98,
+    height: 98,
+    borderRadius: 49,
   },
   avatarText: {
-    fontSize: 36,
+    fontSize: 34,
     fontWeight: '700',
     color: '#ffffff',
   },
@@ -454,36 +664,41 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 2,
     right: 2,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
   },
-  avatarSubtext: {
-    fontSize: FONT_SIZE.md,
-    marginTop: 8,
+  profileNameText: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginTop: 10,
+  },
+  profileEmailText: {
+    fontSize: 12,
+    marginTop: 2,
   },
 
-  // Form Card
+  // Cards
   card: {
+    padding: 16,
+    borderRadius: RADIUS.xl,
+    borderWidth: 1,
     marginBottom: 16,
   },
   sectionHeading: {
-    fontSize: FONT_SIZE.xl,
-    fontWeight: '700',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1,
+    marginBottom: 8,
   },
   fieldLabel: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
-    letterSpacing: 0.5,
-    marginTop: 12,
-    marginBottom: 6,
+    letterSpacing: 0.6,
+    marginTop: 10,
+    marginBottom: 5,
   },
   inputRow: {
     flexDirection: 'row',
@@ -498,27 +713,16 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    fontSize: FONT_SIZE.lg,
-  },
-  hintText: {
-    fontSize: FONT_SIZE.sm,
-    marginTop: 4,
-    marginLeft: 4,
+    fontSize: FONT_SIZE.md,
   },
 
-  // Security Row
+  // Security Rows
   securityRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 14,
+    padding: 12,
     borderRadius: RADIUS.lg,
     marginTop: 8,
-  },
-  securityRowLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
   },
   securityIconCircle: {
     width: 38,
@@ -528,11 +732,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   securityTitle: {
-    fontSize: FONT_SIZE.lg,
+    fontSize: 14,
     fontWeight: '600',
   },
   securitySub: {
-    fontSize: FONT_SIZE.xs,
+    fontSize: 11,
     marginTop: 2,
   },
 
@@ -542,18 +746,23 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.pill,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 24,
+    marginTop: 12,
   },
   saveBtnText: {
     color: '#ffffff',
-    fontSize: FONT_SIZE.xl,
+    fontSize: 15,
     fontWeight: '700',
   },
 
   // WhatsApp Full-Screen Avatar Modal
   waAvatarModalContainer: {
-    flex: 1,
-    backgroundColor: '#0b141a',
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#0f0f0fff',
+    zIndex: 500,
   },
   waHeader: {
     flexDirection: 'row',
@@ -574,7 +783,7 @@ const styles = StyleSheet.create({
   },
   waHeaderTitle: {
     color: '#ffffff',
-    fontSize: FONT_SIZE.xxl,
+    fontSize: 18,
     fontWeight: '700',
   },
   waHeaderRight: {
@@ -586,49 +795,24 @@ const styles = StyleSheet.create({
     padding: 6,
   },
   waZoomContainer: {
-    flexGrow: 1,
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    width: '100%',
+    height: '100%',
   },
   waAvatarImage: {
     width: '100%',
     height: '100%',
   },
-
-  // Full-screen Avatar Modal
-  avatarModalContainer: {
-    flex: 1,
-    backgroundColor: '#000000',
-    justifyContent: 'space-between',
-  },
-  avatarModalHeader: {
-    padding: 16,
-    paddingBottom: 0,
-    alignItems: 'flex-end',
-  },
-  avatarModalCloseBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarModalBody: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  fullScreenAvatarImage: {
-    width: '90%',
-    height: '70%',
-  },
   avatarModalFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingVertical: 20,
-    paddingHorizontal: 20,
-    backgroundColor: 'rgba(20, 20, 20, 0.9)',
+    position: 'absolute',
+    bottom: 28,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 20,
   },
   avatarActionBtn: {
     flexDirection: 'row',
@@ -641,7 +825,7 @@ const styles = StyleSheet.create({
   },
   avatarActionLabel: {
     color: '#ffffff',
-    fontSize: FONT_SIZE.lg,
+    fontSize: 14,
     fontWeight: '600',
   },
 
@@ -649,33 +833,24 @@ const styles = StyleSheet.create({
   passwordSheetContent: {
     paddingHorizontal: SPACING.xl,
   },
-  passwordHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 4,
-  },
-  passwordTitle: {
-    fontSize: FONT_SIZE.xxl,
-    fontWeight: '700',
-  },
   passwordSub: {
-    fontSize: FONT_SIZE.sm,
-    marginBottom: 12,
+    fontSize: 12,
+    marginVertical: 8,
   },
   modalInput: {
     borderRadius: RADIUS.md,
     paddingHorizontal: 14,
     height: 46,
     borderWidth: 1,
-    fontSize: FONT_SIZE.lg,
+    fontSize: 14,
   },
   passwordActionRow: {
     flexDirection: 'row',
     gap: 12,
     marginTop: 24,
+    marginBottom: 16,
   },
-  modalBtnCancel: {
+  cancelPasswordBtn: {
     flex: 1,
     height: 46,
     borderRadius: RADIUS.pill,
@@ -683,13 +858,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  modalBtnCancelText: { fontWeight: '600', fontSize: FONT_SIZE.lg },
-  modalBtnSave: {
+  cancelPasswordText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  confirmPasswordBtn: {
     flex: 1,
     height: 46,
     borderRadius: RADIUS.pill,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  modalBtnSaveText: { color: '#ffffff', fontWeight: '700', fontSize: FONT_SIZE.lg },
+  confirmPasswordText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '700',
+  },
 });

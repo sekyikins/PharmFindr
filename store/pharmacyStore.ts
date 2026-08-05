@@ -56,17 +56,18 @@ export const usePharmacyStore = create<PharmacyState>((set, get) => ({
       set({ userCoords: coords });
 
       const radiusMeters = Math.min(Math.max(get().maxDistanceKm * 1000, 1000), 50000);
+      const foundMap = new Map<string, OsmPharmacy>();
 
-      const found: OsmPharmacy[] = [];
       await searchNearbyPharmacies(
         coords,
         radiusMeters,
         (pharmacy) => {
           if (signal?.aborted) return;
-          if (found.some((p) => p.id === pharmacy.id)) return;
-          found.push(pharmacy);
-          const sorted = [...found].sort((a, b) => a.distanceKm - b.distanceKm);
-          set({ pharmacies: sorted });
+          if (!foundMap.has(pharmacy.id)) {
+            foundMap.set(pharmacy.id, pharmacy);
+            const sorted = Array.from(foundMap.values()).sort((a, b) => a.distanceKm - b.distanceKm);
+            set({ pharmacies: sorted });
+          }
         },
         signal
       );

@@ -4,8 +4,8 @@
  * A simulated map grid used during pharmacy registration (Step 4).
  *
  * Pin types:
- *  🟢 Green  — OSM-recognised pharmacies NOT yet registered in PharmaFindr (selectable)
- *  🟤 Brown  — Already registered in PharmaFindr (not selectable — shown for awareness)
+ *  🟢 Green  — OSM-recognised pharmacies NOT yet registered in PharmFindr (selectable)
+ *  🟤 Brown  — Already registered in PharmFindr (not selectable — shown for awareness)
  *  🔵 Blue   — Custom dropped pin (user tapped an empty spot)
  *
  * The component can be expanded to full-screen via the expand button.
@@ -29,6 +29,7 @@ const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 export interface KnownPharmacy {
   id: string;
   name: string;
+  address?: string;
   latitude: number;
   longitude: number;
 }
@@ -48,10 +49,11 @@ interface MapComponentProps {
   onSelectKnownPharmacy?: (pharmacy: KnownPharmacy) => void;
   initialCoords?: { latitude: number; longitude: number } | null;
   setScrollEnabled?: (enabled: boolean) => void;
-  /** OSM pharmacies not yet in PharmaFindr — green, selectable */
+  /** OSM pharmacies not yet in PharmFindr — green, selectable */
   knownPharmacies?: KnownPharmacy[];
-  /** Already registered in PharmaFindr — brown, not selectable */
+  /** Already registered in PharmFindr — brown, not selectable */
   registeredPharmacies?: RegisteredPharmacy[];
+  onExpand?: () => void;
 }
 
 // ─── Coordinate helpers ───────────────────────────────────────────────────────

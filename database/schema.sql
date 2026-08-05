@@ -1,126 +1,176 @@
 -- ============================================================
--- PharmaFindr — Full Database Setup (v2)
--- Paste this entire file into the Supabase SQL Editor and Run.
---
--- Changes from v1:
---   • Dropped:  profiles, patient_profiles, pharmacy_profiles
---   • Added:    user_roles  (lightweight role lookup — 1 query on login)
---   • Added:    app_users   (general users — identity + health data merged)
---   • pharmacies.owner_id, prescriptions.user_id, reservations.user_id,
---     chat_messages.user_id now reference auth.users(id) directly.
+-- PharmFindr — Complete Master Database Schema & Setup (v3)
+-- Single-file setup for fresh or cloned Supabase projects.
+-- Copy and run this ENTIRE file in the Supabase SQL Editor.
 -- ============================================================
 
--- Enable UUID generation
+-- ------------------------------------------------------------
+-- 0. EXTENSIONS & SETUP
+-- ------------------------------------------------------------
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+CREATE EXTENSION IF NOT EXISTS "postgis";
 
--- ============================================================
--- 0. CLEAN UP PREVIOUS SCHEMA (safe to run on fresh DB)
--- ============================================================
-
--- Drop dependent tables first (FK order)
-DROP TABLE IF EXISTS public.notifications      CASCADE;
-DROP TABLE IF EXISTS public.chat_messages      CASCADE;
-DROP TABLE IF EXISTS public.reservations       CASCADE;
-DROP TABLE IF EXISTS public.prescriptions      CASCADE;
-DROP TABLE IF EXISTS public.inventory          CASCADE;
-DROP TABLE IF EXISTS public.medicines          CASCADE;
-DROP TABLE IF EXISTS public.pharmacies         CASCADE;
-DROP TABLE IF EXISTS public.pharmacy_profiles  CASCADE;
-DROP TABLE IF EXISTS public.patient_profiles   CASCADE;
-DROP TABLE IF EXISTS public.app_users          CASCADE;
-DROP TABLE IF EXISTS public.user_roles         CASCADE;
-DROP TABLE IF EXISTS public.profiles           CASCADE;
-
--- Drop old trigger + function
+-- Safe cleanup for fresh initialization
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
-DROP FUNCTION IF EXISTS public.handle_new_user();
+DROP TRIGGER IF EXISTS on_reservation_updated ON public.reservations;
+DROP TRIGGER IF EXISTS on_reservation_status_changed ON public.reservations;
+DROP TRIGGER IF EXISTS on_chat_message_inserted ON public.chat_messages;
+DROP TRIGGER IF EXISTS on_notification_created ON public.notifications;
 
--- ============================================================
--- 1. USER_ROLES  (single table for fast role detection)
---    One row per auth.users account.
---    role = 'user'     → general app user (drug searcher, etc.)
---    role = 'pharmacy' → registered pharmacy account
--- ============================================================
-CREATE TABLE public.user_roles (
-  id    UUID  PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  role  TEXT  NOT NULL CHECK (role IN ('user', 'pharmacy', 'both'))
+DROP FUNCTION IF EXISTS public.handle_new_user() CASCADE;
+DROP FUNCTION IF EXISTS public.handle_reservation_updated() CASCADE;
+DROP FUNCTION IF EXISTS public.handle_reservation_notification() CASCADE;
+DROP FUNCTION IF EXISTS public.handle_chat_message_consultation_update() CASCADE;
+DROP FUNCTION IF EXISTS public.notify_expo_push_on_notification() CASCADE;
+
+-- ------------------------------------------------------------
+-- 1. USER ROLES (Authentication Role Lookup)
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.user_roles (
+  id    UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  role  TEXT NOT NULL CHECK (role IN ('user', 'pharmacy', 'both'))
 );
 
 ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
 
--- Anyone authenticated can read roles (needed for routing)
+DROP POLICY IF EXISTS "user_roles_select" ON public.user_roles;
 CREATE POLICY "user_roles_select" ON public.user_roles FOR SELECT USING (true);
--- Only the owner can insert/update their own row
+
+DROP POLICY IF EXISTS "user_roles_owner_write" ON public.user_roles;
 CREATE POLICY "user_roles_owner_write" ON public.user_roles
-  FOR ALL USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
--- Also allow the trigger (SECURITY DEFINER) to insert on sign-up
+  FOR ALL USING (id = (SELECT auth.uid()))
+  WITH CHECK (id = (SELECT auth.uid()));
+
+DROP POLICY IF EXISTS "user_roles_service_insert" ON public.user_roles;
 CREATE POLICY "user_roles_service_insert" ON public.user_roles
   FOR INSERT WITH CHECK (true);
 
--- ============================================================
--- 2. APP_USERS  (identity + health data for 'user' role accounts)
---    Replaces both profiles (for users) and patient_profiles.
---    Pharmacy accounts do NOT get a row here.
--- ============================================================
-CREATE TABLE public.app_users (
-  id                   UUID           PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+-- ------------------------------------------------------------
+-- 2. APP USERS (Patients & Mobile App Profiles)
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.app_users (
+  id                   UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   full_name            TEXT,
   phone                TEXT,
   avatar_url           TEXT,
-  -- Health / personalisation data (formerly patient_profiles)
   age                  INTEGER,
-  weight               DECIMAL(5,2),  -- kg
-  height               DECIMAL(5,2),  -- cm
+  weight               DECIMAL(5,2),
+  height               DECIMAL(5,2),
   gender               TEXT,
-  allergies            TEXT[]         DEFAULT '{}',
-  existing_conditions  TEXT[]         DEFAULT '{}',
-  current_medications  TEXT[]         DEFAULT '{}',
-  created_at           TIMESTAMPTZ    DEFAULT NOW(),
-  updated_at           TIMESTAMPTZ    DEFAULT NOW()
+  allergies            TEXT[] DEFAULT '{}',
+  existing_conditions  TEXT[] DEFAULT '{}',
+  current_medications  TEXT[] DEFAULT '{}',
+  created_at           TIMESTAMPTZ DEFAULT NOW(),
+  updated_at           TIMESTAMPTZ DEFAULT NOW()
 );
 
 ALTER TABLE public.app_users ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "app_users_select" ON public.app_users;
 CREATE POLICY "app_users_select" ON public.app_users FOR SELECT USING (true);
-CREATE POLICY "app_users_owner_all" ON public.app_users
-  FOR ALL USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
-CREATE POLICY "app_users_service_insert" ON public.app_users
-  FOR INSERT WITH CHECK (true);
 
--- ============================================================
--- 3. PHARMACIES
--- ============================================================
-CREATE TABLE public.pharmacies (
-  id              UUID             PRIMARY KEY DEFAULT gen_random_uuid(),
-  owner_id        UUID             REFERENCES auth.users(id) ON DELETE CASCADE,
-  name            TEXT             NOT NULL,
-  phone           TEXT,
-  email           TEXT,
-  address         TEXT,
-  latitude        DOUBLE PRECISION,
-  longitude       DOUBLE PRECISION,
+DROP POLICY IF EXISTS "app_users_owner_all" ON public.app_users;
+CREATE POLICY "app_users_owner_all" ON public.app_users
+  FOR ALL USING (id = (SELECT auth.uid()))
+  WITH CHECK (id = (SELECT auth.uid()));
+
+-- ------------------------------------------------------------
+-- 3. PHARMACIES (Partner Retail Pharmacies)
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.pharmacies (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  owner_id      UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  name          TEXT NOT NULL,
+  phone         TEXT,
+  email         TEXT,
+  address       TEXT,
+  latitude      DOUBLE PRECISION,
+  longitude     DOUBLE PRECISION,
   opening_time    TIME,
   closing_time    TIME,
-  verified        BOOLEAN          DEFAULT FALSE,
-  created_at      TIMESTAMPTZ      DEFAULT NOW()
+  operating_hours JSONB,
+  verified        BOOLEAN DEFAULT FALSE,
+  created_at      TIMESTAMPTZ DEFAULT NOW()
 );
+
+CREATE INDEX IF NOT EXISTS idx_pharmacies_owner_id ON public.pharmacies(owner_id);
 
 ALTER TABLE public.pharmacies ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "pharmacies_select" ON public.pharmacies FOR SELECT USING (true);
-CREATE POLICY "pharmacies_owner_all" ON public.pharmacies
-  FOR ALL USING (auth.uid() = owner_id)
-  WITH CHECK (auth.uid() = owner_id);
--- Allow authenticated inserts (registration)
-CREATE POLICY "pharmacies_auth_insert" ON public.pharmacies
-  FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "pharmacies_public_read" ON public.pharmacies;
+CREATE POLICY "pharmacies_public_read" ON public.pharmacies FOR SELECT USING (true);
 
--- ============================================================
--- 4. MEDICINES (master catalogue)
--- ============================================================
-CREATE TABLE public.medicines (
-  id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-  name         TEXT        NOT NULL,
+DROP POLICY IF EXISTS "pharmacies_owner_all" ON public.pharmacies;
+CREATE POLICY "pharmacies_owner_all" ON public.pharmacies
+  FOR ALL USING (owner_id = (SELECT auth.uid()))
+  WITH CHECK (owner_id = (SELECT auth.uid()));
+
+-- ------------------------------------------------------------
+-- 3b. PHARMACY OPERATING HOURS (Day-by-day Weekly Schedules)
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.pharmacy_operating_hours (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  pharmacy_id   UUID NOT NULL REFERENCES public.pharmacies(id) ON DELETE CASCADE,
+  day_of_week   TEXT NOT NULL,
+  is_open       BOOLEAN DEFAULT TRUE,
+  opening_time  TIME DEFAULT '08:00',
+  closing_time  TIME DEFAULT '20:00',
+  created_at    TIMESTAMPTZ DEFAULT NOW(),
+  CONSTRAINT unique_pharmacy_day UNIQUE(pharmacy_id, day_of_week)
+);
+
+ALTER TABLE public.pharmacy_operating_hours ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "pharmacy_operating_hours_public_read" ON public.pharmacy_operating_hours;
+CREATE POLICY "pharmacy_operating_hours_public_read" ON public.pharmacy_operating_hours FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "pharmacy_operating_hours_owner_all" ON public.pharmacy_operating_hours;
+CREATE POLICY "pharmacy_operating_hours_owner_all" ON public.pharmacy_operating_hours
+  FOR ALL USING (pharmacy_id IN (SELECT id FROM public.pharmacies WHERE owner_id = (SELECT auth.uid())));
+
+-- ------------------------------------------------------------
+-- 4. GENERIC MEDICINES & BRANDED PRODUCTS (Drug Catalogue)
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.generic_medicines (
+  id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  generic_name            TEXT UNIQUE NOT NULL,
+  therapeutic_category    TEXT,
+  description             TEXT,
+  mechanism_of_action     TEXT,
+  pregnancy_category      TEXT,
+  fda_approved            BOOLEAN DEFAULT TRUE,
+  created_at              TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE public.generic_medicines ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow public read on generic_medicines" ON public.generic_medicines;
+CREATE POLICY "Allow public read on generic_medicines" ON public.generic_medicines FOR SELECT USING (true);
+
+CREATE TABLE IF NOT EXISTS public.medicine_products (
+  id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  generic_id              UUID REFERENCES public.generic_medicines(id) ON DELETE CASCADE,
+  brand_name              TEXT NOT NULL,
+  form                    TEXT,
+  strength                TEXT,
+  pack_size               TEXT,
+  manufacturer            TEXT,
+  is_prescription_required BOOLEAN DEFAULT FALSE,
+  created_at              TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_medicine_products_generic_id ON public.medicine_products(generic_id);
+
+ALTER TABLE public.medicine_products ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow public read on medicine_products" ON public.medicine_products;
+CREATE POLICY "Allow public read on medicine_products" ON public.medicine_products FOR SELECT USING (true);
+
+-- Legacy medicines alias table compatibility
+CREATE TABLE IF NOT EXISTS public.medicines (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name         TEXT NOT NULL,
   generic_name TEXT,
   strength     TEXT,
   description  TEXT,
@@ -128,83 +178,94 @@ CREATE TABLE public.medicines (
 );
 
 ALTER TABLE public.medicines ENABLE ROW LEVEL SECURITY;
-
+DROP POLICY IF EXISTS "medicines_select" ON public.medicines;
 CREATE POLICY "medicines_select" ON public.medicines FOR SELECT USING (true);
-CREATE POLICY "medicines_insert" ON public.medicines
-  FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 
--- ============================================================
--- 5. INVENTORY (per-pharmacy stock)
--- ============================================================
-CREATE TABLE public.inventory (
-  id            UUID           PRIMARY KEY DEFAULT gen_random_uuid(),
-  pharmacy_id   UUID           REFERENCES public.pharmacies(id) ON DELETE CASCADE,
-  medicine_id   UUID           REFERENCES public.medicines(id) ON DELETE SET NULL,
-  medicine_name TEXT           NOT NULL,
-  generic_name  TEXT,
-  strength      TEXT,
-  quantity      INTEGER        NOT NULL DEFAULT 0 CHECK (quantity >= 0),
-  price         DECIMAL(10,2)  NOT NULL DEFAULT 0.00 CHECK (price >= 0.00),
-  last_updated  TIMESTAMPTZ    DEFAULT NOW()
+-- ------------------------------------------------------------
+-- 5. INVENTORY (Per-Pharmacy Stock)
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.inventory (
+  id                        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  pharmacy_id               UUID REFERENCES public.pharmacies(id) ON DELETE CASCADE,
+  medicine_id               UUID REFERENCES public.medicines(id) ON DELETE SET NULL,
+  medicine_product_id       UUID REFERENCES public.medicine_products(id) ON DELETE SET NULL,
+  medicine_name             TEXT NOT NULL,
+  generic_name              TEXT,
+  strength                  TEXT,
+  batch_number              TEXT,
+  expiry_date               DATE,
+  is_prescription_required   BOOLEAN DEFAULT FALSE,
+  quantity                  INTEGER NOT NULL DEFAULT 0 CHECK (quantity >= 0),
+  price                     DECIMAL(10,2) NOT NULL DEFAULT 0.00 CHECK (price >= 0.00),
+  last_updated              TIMESTAMPTZ DEFAULT NOW()
 );
+
+CREATE INDEX IF NOT EXISTS idx_inventory_pharmacy_id ON public.inventory(pharmacy_id);
+CREATE INDEX IF NOT EXISTS idx_inventory_medicine_product_id ON public.inventory(medicine_product_id);
 
 ALTER TABLE public.inventory ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "inventory_select" ON public.inventory FOR SELECT USING (true);
+DROP POLICY IF EXISTS "inventory_public_read" ON public.inventory;
+CREATE POLICY "inventory_public_read" ON public.inventory FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "inventory_owner_all" ON public.inventory;
 CREATE POLICY "inventory_owner_all" ON public.inventory FOR ALL USING (
-  EXISTS (
-    SELECT 1 FROM public.pharmacies
-    WHERE public.pharmacies.id = public.inventory.pharmacy_id
-      AND public.pharmacies.owner_id = auth.uid()
+  pharmacy_id IN (
+    SELECT id FROM public.pharmacies WHERE owner_id = (SELECT auth.uid())
   )
 );
 
--- ============================================================
--- 6. PRESCRIPTIONS (scanned by app users)
--- ============================================================
-CREATE TABLE public.prescriptions (
-  id                 UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id            UUID        REFERENCES auth.users(id) ON DELETE CASCADE,
+-- ------------------------------------------------------------
+-- 6. PRESCRIPTIONS (Scanned & Uploaded Prescriptions)
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.prescriptions (
+  id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id            UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   image_url          TEXT,
   ocr_text           TEXT,
   ai_interpretation  JSONB,
-  status             TEXT        DEFAULT 'completed'
-                                 CHECK (status IN ('pending', 'completed', 'failed')),
+  status             TEXT DEFAULT 'completed' CHECK (status IN ('pending', 'completed', 'failed')),
   created_at         TIMESTAMPTZ DEFAULT NOW()
 );
 
+CREATE INDEX IF NOT EXISTS idx_prescriptions_user_id ON public.prescriptions(user_id);
+
 ALTER TABLE public.prescriptions ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "prescriptions_owner_all" ON public.prescriptions;
 CREATE POLICY "prescriptions_owner_all" ON public.prescriptions
-  FOR ALL USING (auth.uid() = user_id);
+  FOR ALL USING (user_id = (SELECT auth.uid()));
 
--- ============================================================
--- 7. RESERVATIONS
--- ============================================================
-CREATE TABLE public.reservations (
-  id             UUID           PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id        UUID           REFERENCES auth.users(id) ON DELETE CASCADE,
-  pharmacy_id    UUID           REFERENCES public.pharmacies(id) ON DELETE SET NULL,
+-- ------------------------------------------------------------
+-- 7. RESERVATIONS (Medicine Holds at Pharmacies)
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.reservations (
+  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id        UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  pharmacy_id    UUID REFERENCES public.pharmacies(id) ON DELETE SET NULL,
   medicine_name  TEXT,
   pharmacy_name  TEXT,
-  medicines      JSONB          NOT NULL,
-  status         TEXT           DEFAULT 'pending'
-                                CHECK (status IN ('pending', 'accepted', 'declined', 'expired', 'collected')),
-  total_cost     DECIMAL(10,2)  DEFAULT 0.00,
+  medicines      JSONB NOT NULL,
+  status         TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'declined', 'expired', 'collected')),
+  total_cost     DECIMAL(10,2) DEFAULT 0.00,
   expires_at     TIMESTAMPTZ,
-  created_at     TIMESTAMPTZ    DEFAULT NOW(),
-  updated_at     TIMESTAMPTZ    DEFAULT NOW()
+  created_at     TIMESTAMPTZ DEFAULT NOW(),
+  updated_at     TIMESTAMPTZ DEFAULT NOW()
 );
+
+CREATE INDEX IF NOT EXISTS idx_reservations_user_id ON public.reservations(user_id);
+CREATE INDEX IF NOT EXISTS idx_reservations_pharmacy_id ON public.reservations(pharmacy_id);
 
 ALTER TABLE public.reservations ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "reservations_user_all" ON public.reservations;
 CREATE POLICY "reservations_user_all" ON public.reservations
-  FOR ALL USING (auth.uid() = user_id);
+  FOR ALL USING (user_id = (SELECT auth.uid()));
+
+DROP POLICY IF EXISTS "reservations_pharmacy_all" ON public.reservations;
 CREATE POLICY "reservations_pharmacy_all" ON public.reservations FOR ALL USING (
-  EXISTS (
-    SELECT 1 FROM public.pharmacies
-    WHERE public.pharmacies.id = public.reservations.pharmacy_id
-      AND public.pharmacies.owner_id = auth.uid()
+  pharmacy_id IN (
+    SELECT id FROM public.pharmacies WHERE owner_id = (SELECT auth.uid())
   )
 );
 
@@ -214,57 +275,159 @@ BEGIN
   NEW.updated_at = NOW();
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SET search_path = public;
 
-DROP TRIGGER IF EXISTS on_reservation_updated ON public.reservations;
 CREATE TRIGGER on_reservation_updated
   BEFORE UPDATE ON public.reservations
   FOR EACH ROW EXECUTE FUNCTION public.handle_reservation_updated();
 
--- ============================================================
+-- ------------------------------------------------------------
 -- 8. CONSULTATIONS & CHAT MESSAGES
--- ============================================================
-CREATE TABLE public.consultations (
-  id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id         UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  title           TEXT        NOT NULL,
-  type            TEXT        NOT NULL DEFAULT 'prescription'
-                              CHECK (type IN ('general', 'prescription', 'topic')),
-  prescription_id UUID        REFERENCES public.prescriptions(id) ON DELETE SET NULL,
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.consultations (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id         UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  title           TEXT NOT NULL,
+  type            TEXT NOT NULL DEFAULT 'prescription' CHECK (type IN ('general', 'prescription', 'topic')),
+  prescription_id UUID REFERENCES public.prescriptions(id) ON DELETE SET NULL,
   image_url       TEXT,
   medicines       JSONB,
   created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE INDEX IF NOT EXISTS idx_consultations_prescription_id ON public.consultations(prescription_id);
+
 ALTER TABLE public.consultations ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "consultations_owner_all" ON public.consultations;
 CREATE POLICY "consultations_owner_all" ON public.consultations
-  FOR ALL USING (auth.uid() = user_id)
-  WITH CHECK (auth.uid() = user_id);
+  FOR ALL USING (user_id = (SELECT auth.uid()))
+  WITH CHECK (user_id = (SELECT auth.uid()));
 
-CREATE TABLE public.chat_messages (
-  id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id         UUID        REFERENCES auth.users(id) ON DELETE CASCADE,
-  consultation_id UUID        REFERENCES public.consultations(id) ON DELETE CASCADE,
-  role            TEXT        NOT NULL CHECK (role IN ('user', 'assistant')),
-  content         TEXT        NOT NULL,
+CREATE TABLE IF NOT EXISTS public.chat_messages (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id         UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  consultation_id UUID REFERENCES public.consultations(id) ON DELETE CASCADE,
+  role            TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
+  content         TEXT NOT NULL,
   metadata        JSONB,
   created_at      TIMESTAMPTZ DEFAULT NOW()
 );
 
+CREATE INDEX IF NOT EXISTS idx_chat_messages_user_id ON public.chat_messages(user_id);
+
 ALTER TABLE public.chat_messages ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "chat_messages_owner_all" ON public.chat_messages;
 CREATE POLICY "chat_messages_owner_all" ON public.chat_messages
-  FOR ALL USING (auth.uid() = user_id);
+  FOR ALL USING (user_id = (SELECT auth.uid()));
 
--- ============================================================
--- 9. TRIGGER — auto-populate on sign-up
---    Always creates a user_roles row.
---    For 'user' role: also creates an app_users row.
---    For 'pharmacy' role: pharmacy row is created by the registration
---    wizard after OTP verification (Step 4 of pharmacy-register flow).
--- ============================================================
+-- ------------------------------------------------------------
+-- 9. NOTIFICATIONS & EXPO PUSH TOKENS
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.notifications (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id     UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  title       TEXT NOT NULL,
+  body        TEXT NOT NULL,
+  type        TEXT NOT NULL DEFAULT 'general',
+  data        JSONB DEFAULT '{}'::jsonb,
+  is_read     BOOLEAN DEFAULT FALSE,
+  created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "notifications_owner_select" ON public.notifications;
+CREATE POLICY "notifications_owner_select" ON public.notifications
+  FOR SELECT USING (user_id = (SELECT auth.uid()));
+
+DROP POLICY IF EXISTS "notifications_owner_update" ON public.notifications;
+CREATE POLICY "notifications_owner_update" ON public.notifications
+  FOR UPDATE USING (user_id = (SELECT auth.uid()));
+
+DROP POLICY IF EXISTS "notifications_owner_delete" ON public.notifications;
+CREATE POLICY "notifications_owner_delete" ON public.notifications
+  FOR DELETE USING (user_id = (SELECT auth.uid()));
+
+CREATE TABLE IF NOT EXISTS public.push_tokens (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id      UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  token        TEXT NOT NULL UNIQUE,
+  device_type  TEXT,
+  created_at   TIMESTAMPTZ DEFAULT NOW(),
+  updated_at   TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE public.push_tokens ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "push_tokens_owner_select" ON public.push_tokens;
+CREATE POLICY "push_tokens_owner_select" ON public.push_tokens
+  FOR SELECT USING (user_id = (SELECT auth.uid()));
+
+DROP POLICY IF EXISTS "push_tokens_owner_insert" ON public.push_tokens;
+CREATE POLICY "push_tokens_owner_insert" ON public.push_tokens
+  FOR INSERT WITH CHECK (user_id = (SELECT auth.uid()));
+
+DROP POLICY IF EXISTS "push_tokens_owner_update" ON public.push_tokens;
+CREATE POLICY "push_tokens_owner_update" ON public.push_tokens
+  FOR UPDATE USING (user_id = (SELECT auth.uid()));
+
+DROP POLICY IF EXISTS "push_tokens_owner_delete" ON public.push_tokens;
+CREATE POLICY "push_tokens_owner_delete" ON public.push_tokens
+  FOR DELETE USING (user_id = (SELECT auth.uid()));
+
+-- ------------------------------------------------------------
+-- 10. AUDIT LOGS & USER FEEDBACK
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.audit_logs (
+  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id        UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  action         TEXT NOT NULL,
+  resource_name  TEXT,
+  ip_address     TEXT,
+  details        JSONB,
+  created_at     TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id ON public.audit_logs(user_id);
+
+ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can view own audit logs" ON public.audit_logs;
+CREATE POLICY "Users can view own audit logs" ON public.audit_logs
+  FOR SELECT USING (user_id = (SELECT auth.uid()));
+
+DROP POLICY IF EXISTS "Authenticated users can insert audit logs" ON public.audit_logs;
+CREATE POLICY "Authenticated users can insert audit logs" ON public.audit_logs
+  FOR INSERT WITH CHECK (user_id = (SELECT auth.uid()) OR user_id IS NULL);
+
+CREATE TABLE IF NOT EXISTS public.feedback (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id         UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  category        TEXT NOT NULL,
+  rating          INTEGER DEFAULT 5,
+  subject         TEXT,
+  message         TEXT NOT NULL,
+  attachment_url  TEXT,
+  status          TEXT DEFAULT 'pending',
+  created_at      TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_feedback_user_id ON public.feedback(user_id);
+
+ALTER TABLE public.feedback ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow public feedback inserts" ON public.feedback;
+CREATE POLICY "Allow public feedback inserts" ON public.feedback
+  FOR INSERT WITH CHECK (user_id IS NULL OR user_id = (SELECT auth.uid()));
+
+-- ------------------------------------------------------------
+-- 11. AUTOMATED TRIGGERS & FUNCTIONS
+-- ------------------------------------------------------------
+
+-- Trigger: New Auth User Initialization
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -272,17 +435,14 @@ DECLARE
 BEGIN
   user_role := COALESCE(NEW.raw_user_meta_data->>'role', 'user');
 
-  -- Normalise legacy 'patient' value to 'user'
   IF user_role = 'patient' THEN
     user_role := 'user';
   END IF;
 
-  -- Always create role record
   INSERT INTO public.user_roles (id, role)
   VALUES (NEW.id, user_role)
   ON CONFLICT (id) DO UPDATE SET role = EXCLUDED.role;
 
-  -- Create app_users row for 'user' and 'both' roles
   IF user_role IN ('user', 'both') THEN
     INSERT INTO public.app_users (id, full_name, phone)
     VALUES (
@@ -295,35 +455,98 @@ BEGIN
 
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
-DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
--- ============================================================
--- 10. DATA MIGRATION (if upgrading from v1 schema)
---     Copies user-role rows from old profiles table if it still
---     exists. Safe to run even if profiles was already dropped.
--- ============================================================
-DO $$
+-- Trigger: Reservation Status Notification Generator
+CREATE OR REPLACE FUNCTION public.handle_reservation_notification()
+RETURNS TRIGGER AS $$
 BEGIN
-  IF EXISTS (
-    SELECT 1 FROM information_schema.tables
-    WHERE table_schema = 'public' AND table_name = 'profiles'
-  ) THEN
-    -- Migrate general users (role = 'patient' or 'user') → app_users
-    INSERT INTO public.app_users (id, full_name, phone, avatar_url, created_at)
-    SELECT id, full_name, phone, avatar_url, created_at
-    FROM public.profiles
-    WHERE role IN ('patient', 'user')
-    ON CONFLICT (id) DO NOTHING;
-
-    -- Migrate role records → user_roles
-    INSERT INTO public.user_roles (id, role)
-    SELECT id, CASE WHEN role = 'patient' THEN 'user' ELSE role END
-    FROM public.profiles
-    ON CONFLICT (id) DO NOTHING;
+  IF OLD.status IS DISTINCT FROM NEW.status THEN
+    INSERT INTO public.notifications (user_id, title, body, type, data)
+    VALUES (
+      NEW.user_id,
+      CASE NEW.status
+        WHEN 'accepted' THEN 'Reservation Accepted! 🎉'
+        WHEN 'declined' THEN 'Reservation Declined'
+        WHEN 'collected' THEN 'Reservation Collected'
+        WHEN 'expired' THEN 'Reservation Expired'
+        ELSE 'Reservation Status Updated'
+      END,
+      CASE NEW.status
+        WHEN 'accepted' THEN 'Your reservation at ' || COALESCE(NEW.pharmacy_name, 'pharmacy') || ' was accepted.'
+        WHEN 'declined' THEN 'Your reservation at ' || COALESCE(NEW.pharmacy_name, 'pharmacy') || ' was declined.'
+        WHEN 'collected' THEN 'Thank you for picking up your reservation.'
+        WHEN 'expired' THEN 'Your reservation window has elapsed.'
+        ELSE 'Status changed to ' || NEW.status
+      END,
+      'reservation',
+      jsonb_build_object('reservation_id', NEW.id, 'status', NEW.status)
+    );
   END IF;
-END $$;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+CREATE TRIGGER on_reservation_status_changed
+  AFTER UPDATE ON public.reservations
+  FOR EACH ROW EXECUTE FUNCTION public.handle_reservation_notification();
+
+-- Trigger: Consultation Timestamp Update
+CREATE OR REPLACE FUNCTION public.handle_chat_message_consultation_update()
+RETURNS TRIGGER AS $$
+BEGIN
+  UPDATE public.consultations
+  SET updated_at = NOW()
+  WHERE id = NEW.consultation_id;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+CREATE TRIGGER on_chat_message_inserted
+  AFTER INSERT ON public.chat_messages
+  FOR EACH ROW EXECUTE FUNCTION public.handle_chat_message_consultation_update();
+
+-- Revoke public execution on internal security definer trigger functions
+REVOKE EXECUTE ON FUNCTION public.handle_new_user() FROM anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.handle_reservation_notification() FROM anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.handle_reservation_updated() FROM anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.handle_chat_message_consultation_update() FROM anon, authenticated;
+
+-- ------------------------------------------------------------
+-- 12. STORAGE BUCKET CONFIGURATION (Avatars & Prescriptions)
+-- ------------------------------------------------------------
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('avatars', 'avatars', true)
+ON CONFLICT (id) DO UPDATE SET public = true;
+
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('prescriptions', 'prescriptions', true)
+ON CONFLICT (id) DO UPDATE SET public = true;
+
+-- Avatars Storage RLS Policies
+DROP POLICY IF EXISTS "Allow public reads on avatars storage" ON storage.objects;
+DROP POLICY IF EXISTS "Allow public inserts on avatars storage" ON storage.objects;
+DROP POLICY IF EXISTS "avatars_public_select" ON storage.objects;
+CREATE POLICY "avatars_public_select" ON storage.objects FOR SELECT USING (bucket_id = 'avatars');
+
+DROP POLICY IF EXISTS "avatars_public_insert" ON storage.objects;
+CREATE POLICY "avatars_public_insert" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'avatars');
+
+DROP POLICY IF EXISTS "avatars_public_update" ON storage.objects;
+CREATE POLICY "avatars_public_update" ON storage.objects FOR UPDATE USING (bucket_id = 'avatars');
+
+DROP POLICY IF EXISTS "avatars_public_delete" ON storage.objects;
+CREATE POLICY "avatars_public_delete" ON storage.objects FOR DELETE USING (bucket_id = 'avatars');
+
+-- Prescriptions Storage RLS Policies
+DROP POLICY IF EXISTS "Allow public reads on prescriptions storage" ON storage.objects;
+DROP POLICY IF EXISTS "Allow public inserts on prescriptions storage" ON storage.objects;
+DROP POLICY IF EXISTS "prescriptions_public_select" ON storage.objects;
+CREATE POLICY "prescriptions_public_select" ON storage.objects FOR SELECT USING (bucket_id = 'prescriptions');
+
+DROP POLICY IF EXISTS "prescriptions_public_insert" ON storage.objects;
+CREATE POLICY "prescriptions_public_insert" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'prescriptions');

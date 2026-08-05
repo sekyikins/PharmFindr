@@ -1,6 +1,6 @@
 // @ts-nocheck
 // ============================================================
-// PharmaFindr — Supabase Edge Function: Push Notifier
+// PharmFindr — Supabase Edge Function: Push Notifier
 // Dispatches push notifications to Expo Push API.
 // ============================================================
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
@@ -35,7 +35,7 @@ serve(async (req) => {
     const pushMessages = tokenRows.map((t) => ({
       to: t.token,
       sound: 'default',
-      title: record.title || 'PharmaFindr Notification',
+      title: record.title || 'PharmFindr Notification',
       body: record.message || '',
       data: {
         id: record.id,

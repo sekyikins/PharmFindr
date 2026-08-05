@@ -91,26 +91,89 @@ export default function PrescriptionHistory() {
 
   const renderSkeleton = () => (
     <View style={styles.listContent}>
-      {[1, 2, 3].map((i) => (
+      {[1, 2, 3, 4].map((i) => (
         <View key={i} style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
-            <Skeleton width={40} height={40} borderRadius={RADIUS.pill} style={{ marginRight: 12 }} />
-            <View style={{ flex: 1, gap: 6 }}>
-              <Skeleton width="50%" height={16} />
-              <Skeleton width="30%" height={12} />
+          <View style={[styles.cardIcon, { backgroundColor: theme.surfaceSecondary }]}>
+            <Skeleton width={20} height={20} borderRadius={4} />
+          </View>
+          <View style={styles.cardBody}>
+            <View style={styles.cardTitleRow}>
+              <Skeleton width={110} height={16} borderRadius={4} />
+              <Skeleton width={75} height={20} borderRadius={10} />
+            </View>
+            <Skeleton width={130} height={12} borderRadius={4} style={{ marginVertical: 8 }} />
+            <View style={styles.chipsRow}>
+              <Skeleton width={95} height={24} borderRadius={12} />
+              <Skeleton width={80} height={24} borderRadius={12} />
             </View>
           </View>
-          <Skeleton width="90%" height={14} style={{ marginBottom: 6 }} />
-          <Skeleton width="70%" height={14} />
         </View>
       ))}
     </View>
   );
 
+  const handleAddPrescription = () => {
+    Alert.alert(
+      'Add Prescription',
+      'Choose how you would like to add a prescription:',
+      [
+        {
+          text: 'Scan Paper Prescription',
+          onPress: () => router.push('/(patient)/scan'),
+        },
+        {
+          text: 'Enter Details Manually',
+          onPress: () => {
+            const blankMed = [
+              {
+                name: '',
+                strength: '',
+                dosage: '',
+                frequency: '',
+                duration: '',
+                route: '',
+                instructions: '',
+                confidence: 100,
+              },
+            ];
+            router.push({
+              pathname: '/(patient)/ocr-result',
+              params: {
+                medicines: JSON.stringify(blankMed),
+                isManual: 'true',
+              },
+            });
+          },
+        },
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+      ]
+    );
+  };
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
       {/* Header */}
-      <Header title="Prescription History" showBack onBack={() => router.canGoBack() ? router.back() : router.navigate('/(patient)/(tabs)/profile')} />
+      <Header
+        title="Prescription History"
+        showBack
+        onBack={() => (router.canGoBack() ? router.back() : router.navigate('/(patient)/(tabs)/profile'))}
+        right={
+          <Pressable
+            style={({ pressed }) => [
+              styles.addHeaderBtn,
+              pressed && { opacity: 0.7 },
+              { backgroundColor: primaryColor + '15' },
+            ]}
+            onPress={handleAddPrescription}
+          >
+            <Ionicons name="add-circle" size={16} color={primaryColor} />
+            <Text style={[styles.addHeaderBtnText, { color: primaryColor }]}>Add</Text>
+          </Pressable>
+        }
+      />
 
       {loading ? (
         renderSkeleton()
@@ -228,4 +291,17 @@ const styles = StyleSheet.create({
   chipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   chip: { borderRadius: RADIUS.pill, paddingHorizontal: 8, paddingVertical: 3 },
   chipText: { fontSize: FONT_SIZE.sm, fontWeight: '500' },
+
+  addHeaderBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: RADIUS.pill,
+  },
+  addHeaderBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
 });

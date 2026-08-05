@@ -13,6 +13,7 @@ export default function PharmacyLayout() {
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="add-medicine" />
       <Stack.Screen name="upload-inventory" />
+      <Stack.Screen name="operating-hours" />
       <Stack.Screen name="pharmacy-reservation/[id]" />
     </Stack>
   );

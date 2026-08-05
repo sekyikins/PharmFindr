@@ -53,7 +53,7 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "PharmaFindr needs your location to find nearby pharmacies."
+          "locationAlwaysAndWhenInUsePermission": "PharmFindr needs your location to find nearby pharmacies."
         }
       ]
     ],

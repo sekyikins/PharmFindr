@@ -5,119 +5,183 @@
  * "Patient" (app user) or a "Pharmacy" — which routes them to
  * the correct login/registration flow.
  */
-import React from 'react';
+import React, { useRef } from 'react';
 import {
   StyleSheet,
   Text,
   View,
   Pressable,
+  Image,
+  Animated,
   Dimensions,
-  StatusBar,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Path } from 'react-native-svg';
+import { useThemeContext } from '@/hooks/useThemeContext';
+import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
 
-const { width } = Dimensions.get('window');
-
-const BLUE = '#2563eb';
-const GREEN = '#10b981';
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const PHARMACY_GREEN = '#10b981';
 
 export default function RoleSelect() {
   const router = useRouter();
+  const { theme, primaryColor } = useThemeContext();
+
+  const patientScale = useRef(new Animated.Value(1)).current;
+  const pharmacyScale = useRef(new Animated.Value(1)).current;
+
+  const animPress = (anim: Animated.Value, pressed: boolean) => {
+    Animated.spring(anim, {
+      toValue: pressed ? 0.97 : 1,
+      useNativeDriver: true,
+      speed: 30,
+      bounciness: 4,
+    }).start();
+  };
 
   return (
-    <View style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor="#1d293d" />
+    <View style={[styles.root, { backgroundColor: theme.background }]}>
 
-      {/* Top hero */}
-      <View style={styles.hero}>
+      {/* ── Full-bleed Hero with arch ── */}
+      <View style={[styles.hero, { backgroundColor: primaryColor }]}>
         <SafeAreaView edges={['top']} style={styles.heroInner}>
-          <View style={styles.logoRow}>
-            <View style={styles.logoBadge}>
-              <Ionicons name="medkit" size={22} color="#fff" />
-            </View>
-            <Text style={styles.logoText}>PharmFindr</Text>
+          {/* Brand row */}
+          <View style={styles.brandRow}>
+            <Image
+              source={require('@/assets/images/icon.png')}
+              style={styles.brandIcon}
+            />
+            <Text style={styles.brandName}>PharmFindr</Text>
           </View>
-          <Text style={styles.heroTitle}>Welcome!</Text>
+
+          {/* Badge + Title */}
+          <View style={[styles.heroBadge, { backgroundColor: 'rgba(255,255,255,0.18)' }]}>
+            <Ionicons name="shield-checkmark" size={12} color="#ffffff" />
+            <Text style={styles.heroBadgeText}>ROLE SELECTION</Text>
+          </View>
+          <Text style={styles.heroTitle}>Who are you?</Text>
           <Text style={styles.heroSub}>
-            Tell us who you are so we can personalise your experience.
+            Tell us who you are so we can personalise your experience from the start.
           </Text>
         </SafeAreaView>
-        <Svg width={width} height={28} viewBox={`0 0 ${width} 28`}>
+
+        {/* SVG arch — the signature transition */}
+        <Svg
+          width={SCREEN_WIDTH}
+          height={32}
+          viewBox={`0 0 ${SCREEN_WIDTH} 32`}
+          style={{ display: 'flex' }}
+        >
           <Path
-            d={`M0,28 Q${width / 2},0 ${width},28 L${width},28 L0,28 Z`}
-            fill="#f8fafc"
+            d={`M0,32 Q${SCREEN_WIDTH / 2},0 ${SCREEN_WIDTH},32 L${SCREEN_WIDTH},32 L0,32 Z`}
+            fill={theme.background}
           />
         </Svg>
       </View>
 
-      {/* Cards */}
-      <View style={styles.content}>
+      {/* ── Role Cards ── */}
+      <View style={styles.cardsContainer}>
+
         {/* Patient Card */}
         <Pressable
-          style={({ pressed }) => [styles.card, styles.patientCard, pressed && styles.cardPressed]}
+          onPressIn={() => animPress(patientScale, true)}
+          onPressOut={() => animPress(patientScale, false)}
           onPress={() => router.push({ pathname: '/(auth)/login', params: { initialRole: 'patient' } })}
         >
-          <View style={[styles.cardIconWrap, { backgroundColor: BLUE + '18' }]}>
-            <Ionicons name="person" size={34} color={BLUE} />
-          </View>
-          <View style={styles.cardText}>
-            <Text style={styles.cardTitle}>I'm a Patient</Text>
-            <Text style={styles.cardDesc}>
-              Search for medicines, scan prescriptions, and reserve at nearby pharmacies.
-            </Text>
-          </View>
-          <View style={[styles.cardArrow, { backgroundColor: BLUE }]}>
-            <Ionicons name="arrow-forward" size={18} color="#fff" />
-          </View>
+          <Animated.View
+            style={[
+              styles.card,
+              { backgroundColor: theme.card, borderColor: primaryColor + '40' },
+              { transform: [{ scale: patientScale }] },
+            ]}
+          >
+            <View style={[styles.cardIconWrap, { backgroundColor: primaryColor + '15' }]}>
+              <Ionicons name="person" size={30} color={primaryColor} />
+            </View>
+            <View style={styles.cardBody}>
+              <Text style={[styles.cardTitle, { color: theme.text.primary }]}>I'm a Patient</Text>
+              <Text style={[styles.cardDesc, { color: theme.textMuted }]}>
+                Search medicines, scan prescriptions, and reserve at nearby pharmacies.
+              </Text>
+              <View style={[styles.cardTag, { backgroundColor: primaryColor + '12' }]}>
+                <Ionicons name="checkmark-circle" size={11} color={primaryColor} />
+                <Text style={[styles.cardTagText, { color: primaryColor }]}>Most Common</Text>
+              </View>
+            </View>
+            <View style={[styles.cardChevron, { backgroundColor: primaryColor }]}>
+              <Ionicons name="chevron-forward" size={16} color="#ffffff" />
+            </View>
+          </Animated.View>
         </Pressable>
 
         {/* Pharmacy Card */}
         <Pressable
-          style={({ pressed }) => [styles.card, styles.pharmacyCard, pressed && styles.cardPressed]}
+          onPressIn={() => animPress(pharmacyScale, true)}
+          onPressOut={() => animPress(pharmacyScale, false)}
           onPress={() => router.push({ pathname: '/(auth)/login', params: { initialRole: 'pharmacy' } })}
         >
-          <View style={[styles.cardIconWrap, { backgroundColor: GREEN + '18' }]}>
-            <Ionicons name="shield-checkmark" size={34} color={GREEN} />
-          </View>
-          <View style={styles.cardText}>
-            <Text style={styles.cardTitle}>I'm a Pharmacy</Text>
-            <Text style={styles.cardDesc}>
-              Register your pharmacy, manage your inventory, and handle patient reservations.
-            </Text>
-          </View>
-          <View style={[styles.cardArrow, { backgroundColor: GREEN }]}>
-            <Ionicons name="arrow-forward" size={18} color="#fff" />
-          </View>
+          <Animated.View
+            style={[
+              styles.card,
+              { backgroundColor: theme.card, borderColor: PHARMACY_GREEN + '40' },
+              { transform: [{ scale: pharmacyScale }] },
+            ]}
+          >
+            <View style={[styles.cardIconWrap, { backgroundColor: PHARMACY_GREEN + '15' }]}>
+              <Ionicons name="business" size={30} color={PHARMACY_GREEN} />
+            </View>
+            <View style={styles.cardBody}>
+              <Text style={[styles.cardTitle, { color: theme.text.primary }]}>I'm a Pharmacy</Text>
+              <Text style={[styles.cardDesc, { color: theme.textMuted }]}>
+                Register your pharmacy, manage inventory, and handle patient reservations.
+              </Text>
+              <View style={[styles.cardTag, { backgroundColor: PHARMACY_GREEN + '12' }]}>
+                <Ionicons name="storefront" size={11} color={PHARMACY_GREEN} />
+                <Text style={[styles.cardTagText, { color: PHARMACY_GREEN }]}>Business Account</Text>
+              </View>
+            </View>
+            <View style={[styles.cardChevron, { backgroundColor: PHARMACY_GREEN }]}>
+              <Ionicons name="chevron-forward" size={16} color="#ffffff" />
+            </View>
+          </Animated.View>
         </Pressable>
+      </View>
 
-        {/* Divider */}
-        <View style={styles.dividerRow}>
-          <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>New here?</Text>
-          <View style={styles.dividerLine} />
+      {/* ── Sign Up Footer ── */}
+      <View style={styles.footer}>
+        <View style={[styles.dividerRow]}>
+          <View style={[styles.dividerLine, { backgroundColor: theme.border }]} />
+          <Text style={[styles.dividerText, { color: theme.textMuted }]}>New here?</Text>
+          <View style={[styles.dividerLine, { backgroundColor: theme.border }]} />
         </View>
-
-        {/* Sign up options */}
         <View style={styles.signupRow}>
           <Pressable
-            style={[styles.signupBtn, { borderColor: BLUE }]}
+            style={({ pressed }) => [
+              styles.signupBtn,
+              pressed && { opacity: 0.75 },
+              { borderColor: theme.border, backgroundColor: theme.surfaceSecondary },
+            ]}
             onPress={() => router.push({ pathname: '/(auth)/register', params: { initialRole: 'patient' } })}
           >
-            <Ionicons name="person-add-outline" size={16} color={BLUE} />
-            <Text style={[styles.signupText, { color: BLUE }]}>Patient Sign Up</Text>
+            <Ionicons name="person-add-outline" size={15} color={primaryColor} />
+            <Text style={[styles.signupText, { color: theme.text.primary }]}>Patient Sign Up</Text>
           </Pressable>
           <Pressable
-            style={[styles.signupBtn, { borderColor: GREEN }]}
+            style={({ pressed }) => [
+              styles.signupBtn,
+              pressed && { opacity: 0.75 },
+              { borderColor: theme.border, backgroundColor: theme.surfaceSecondary },
+            ]}
             onPress={() => router.push('/(auth)/pharmacy-register')}
           >
-            <Ionicons name="business-outline" size={16} color={GREEN} />
-            <Text style={[styles.signupText, { color: GREEN }]}>Pharmacy Sign Up</Text>
+            <Ionicons name="business-outline" size={15} color={primaryColor} />
+            <Text style={[styles.signupText, { color: theme.text.primary }]}>Pharmacy Sign Up</Text>
           </Pressable>
         </View>
-      </View>
+    </View>
+
     </View>
   );
 }
@@ -125,144 +189,157 @@ export default function RoleSelect() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#f8fafc',
   },
+
+  // ── Full-bleed hero ──
   hero: {
-    backgroundColor: '#1d293d',
+    paddingBottom: 0,
   },
   heroInner: {
-    paddingHorizontal: 28,
-    paddingTop: 12,
-    paddingBottom: 24,
+    paddingHorizontal: SPACING.xl,
+    paddingTop: SPACING.md,
+    paddingBottom: SPACING.lg,
   },
-  logoRow: {
+  brandRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
+    gap: 8,
+    marginBottom: SPACING.lg,
   },
-  logoBadge: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: '#2563eb',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 10,
+  brandIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 7,
   },
-  logoText: {
-    fontSize: 20,
+  brandName: {
+    fontSize: FONT_SIZE.xxl,
     fontWeight: '800',
     color: '#ffffff',
     letterSpacing: -0.3,
   },
-  heroTitle: {
-    fontSize: 32,
+  heroBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: RADIUS.pill,
+    marginBottom: 10,
+  },
+  heroBadgeText: {
+    fontSize: 9,
     fontWeight: '800',
     color: '#ffffff',
-    marginBottom: 8,
-    letterSpacing: -0.5,
+    letterSpacing: 0.8,
+  },
+  heroTitle: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#ffffff',
+    marginBottom: 6,
+    letterSpacing: -0.4,
   },
   heroSub: {
-    fontSize: 15,
-    color: 'rgba(255,255,255,0.72)',
-    lineHeight: 22,
-    maxWidth: 300,
+    fontSize: FONT_SIZE.lg,
+    color: 'rgba(255,255,255,0.78)',
+    lineHeight: 21,
   },
-  content: {
+
+  // ── Cards content area ──
+  cardsContainer: {
+    gap: SPACING.md,
+    paddingHorizontal: SPACING.xl,
+    paddingTop: SPACING.lg,
     flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 24,
-    paddingBottom: 32,
   },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 14,
+    borderRadius: RADIUS.xl,
+    padding: SPACING.lg,
     borderWidth: 1.5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 3,
-  },
-  patientCard: {
-    borderColor: BLUE + '30',
-  },
-  pharmacyCard: {
-    borderColor: GREEN + '30',
-  },
-  cardPressed: {
-    opacity: 0.88,
-    transform: [{ scale: 0.985 }],
   },
   cardIconWrap: {
-    width: 64,
-    height: 64,
-    borderRadius: 18,
+    width: 60,
+    height: 60,
+    borderRadius: RADIUS.lg,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
+    marginRight: SPACING.md,
     flexShrink: 0,
   },
-  cardText: {
+  cardBody: {
     flex: 1,
   },
   cardTitle: {
-    fontSize: 17,
+    fontSize: FONT_SIZE.xl,
     fontWeight: '700',
-    color: '#1d293d',
-    marginBottom: 4,
+    marginBottom: 3,
   },
   cardDesc: {
-    fontSize: 13,
-    color: '#62748e',
-    lineHeight: 19,
+    fontSize: FONT_SIZE.md,
+    lineHeight: 18,
+    marginBottom: 8,
   },
-  cardArrow: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
+  cardTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: RADIUS.pill,
+  },
+  cardTagText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  cardChevron: {
+    width: 30,
+    height: 30,
+    borderRadius: RADIUS.pill,
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: 12,
+    marginLeft: SPACING.sm,
     flexShrink: 0,
+  },
+
+  // ── Footer ──
+  footer: {
+    paddingHorizontal: SPACING.xl,
+    paddingBottom: SPACING.lg,
   },
   dividerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 20,
+    marginVertical: SPACING.lg,
+    gap: SPACING.sm,
   },
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: '#e2e8f0',
   },
   dividerText: {
-    fontSize: 13,
-    color: '#94a3b8',
-    marginHorizontal: 12,
+    fontSize: FONT_SIZE.md,
     fontWeight: '500',
   },
   signupRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: SPACING.sm,
   },
   signupBtn: {
     flex: 1,
     height: 46,
-    borderRadius: 14,
-    borderWidth: 1.5,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1.2,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: '#ffffff',
   },
   signupText: {
-    fontSize: 13,
+    fontSize: FONT_SIZE.md,
     fontWeight: '600',
   },
 });

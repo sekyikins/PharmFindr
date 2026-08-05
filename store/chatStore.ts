@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { askGemini } from '@/lib/gemini';
 import { supabase } from '@/lib/supabase';
+import { buildDynamicSystemInstruction } from '@/lib/userClinicalContext';
 
 export interface Consultation {
   id: string;
@@ -51,7 +52,7 @@ const SYSTEM_INSTRUCTION = `You are a direct, professional AI Health Assistant i
 STRICT RESPONSE RULES:
 1. NEVER start responses with generic welcome messages or intros like "Welcome to PharmFindr", "Hello!", or "I am PharmFindr AI". Answer the user's question directly in the very first sentence.
 2. DO NOT repeat your name, app branding, or greetings in messages.
-3. Provide concise, patient-friendly answers. Organize explanations using clear bullet points and bold text for readability.
+3. Provide concise, patient-friendly answers. Organize explanations using clear bullet points and bold text for readability. Use actual symbols instead of literals to denote them(eg. Use '➔' for arrows instead of '->' or literal '\\n' strings).
 4. When explaining medications, detail medicine purpose, dosage guidelines, precautions, and side effects.
 5. End medical guidance with a single short disclaimer line encouraging consultation with a licensed pharmacist or doctor.`;
 
@@ -281,13 +282,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
 
     try {
-      let customSystemInstruction = SYSTEM_INSTRUCTION;
-      if (active?.medicines && active.medicines.length > 0) {
-        const medsSummary = active.medicines
-          .map((m: any) => `${m.name} (${m.strength || ''}, ${m.dosage || ''}, ${m.frequency || ''})`)
-          .join('; ');
-        customSystemInstruction += `\n\nCURRENT CONSULTATION CONTEXT: The patient is inquiring about their prescription containing: ${medsSummary}. Provide guidance specifically regarding these medicines when relevant. Do NOT start with greetings or repeating the prompt.`;
-      }
+      const customSystemInstruction = await buildDynamicSystemInstruction(active?.medicines || undefined);
 
       const conversationHistory = get()
         .messages.filter((m) => m.id !== userMsg.id)

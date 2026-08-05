@@ -143,46 +143,42 @@ const OtpInput = forwardRef<OtpInputHandle, OtpInputProps>((props, ref) => {
     }
   };
 
-  /** Fires when ANY character is typed into a box */
+  /** Fires when ANY character is typed or autofilled into a box */
   const handleChangeText = useCallback((text: string, index: number) => {
-    // Strip non-digits
     const clean = text.replace(/[^0-9]/g, '');
 
-    // Handle paste: if >1 char, distribute across boxes
+    if (!clean) {
+      const next = [...digits];
+      next[index] = '';
+      setDigits(next);
+      return;
+    }
+
+    // Handle paste or SMS autofill (multi-digit string)
     if (clean.length > 1) {
-      const newDigits = [...EMPTY];
-      for (let i = 0; i < OTP_LENGTH && i < clean.length; i++) {
-        newDigits[index + i < OTP_LENGTH ? index + i : OTP_LENGTH - 1] = clean[i];
-      }
-      // Clamp to OTP_LENGTH
-      const filled = [...EMPTY];
-      clean.slice(0, OTP_LENGTH).split('').forEach((d, i) => { filled[i] = d; });
+      const filled = Array(OTP_LENGTH).fill('');
+      const charArray = clean.slice(0, OTP_LENGTH).split('');
+      charArray.forEach((d, i) => { filled[i] = d; });
       setDigits(filled);
 
-      // Focus the last filled box or last box
-      const lastIdx = Math.min(clean.length - 1, OTP_LENGTH - 1);
+      const lastIdx = Math.min(charArray.length - 1, OTP_LENGTH - 1);
       inputRefs.current[lastIdx]?.focus();
 
-      // Auto-submit if fully filled
-      if (clean.length >= OTP_LENGTH) {
-        onComplete?.(filled.join(''));
+      if (charArray.length === OTP_LENGTH) {
+        onComplete?.(charArray.join(''));
       }
       return;
     }
 
     // Single digit
-    if (clean.length === 1) {
-      const next = [...digits];
-      next[index] = clean;
-      setDigits(next);
+    const next = [...digits];
+    next[index] = clean;
+    setDigits(next);
 
-      // Auto-advance
-      focusNext(index);
+    focusNext(index);
 
-      // Auto-submit
-      if (next.every(d => d !== '')) {
-        onComplete?.(next.join(''));
-      }
+    if (next.every((d) => d !== '')) {
+      onComplete?.(next.join(''));
     }
   }, [digits, onComplete]);
 
@@ -216,8 +212,10 @@ const OtpInput = forwardRef<OtpInputHandle, OtpInputProps>((props, ref) => {
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
+  const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
+
   return (
-    <View>
+    <View style={styles.container}>
       {subtitle ? <View style={styles.subtitleRow}>{subtitle}</View> : null}
 
       {/* OTP Boxes */}
@@ -226,25 +224,31 @@ const OtpInput = forwardRef<OtpInputHandle, OtpInputProps>((props, ref) => {
       >
         {digits.map((digit, i) => {
           const isFilled = digit !== '';
+          const isFocused = focusedIndex === i;
           const isSuccess = successState;
 
           return (
             <TextInput
               key={i}
-              ref={r => { inputRefs.current[i] = r; }}
+              ref={(r) => {
+                inputRefs.current[i] = r;
+              }}
               style={[
                 styles.box,
-                isFilled && !isSuccess && { borderColor: accentColor, backgroundColor: accentColor + '15' },
-                isSuccess && { borderColor: '#10b981', backgroundColor: '#10b981' + '25' },
+                isFilled && !isSuccess && { borderColor: accentColor, backgroundColor: accentColor + '10' },
+                isFocused && !isSuccess && { borderColor: accentColor, backgroundColor: accentColor + '08', borderWidth: 2 },
+                isSuccess && { borderColor: '#10b981', backgroundColor: '#10b98115' },
               ]}
               value={digit}
-              onChangeText={text => handleChangeText(text, i)}
-              onKeyPress={e => handleKeyPress(e, i)}
+              onChangeText={(text) => handleChangeText(text, i)}
+              onKeyPress={(e) => handleKeyPress(e, i)}
+              onFocus={() => setFocusedIndex(i)}
+              onBlur={() => setFocusedIndex(null)}
               keyboardType="number-pad"
-              maxLength={6} // Allow 6 for paste to work on Android
+              maxLength={6}
               textAlign="center"
-              textContentType="oneTimeCode" // iOS SMS autofill
-              autoComplete={Platform.OS === 'android' ? 'sms-otp' : 'one-time-code'} // Android SMS autofill
+              textContentType="oneTimeCode"
+              autoComplete={Platform.OS === 'android' ? 'sms-otp' : 'one-time-code'}
               editable={!disabled}
               selectTextOnFocus
             />
@@ -255,8 +259,8 @@ const OtpInput = forwardRef<OtpInputHandle, OtpInputProps>((props, ref) => {
       {/* Success indicator */}
       {successState && (
         <View style={styles.successRow}>
-          <Ionicons name="checkmark-circle" size={16} color="#10b981" />
-          <Text style={styles.successText}>Verified!</Text>
+          <Ionicons name="checkmark-circle" size={18} color="#10b981" />
+          <Text style={styles.successText}>Code Verified!</Text>
         </View>
       )}
 
@@ -267,15 +271,19 @@ const OtpInput = forwardRef<OtpInputHandle, OtpInputProps>((props, ref) => {
           disabled={resendTimer > 0 || disabled}
           style={({ pressed }) => [styles.resendBtn, pressed && { opacity: 0.5 }]}
         >
+          <Ionicons
+            name="time-outline"
+            size={14}
+            color={resendTimer > 0 ? '#94a3b8' : accentColor}
+            style={{ marginRight: 4 }}
+          />
           <Text
             style={[
               styles.resendText,
               { color: resendTimer > 0 ? '#94a3b8' : accentColor },
             ]}
           >
-            {resendTimer > 0
-              ? `Resend code in ${resendTimer}s`
-              : 'Resend Code'}
+            {resendTimer > 0 ? `Resend code in ${resendTimer}s` : 'Resend Code'}
           </Text>
         </Pressable>
       </View>
@@ -289,49 +297,54 @@ export default OtpInput;
 // ── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
+  container: {
+    marginVertical: 4,
+  },
   subtitleRow: {
-    marginBottom: 16,
+    marginBottom: 12,
   },
   boxRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 10,
-    marginVertical: 12,
+    gap: 8,
+    marginVertical: 10,
   },
   box: {
-    width: 46,
-    height: 58,
-    borderRadius: 14,
+    width: 44,
+    height: 54,
+    borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: '#e2e8f0',
-    backgroundColor: '#f8fafc',
+    borderColor: '#cbd5e1',
+    backgroundColor: '#ffffff',
     fontSize: 22,
-    fontWeight: '700',
-    color: '#1e293b',
+    fontWeight: '800',
+    color: '#0f172a',
   },
   successRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    marginTop: 4,
-    marginBottom: 2,
+    marginTop: 6,
+    marginBottom: 4,
   },
   successText: {
     color: '#10b981',
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   resendRow: {
     alignItems: 'center',
-    marginTop: 12,
+    marginTop: 8,
   },
   resendBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingVertical: 6,
     paddingHorizontal: 12,
   },
   resendText: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '600',
   },
 });

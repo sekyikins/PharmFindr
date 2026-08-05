@@ -83,6 +83,8 @@ For each medicine return:
 - duration
 - route
 - instructions
+- targetDemographic (optional: e.g. "Infant / Pediatric", "Adult", "Geriatric", "Neonatal")
+- missingParametersNote (optional: e.g. "Infant/Pediatric formulation detected — body weight and exact age required for precise dosing")
 - confidence
 
 Rules:
@@ -90,6 +92,8 @@ Rules:
 - Return ONLY JSON.
 - Never invent medicines.
 - Identify the underlying active ingredient (genericName) for both brand names and generic names.
+- Identify if the drug formulation is specifically for infants, children, adults, or elderly (set targetDemographic).
+- If a drug (e.g., infant drops, pediatric syrups, weight-based antibiotics) requires age, weight, or allergy checks for safe dosing, provide a helpful note in missingParametersNote advising the user to fill out their Health Profile parameters.
 - Expand medical abbreviations. (e.g., 'tab' → 'tablet', 'bid' → 'twice daily', 'PCD' → 'Paracetamol', etc.)
 - Correct obvious spelling mistakes.
 - If unreadable, return null.
@@ -99,15 +103,17 @@ Example:
 
 [
   {
-    "name": "Augmentin",
+    "name": "Augmentin Drops",
     "genericName": "Amoxicillin / Clavulanic Acid",
-    "strength": "625 mg",
-    "dosage": "1 tablet",
-    "frequency": "Twice daily",
-    "duration": "7 days",
+    "strength": "100 mg / 12.5 mg per mL",
+    "dosage": "0.5 mL",
+    "frequency": "Three times daily",
+    "duration": "5 days",
     "route": "Oral",
-    "instructions": "Take 1 tablet twice daily after food for 7 days",
-    "confidence": 92
+    "instructions": "Administer 0.5 mL 8-hourly after feeding",
+    "targetDemographic": "Infant / Pediatric",
+    "missingParametersNote": "Infant formulation detected — please ensure infant weight and exact age are recorded in your Health Profile for safe dosing verification.",
+    "confidence": 94
   }
 ]
 `;

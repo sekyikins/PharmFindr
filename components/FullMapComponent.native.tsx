@@ -27,6 +27,7 @@ interface FullMapComponentProps {
   onSelectMarker: (id: string) => void;
   routeCoords?: { latitude: number; longitude: number }[];
   mapPadding?: EdgePadding;
+  showLegend?: boolean;
 }
 
 export function getPinColor(m: MarkerData, isSelected: boolean): string {
@@ -44,6 +45,7 @@ export default function FullMapComponent({
   onSelectMarker,
   routeCoords,
   mapPadding = { top: 90, right: 16, bottom: 140, left: 16 },
+  showLegend = true,
 }: FullMapComponentProps) {
   const mapRef = useRef<MapView>(null);
   const markerRefs = useRef<Record<string, MapMarker | null>>({});
@@ -172,28 +174,30 @@ export default function FullMapComponent({
       </MapView>
 
       {/* Floating Map Legend Bar */}
-      <View style={styles.legendBar} pointerEvents="box-none">
-        <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: '#2563eb' }]} />
-          <Text style={styles.legendText}>You</Text>
+      {showLegend && (
+        <View style={styles.legendBar} pointerEvents="box-none">
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: '#2563eb' }]} />
+            <Text style={styles.legendText}>You</Text>
+          </View>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: '#10b981' }]} />
+            <Text style={styles.legendText}>Verified</Text>
+          </View>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: '#0284c7' }]} />
+            <Text style={styles.legendText}>Public</Text>
+          </View>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: '#64748b' }]} />
+            <Text style={styles.legendText}>Closed</Text>
+          </View>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: '#f59e0b' }]} />
+            <Text style={styles.legendText}>Selected</Text>
+          </View>
         </View>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: '#10b981' }]} />
-          <Text style={styles.legendText}>Verified</Text>
-        </View>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: '#0284c7' }]} />
-          <Text style={styles.legendText}>Public</Text>
-        </View>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: '#64748b' }]} />
-          <Text style={styles.legendText}>Closed</Text>
-        </View>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: '#f59e0b' }]} />
-          <Text style={styles.legendText}>Selected</Text>
-        </View>
-      </View>
+      )}
     </View>
   );
 }
@@ -218,17 +222,15 @@ const styles = StyleSheet.create({
     bottom: 16,
     left: 16,
     right: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    backgroundColor: 'rgba(255, 255, 255, 0.96)',
     borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#cbd5e1',
     paddingVertical: 8,
     paddingHorizontal: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
-    shadowColor: '#000',
-    shadowOpacity: 0.12,
-    shadowRadius: 6,
-    elevation: 6,
     zIndex: 10,
   },
   legendItem: {

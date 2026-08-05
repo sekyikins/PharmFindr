@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabase';
 
-const QUEUE_STORAGE_KEY = 'pharmafindr_offline_sync_queue';
+const QUEUE_STORAGE_KEY = 'PharmFindr_offline_sync_queue';
 
 export type OfflineActionType =
   | 'UPDATE_PROFILE'

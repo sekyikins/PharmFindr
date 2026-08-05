@@ -6,84 +6,99 @@ import {
   Pressable,
   Dimensions,
   Animated,
+  PanResponder,
+  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { colors } from '@/theme/colors';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
+import { useThemeContext } from '@/hooks/useThemeContext';
+import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
 
-const { width } = Dimensions.get('window');
-const ONBOARDING_KEY = 'pharmafindr_onboarding_seen';
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.25;
+const ONBOARDING_KEY = 'PharmFindr_onboarding_seen';
 
 const slides = [
   {
     id: '1',
-    title: 'Scan Your Prescription',
+    badge: 'INSTANT PRESCRIPTION EXTRACTION',
+    title: 'Scan Medical Prescriptions',
     description:
-      'Take a picture of your prescription and let AI identify your medicines instantly.',
+      'Snap a photo of your prescription. PharmFindr AI instantly extracts dosages, frequencies, and medicine names.',
     icon: 'scan-outline' as const,
-    emoji: '📄',
-    accent: '#2563eb',
-    bg: '#eff6ff',
-    iconBg: '#dbeafe',
+    featureTags: ['Handwriting OCR', 'Instant Extraction', 'Safety Check'],
   },
   {
     id: '2',
-    title: 'Understand Your Medicines',
+    badge: 'DYNAMIC CLINICAL AI',
+    title: 'Understand Dosage & Safety',
     description:
-      'Ask the AI questions about dosage, usage, precautions and side effects.',
-    icon: 'chatbubble-ellipses-outline' as const,
-    emoji: '💊',
-    accent: '#7c3aed',
-    bg: '#f5f3ff',
-    iconBg: '#ede9fe',
+      'Get personalized guidance tailored to your age, weight, allergies, and medical profile directly from your Clinical AI Assistant.',
+    icon: 'sparkles-outline' as const,
+    featureTags: ['Personalized AI', 'Allergy Alerts', 'Side Effects'],
   },
   {
     id: '3',
-    title: 'Locate & Reserve',
+    badge: 'LIVE PHARMACY SEARCH',
+    title: 'Locate Stock & Reserve Nearby',
     description:
-      'Find nearby pharmacies that have the medicine, and request reservations with a click.',
+      'Find verified nearby pharmacies with real-time stock availability, compare prices, and reserve your medications in one tap.',
     icon: 'location-outline' as const,
-    emoji: '🏥',
-    accent: '#10b981',
-    bg: '#ecfdf5',
-    iconBg: '#d1fae5',
+    featureTags: ['Nearby Pharmacies', 'Live Stock', 'Easy Reservation'],
   },
 ];
 
 export default function Onboarding() {
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
+  const currentIndexRef = useRef(0); // ref so PanResponder always reads latest value
   const router = useRouter();
-  const theme = colors.light;
+  const { theme, primaryColor } = useThemeContext();
+
   const fadeAnim = useRef(new Animated.Value(1)).current;
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const translateX = useRef(new Animated.Value(0)).current;
 
   const markSeenAndContinue = async () => {
     await AsyncStorage.setItem(ONBOARDING_KEY, 'true');
     router.replace('/(auth)/role-select');
   };
 
-  const animateTransition = (toIndex: number) => {
-    Animated.sequence([
-      Animated.timing(fadeAnim, {
-        toValue: 0,
-        duration: 150,
-        useNativeDriver: true,
-      }),
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 250,
-        useNativeDriver: true,
-      }),
+  const animateTransition = (toIndex: number, direction: 'forward' | 'backward' = 'forward') => {
+    const outX = direction === 'forward' ? -40 : 40;
+    const inX = direction === 'forward' ? 40 : -40;
+
+    Animated.parallel([
+      Animated.sequence([
+        Animated.timing(fadeAnim, { toValue: 0, duration: 120, useNativeDriver: true }),
+        Animated.timing(fadeAnim, { toValue: 1, duration: 220, useNativeDriver: true }),
+      ]),
+      Animated.sequence([
+        Animated.timing(scaleAnim, { toValue: 0.93, duration: 120, useNativeDriver: true }),
+        Animated.timing(scaleAnim, { toValue: 1, duration: 220, useNativeDriver: true }),
+      ]),
+      Animated.sequence([
+        Animated.timing(translateX, { toValue: outX, duration: 120, useNativeDriver: true }),
+        Animated.timing(translateX, { toValue: 0, duration: 220, useNativeDriver: true }),
+      ]),
     ]).start();
+
+    currentIndexRef.current = toIndex;
     setCurrentSlideIndex(toIndex);
   };
 
   const handleNext = () => {
     if (currentSlideIndex < slides.length - 1) {
-      animateTransition(currentSlideIndex + 1);
+      animateTransition(currentSlideIndex + 1, 'forward');
     } else {
       markSeenAndContinue();
+    }
+  };
+
+  const handlePrev = () => {
+    if (currentSlideIndex > 0) {
+      animateTransition(currentSlideIndex - 1, 'backward');
     }
   };
 
@@ -91,49 +106,132 @@ export default function Onboarding() {
     markSeenAndContinue();
   };
 
+  // Swipe gesture handler — reads currentIndexRef to avoid stale closure
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, gestureState) =>
+        Math.abs(gestureState.dx) > 10 && Math.abs(gestureState.dy) < 30,
+      onPanResponderRelease: (_, gestureState) => {
+        const idx = currentIndexRef.current;
+        if (gestureState.dx < -SWIPE_THRESHOLD) {
+          // Swipe left → forward
+          if (idx < slides.length - 1) {
+            animateTransition(idx + 1, 'forward');
+          } else {
+            markSeenAndContinue();
+          }
+        } else if (gestureState.dx > SWIPE_THRESHOLD) {
+          // Swipe right → backward
+          if (idx > 0) {
+            animateTransition(idx - 1, 'backward');
+          }
+        }
+      },
+    })
+  ).current;
+
   const currentSlide = slides[currentSlideIndex];
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: currentSlide.bg }]}>
-      {/* Skip button */}
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+      {/* ── Top Header Bar ── */}
       <View style={styles.header}>
-        <View />
-        <Pressable onPress={handleSkip} style={({ pressed }) => [styles.skipBtn, pressed && { opacity: 0.5 }]}>
-          <Text style={[styles.skipText, { color: currentSlide.accent }]}>Skip</Text>
+        <View style={styles.brandRow}>
+          <Image
+            source={require('@/assets/images/icon.png')}
+            style={styles.brandIcon}
+          />
+          <Text style={[styles.brandName, { color: theme.text.primary }]}>PharmFindr</Text>
+        </View>
+
+        <Pressable
+          onPress={handleSkip}
+          style={({ pressed }) => [
+            styles.skipBtn,
+            pressed && { opacity: 0.6 },
+            { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
+          ]}
+        >
+          <Text style={[styles.skipText, { color: theme.textMuted }]}>Skip</Text>
         </Pressable>
       </View>
 
-      {/* Slide Content */}
-      <Animated.View style={[styles.slideContent, { opacity: fadeAnim }]}>
-        {/* Graphic */}
-        <View style={[styles.graphicContainer, { backgroundColor: currentSlide.iconBg }]}>
-          <Text style={styles.graphicEmoji}>{currentSlide.emoji}</Text>
-          <View style={[styles.iconCircle, { backgroundColor: currentSlide.accent + '22' }]}>
-            <Ionicons name={currentSlide.icon} size={40} color={currentSlide.accent} />
+      {/* ── Slide Content ── */}
+      <Animated.View
+        style={[
+          styles.slideContent,
+          {
+            opacity: fadeAnim,
+            transform: [{ scale: scaleAnim }, { translateX }],
+          },
+        ]}
+        {...panResponder.panHandlers}
+      >
+        {/* Graphic Card */}
+        <View
+          style={[
+            styles.graphicCard,
+            { backgroundColor: theme.card, borderColor: theme.border },
+          ]}
+        >
+          <View style={[styles.ringOuter, { backgroundColor: primaryColor + '18', borderRadius: RADIUS.pill }]}>
+            <View style={[styles.ringInner, { backgroundColor: primaryColor + '28' }]}>
+              <View style={[styles.iconCircle, { backgroundColor: primaryColor }]}>
+                <Ionicons name={currentSlide.icon} size={36} color="#ffffff" />
+              </View>
+            </View>
           </View>
         </View>
 
-        <Text style={styles.title}>
+        {/* Badge pill below card */}
+        <View style={[styles.badgePill, { backgroundColor: primaryColor + '15' }]}>
+          <Text style={[styles.badgePillText, { color: primaryColor }]}>
+            {currentSlide.badge}
+          </Text>
+        </View>
+
+        {/* Title & Description */}
+        <Text style={[styles.title, { color: theme.text.primary }]}>
           {currentSlide.title}
         </Text>
 
         <Text style={[styles.description, { color: theme.textMuted }]}>
           {currentSlide.description}
         </Text>
+
+        {/* Feature Tag Chips */}
+        <View style={styles.tagRow}>
+          {currentSlide.featureTags.map((tag) => (
+            <View
+              key={tag}
+              style={[
+                styles.featureTag,
+                { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
+              ]}
+            >
+              <Ionicons name="checkmark-circle" size={12} color={primaryColor} />
+              <Text style={[styles.featureTagText, { color: theme.text.primary }]}>{tag}</Text>
+            </View>
+          ))}
+        </View>
       </Animated.View>
 
-      {/* Footer */}
+      {/* ── Bottom Controls ── */}
       <View style={styles.footer}>
-        {/* Dot indicators */}
+        {/* Progress Indicators */}
         <View style={styles.indicatorContainer}>
           {slides.map((_, index) => (
             <Pressable
               key={index}
-              onPress={() => animateTransition(index)}
-              style={({ pressed }) =>[styles.indicator, pressed && { opacity: 0.5 },
+              onPress={() =>
+                animateTransition(index, index > currentSlideIndex ? 'forward' : 'backward')
+              }
+              style={({ pressed }) => [
+                styles.indicator,
+                pressed && { opacity: 0.6 },
                 {
                   backgroundColor:
-                    index === currentSlideIndex ? currentSlide.accent : '#cbd5e1',
+                    index === currentSlideIndex ? primaryColor : theme.borderLight,
                   width: index === currentSlideIndex ? 28 : 8,
                 },
               ]}
@@ -141,21 +239,40 @@ export default function Onboarding() {
           ))}
         </View>
 
-        {/* Next / Get Started */}
-        <Pressable
-          style={({ pressed }) =>[styles.button, pressed && { opacity: 0.5 }, { backgroundColor: currentSlide.accent }]}
-          onPress={handleNext}
-        >
-          <Text style={styles.buttonText}>
-            {currentSlideIndex === slides.length - 1 ? 'Get Started' : 'Next'}
-          </Text>
-          <Ionicons
-            name={currentSlideIndex === slides.length - 1 ? 'checkmark' : 'arrow-forward'}
-            size={18}
-            color="#fff"
-            style={{ marginLeft: 8 }}
-          />
-        </Pressable>
+        {/* Back + Next row */}
+        <View style={styles.buttonRow}>
+          {currentSlideIndex > 0 && (
+            <Pressable
+              onPress={handlePrev}
+              style={({ pressed }) => [
+                styles.backBtn,
+                pressed && { opacity: 0.7 },
+                { borderColor: primaryColor, backgroundColor: theme.card },
+              ]}
+            >
+              <Ionicons name="chevron-back" size={20} color={primaryColor} />
+            </Pressable>
+          )}
+
+          <Pressable
+            style={({ pressed }) => [
+              styles.button,
+              pressed && { opacity: 0.85 },
+              { backgroundColor: primaryColor },
+            ]}
+            onPress={handleNext}
+          >
+            <Text style={styles.buttonText}>
+              {currentSlideIndex === slides.length - 1 ? 'Get Started' : 'Continue'}
+            </Text>
+            <Ionicons
+              name={currentSlideIndex === slides.length - 1 ? 'arrow-forward' : 'chevron-forward'}
+              size={18}
+              color="#ffffff"
+              style={{ marginLeft: 6 }}
+            />
+          </Pressable>
+        </View>
       </View>
     </SafeAreaView>
   );
@@ -166,71 +283,137 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'space-between',
   },
+
+  // ── Header ──
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 24,
-    height: 52,
+    paddingHorizontal: SPACING.xl,
+    paddingTop: SPACING.md,
+  },
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  brandIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 6,
+  },
+  brandName: {
+    fontSize: FONT_SIZE.xl,
+    fontWeight: '800',
   },
   skipBtn: {
     paddingHorizontal: 12,
     paddingVertical: 6,
+    borderRadius: RADIUS.pill,
+    borderWidth: 1,
   },
   skipText: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
   },
+
+  // ── Slide Content ──
   slideContent: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 36,
+    paddingHorizontal: SPACING.xl,
   },
-  graphicContainer: {
-    width: 220,
-    height: 220,
-    borderRadius: 48,
+  graphicCard: {
+    width: '100%',
+    height: 200,
+    borderRadius: RADIUS.xl,
+    borderWidth: 1.5,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 44,
-    position: 'relative',
+    marginBottom: 28,
   },
-  graphicEmoji: {
-    fontSize: 56,
-    position: 'absolute',
-    top: 16,
-    right: 16,
+  ringOuter: {
+    width: 140,
+    height: 140,
+    borderRadius: RADIUS.pill,
+    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  ringInner: {
+    width: 104,
+    height: 104,
+    borderRadius: RADIUS.md,
+    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   iconCircle: {
-    width: 88,
-    height: 88,
-    borderRadius: 28,
+    width: 68,
+    height: 68,
+    borderRadius: RADIUS.pill,
+    overflow: 'hidden',
     justifyContent: 'center',
     alignItems: 'center',
   },
+  badgePill: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: RADIUS.pill,
+    marginTop: 10,
+    marginBottom: 4,
+  },
+  badgePillText: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+  },
+
   title: {
-    fontSize: 26,
+    fontSize: FONT_SIZE.hero,
     fontWeight: '800',
     textAlign: 'center',
-    marginBottom: 16,
-    letterSpacing: -0.5,
+    marginBottom: 10,
+    letterSpacing: -0.4,
   },
   description: {
-    fontSize: 15,
+    fontSize: FONT_SIZE.lg,
     textAlign: 'center',
-    lineHeight: 24,
-    maxWidth: 300,
+    lineHeight: 22,
+    maxWidth: 320,
+    marginBottom: 18,
   },
+  tagRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  featureTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: RADIUS.pill,
+    borderWidth: 1,
+  },
+  featureTagText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+
+  // ── Footer ──
   footer: {
-    paddingHorizontal: 24,
-    paddingBottom: 40,
+    paddingHorizontal: SPACING.xl,
+    paddingBottom: SPACING.lg,
     alignItems: 'center',
   },
   indicatorContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginBottom: 32,
+    marginBottom: 20,
     gap: 6,
     alignItems: 'center',
   },
@@ -238,22 +421,35 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
   },
-  button: {
+  buttonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
     width: '100%',
-    height: 56,
-    borderRadius: 18,
+  },
+  backBtn: {
+    width: 48,
+    height: 52,
+    borderRadius: RADIUS.pill,
+    borderWidth: 1.5,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  backBtnPlaceholder: {
+    width: 48,
+    height: 52,
+  },
+  button: {
+    flex: 1,
+    height: 52,
+    borderRadius: RADIUS.pill,
     justifyContent: 'center',
     alignItems: 'center',
     flexDirection: 'row',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 4,
   },
   buttonText: {
     color: '#ffffff',
-    fontSize: 16,
+    fontSize: FONT_SIZE.xl,
     fontWeight: '700',
     letterSpacing: 0.3,
   },

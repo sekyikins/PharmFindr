@@ -113,16 +113,17 @@ export default function Navigate() {
             onSelectMarker={() => {}}
             routeCoords={route?.coordinates}
             mapPadding={{ top: 70, right: 10, bottom: 100, left: 10 }}
+            showLegend={false}
           />
         </View>
 
         {/* Floating header */}
         <View style={[styles.floatingHeader, { paddingTop: insets.top }]}>
-          <Pressable style={({pressed})=>[styles.backBtn, pressed && {opacity: 0.5}, { backgroundColor: theme.card }]} onPress={() => router.back()}>
+          <Pressable style={({pressed})=>[styles.backBtn, pressed && {opacity: 0.5}, { backgroundColor: theme.card, borderColor: theme.border }]} onPress={() => router.back()}>
             <Ionicons name="arrow-back" size={18} color={theme.text.primary} />
           </Pressable>
 
-          <View style={[styles.directionsCard, { backgroundColor: theme.card }]}>
+          <View style={[styles.directionsCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
             {loading ? (
               <ActivityIndicator size="small" color={primaryColor} />
             ) : error ? (
@@ -217,12 +218,12 @@ const styles = StyleSheet.create({
   backBtn: {
     width: 44, height: 44, borderRadius: 22,
     justifyContent: 'center', alignItems: 'center',
-    shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 4, elevation: 4,
+    borderWidth: 1,
   },
   directionsCard: {
     flex: 1, flexDirection: 'row', alignItems: 'center',
     borderRadius: RADIUS.xl, paddingVertical: 10, paddingHorizontal: 14, gap: 12,
-    shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 4, elevation: 4,
+    borderWidth: 1.5,
   },
   directionsIconCircle: { width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center' },
   directionsTitle: { fontSize: FONT_SIZE.lg, fontWeight: '700' },

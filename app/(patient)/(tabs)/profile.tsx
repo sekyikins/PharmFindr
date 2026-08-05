@@ -23,27 +23,46 @@ import Svg, { Path } from 'react-native-svg';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import AvatarPickerSheet from '@/components/ui/AvatarPickerSheet';
 
-const MENU_ITEMS = [
-  { id: 'health', icon: 'fitness', label: 'Health Parameters', route: '/(patient)/health-profile' },
-  { id: 'reservations', icon: 'receipt', label: 'My Reservations', route: '/(patient)/reservations-history' },
-  { id: 'history', icon: 'time', label: 'Prescription History', route: '/(patient)/prescription-history' },
-  { id: 'saved', icon: 'heart', label: 'Saved Medicines', route: '/(patient)/medicines' },
-  { id: 'notifs', icon: 'notifications', label: 'Notifications', route: '/(patient)/notifications' },
-  { id: 'help', icon: 'help-circle', label: 'Help & Feedback', route: '/(patient)/help-feedback' },
+const MENU_GROUPS = [
+  {
+    title: 'CLINICAL & HEALTH',
+    items: [
+      { id: 'history', icon: 'time', color: '#3b82f6', label: 'Prescription History', route: '/(patient)/prescription-history' },
+      { id: 'saved', icon: 'heart', color: '#ec4899', label: 'Saved Medicines', route: '/(patient)/medicines' },
+    ],
+  },
+  {
+    title: 'ACTIVITY & ORDERS',
+    items: [
+      { id: 'reservations', icon: 'receipt', color: '#8b5cf6', label: 'My Reservations', route: '/(patient)/reservations-history' },
+      { id: 'notifs', icon: 'notifications', color: '#f59e0b', label: 'Notifications', route: '/(patient)/notifications' },
+    ],
+  },
+  {
+    title: 'SUPPORT & LEGAL',
+    items: [
+      { id: 'help', icon: 'help-circle', color: '#06b6d4', label: 'Help & Feedback', route: '/(patient)/help-feedback' },
+    ],
+  },
 ];
 
 export default function Profile() {
   const router = useRouter();
-  const { profile, user, signOut, updateProfile, uploadAvatar } = useAuthStore();
+  const { profile, appUser, user, signOut, refreshProfile, fetchAppUser, updateProfile, uploadAvatar } = useAuthStore();
   const { theme, primaryColor } = useThemeContext();
   const { width } = useWindowDimensions();
 
-  const [stats, setStats] = useState({ prescriptions: 0, reservations: 0 });
+  const [stats, setStats] = useState({ prescriptions: 0, reservations: 0, saved: 0 });
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const avatarSheetRef = useRef<BottomSheetModal>(null);
 
-  const displayName = profile?.full_name ?? 'User';
-  const initials = displayName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2);
+  const displayName = profile?.full_name || appUser?.full_name || 'Patient Profile';
+  const initials = displayName
+    .split(' ')
+    .map((n: string) => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
 
   const fetchStats = useCallback(async () => {
     if (!user?.id) return;
@@ -52,11 +71,16 @@ export default function Profile() {
         supabase.from('prescriptions').select('*', { count: 'exact', head: true }).eq('user_id', user.id),
         supabase.from('reservations').select('*', { count: 'exact', head: true }).eq('user_id', user.id),
       ]);
-      setStats({ prescriptions: rxCount ?? 0, reservations: resCount ?? 0 });
+
+      setStats({
+        prescriptions: rxCount ?? 0,
+        reservations: resCount ?? 0,
+        saved: (appUser?.allergies?.length || 0) + (appUser?.existing_conditions?.length || 0),
+      });
     } catch (e: any) {
       console.warn('Error fetching profile stats:', e.message);
     }
-  }, [user?.id]);
+  }, [user?.id, appUser]);
 
   useEffect(() => {
     fetchStats();
@@ -66,7 +90,13 @@ export default function Profile() {
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await fetchStats();
+    if (user?.id) {
+      await Promise.all([
+        refreshProfile(),
+        fetchAppUser(),
+        fetchStats(),
+      ]);
+    }
     setRefreshing(false);
   };
 
@@ -101,13 +131,30 @@ export default function Profile() {
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={primaryColor} colors={[primaryColor]} />
         }
       >
-        {/* ── Blue Hero ── */}
+        {/* ── Premium Hero Header ── */}
         <View style={[styles.hero, { backgroundColor: primaryColor }]}>
-          <Pressable style={({pressed})=>[styles.editAccountPill, pressed && {opacity: 0.5}, { position: 'absolute', right: 20, top: 30 }]} onPress={() => router.push('/(patient)/edit-account')}>
-            <Ionicons name="pencil" size={12} color="#fff" />
-            <Text style={styles.editAccountPillText}>Edit</Text>
-          </Pressable>
-          <Pressable style={({pressed})=>[styles.avatarWrapper, pressed && {opacity: 0.7}]} onPress={handlePickAvatar} disabled={uploadingAvatar}>
+          {/* Top Row: Verification & Edit */}
+          <View style={styles.heroTopRow}>
+            <View style={styles.verifiedBadge}>
+              <Ionicons name="shield-checkmark" size={13} color="#ffffff" />
+              <Text style={styles.verifiedBadgeText}>Verified Account</Text>
+            </View>
+
+            <Pressable
+              style={({ pressed }) => [styles.editAccountPill, pressed && { opacity: 0.7 }]}
+              onPress={() => router.push('/(patient)/edit-account')}
+            >
+              <Ionicons name="create-outline" size={14} color="#ffffff" />
+              <Text style={styles.editAccountPillText}>Edit Profile</Text>
+            </Pressable>
+          </View>
+
+          {/* Avatar */}
+          <Pressable
+            style={({ pressed }) => [styles.avatarWrapper, pressed && { opacity: 0.8 }]}
+            onPress={handlePickAvatar}
+            disabled={uploadingAvatar}
+          >
             <View style={styles.avatarCircle}>
               {profile?.avatar_url ? (
                 <Image source={{ uri: profile.avatar_url }} style={styles.avatarImage} />
@@ -124,59 +171,94 @@ export default function Profile() {
             </View>
           </Pressable>
 
+          {/* User Details */}
           <Text style={styles.heroName}>{displayName}</Text>
-          <Text style={styles.heroSub}>{profile?.phone ?? 'N/A'}</Text>          
+          <Text style={styles.heroSub}>{profile?.phone || user?.email || 'PharmFindr Patient'}</Text>
         </View>
 
-        
+        {/* SVG Wave Transition */}
+        <View style={{ backgroundColor: primaryColor }}>
+          <Svg width={width} height={22} viewBox={`0 0 ${width} 22`} style={{ display: 'flex' }}>
+            <Path d={`M0,22 Q${width / 2},0 ${width},22 L${width},22 L0,22 Z`} fill={theme.background} />
+          </Svg>
+        </View>
 
-          {/* ── SVG Wave Curve (exact Figma shape) ── */}
-            <View style={{ backgroundColor: primaryColor }}>
-              <Svg 
-                width={width} 
-                height={20} 
-                viewBox={`0 0 ${width} 20`}
-                style={{ display: 'flex' }}
-              >
-                <Path
-                  d={`M0,20 Q${width / 2},0 ${width},20 L${width},20 L0,20 Z`}
-                  fill={theme.background}
-                />
-              </Svg>
-            </View>
-
-        <View style={{paddingVertical:SPACING.lg}}>
-          {/* ── Stats Row ── */}
+        <View style={styles.bodyContent}>
+          {/* ── Stats Card ── */}
           <View style={[styles.statsCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
-            <StatItem value={stats.prescriptions} label="Prescriptions" theme={theme} valueColor={primaryColor} />
+            <StatItem value={stats.prescriptions} label="Prescriptions" icon="receipt-outline" theme={theme} valueColor={primaryColor} />
             <View style={[styles.statDivider, { backgroundColor: theme.border }]} />
-            <StatItem value={stats.reservations} label="Reservations" theme={theme} valueColor={primaryColor} />
+            <StatItem value={stats.reservations} label="Reservations" icon="time-outline" theme={theme} valueColor={primaryColor} />
           </View>
 
-          {/* ── Menu ── */}
-          <View>
-            {MENU_ITEMS.map((item) => (
-              <Pressable
-                key={item.id}
-                style={({pressed})=>[styles.menuRow, { borderBottomColor: theme.background }, pressed && { opacity: 0.5 }]}
-                onPress={() => item.route && router.push(item.route as any)}
-              >
-                <View style={[styles.menuIconCircle, { backgroundColor: theme.surfaceSecondary }]}>
-                  <Ionicons name={item.icon as any} size={18} color={theme.textMuted} />
+          {/* ── Clinical Protection Quick Banner ── */}
+          <Pressable
+            style={({ pressed }) => [
+              styles.healthQuickCard,
+              { backgroundColor: theme.card, borderColor: primaryColor + '30' },
+              pressed && { opacity: 0.85 },
+            ]}
+            onPress={() => router.push('/(patient)/health-profile')}
+          >
+            <View style={[styles.healthQuickIconCircle, { backgroundColor: primaryColor + '15' }]}>
+              <Ionicons name="shield-checkmark" size={20} color={primaryColor} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <View style={styles.healthQuickTitleRow}>
+                <Text style={[styles.healthQuickTitle, { color: theme.text.primary }]}>Health &amp; Safety Profile</Text>
+                <View style={[styles.activeTag, { backgroundColor: '#10b98115', borderColor: '#10b98140' }]}>
+                  <Text style={[styles.activeTagText, { color: '#10b981' }]}>Active</Text>
                 </View>
-                <Text style={[styles.menuLabel, { color: theme.text.primary }]}>{item.label}</Text>
-                <Ionicons name="chevron-forward" size={16} color={theme.text} />
-              </Pressable>
-            ))}
-          </View>
-
-            {/* Logout */}
-            <Pressable style={({pressed})=>[styles.signOut, {backgroundColor: theme.errorBg, borderColor: theme.error }, pressed && {opacity: 0.5}]} onPress={handleSignOut}>
-              <View style={[styles.menuIconCircle, { backgroundColor: theme.errorBg }]}>
-                <Ionicons name="log-out-outline" size={18} color={theme.error} />
               </View>
-              <Text style={[styles.menuLabel, { color: theme.error }]}>Logout</Text>
-            </Pressable>
+              <Text style={[styles.healthQuickSub, { color: theme.textMuted }]}>
+                {appUser?.allergies?.length || 0} Allergies • {appUser?.existing_conditions?.length || 0} Conditions • {appUser?.current_medications?.length || 0} Meds
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={theme.textDim} />
+          </Pressable>
+
+          {/* ── Categorized Menu Groups ── */}
+          {MENU_GROUPS.map((group) => (
+            <View key={group.title} style={styles.menuGroup}>
+              <Text style={[styles.groupTitle, { color: theme.textDim }]}>{group.title}</Text>
+              <View style={[styles.menuCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+                {group.items.map((item, idx) => {
+                  const isLast = idx === group.items.length - 1;
+                  return (
+                    <Pressable
+                      key={item.id}
+                      style={({ pressed }) => [
+                        styles.menuRow,
+                        !isLast && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: theme.border },
+                        pressed && { backgroundColor: theme.surfaceSecondary },
+                      ]}
+                      onPress={() => item.route && router.push(item.route as any)}
+                    >
+                      <View style={[styles.menuIconCircle, { backgroundColor: item.color + '15' }]}>
+                        <Ionicons name={item.icon as any} size={18} color={item.color} />
+                      </View>
+                      <Text style={[styles.menuLabel, { color: theme.text.primary }]}>{item.label}</Text>
+
+                      <Ionicons name="chevron-forward" size={16} color={theme.textDim} />
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+          ))}
+
+          {/* Logout Button */}
+          <Pressable
+            style={({ pressed }) => [
+              styles.signOutBtn,
+              { backgroundColor: theme.errorBg, borderColor: theme.error + '40' },
+              pressed && { opacity: 0.7 },
+            ]}
+            onPress={handleSignOut}
+          >
+            <Ionicons name="log-out-outline" size={20} color={theme.error} />
+            <Text style={[styles.signOutText, { color: theme.error }]}>Log Out of Account</Text>
+          </Pressable>
         </View>
       </ScrollView>
 
@@ -202,7 +284,13 @@ export default function Profile() {
             Alert.alert('Permission Denied', 'Media library permission is required.');
             return;
           }
-          const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.8, legacy: true });
+          const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ['images'],
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 0.8,
+            legacy: true,
+          });
           if (!result.canceled && result.assets?.[0]?.uri) {
             setUploadingAvatar(true);
             await uploadAvatar(result.assets[0].uri);
@@ -219,10 +307,13 @@ export default function Profile() {
   );
 }
 
-function StatItem({ value, label, theme, valueColor }: { value: number; label: string; theme: any; valueColor: string }) {
+function StatItem({ value, label, icon, theme, valueColor }: { value: number; label: string; icon: string; theme: any; valueColor: string }) {
   return (
     <View style={styles.statItem}>
-      <Text style={[styles.statValue, { color: valueColor }]}>{value}</Text>
+      <View style={styles.statIconRow}>
+        <Ionicons name={icon as any} size={15} color={valueColor} />
+        <Text style={[styles.statValue, { color: valueColor }]}>{value}</Text>
+      </View>
       <Text style={[styles.statLabel, { color: theme.textMuted }]}>{label}</Text>
     </View>
   );
@@ -234,95 +325,172 @@ const styles = StyleSheet.create({
   // ── Hero ──
   hero: {
     alignItems: 'center',
-    paddingTop: 32,
-    paddingBottom: 0,
+    paddingTop: 16,
+    paddingBottom: 4,
     paddingHorizontal: SPACING.xl,
   },
-  avatarWrapper: {
-    position: 'relative',
-    marginBottom: 12,
-  },
-  avatarCircle: {
-    width: 84,
-    height: 84,
-    borderRadius: 42,
-    backgroundColor: '#ffffff',
-    justifyContent: 'center',
+  heroTopRow: {
+    width: '100%',
+    flexDirection: 'row',
     alignItems: 'center',
-    overflow: 'hidden',
+    justifyContent: 'space-between',
+    marginBottom: 16,
   },
-  avatarImage: { width: 84, height: 84, borderRadius: 42 },
-  avatarEditBadge: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    justifyContent: 'center',
+  verifiedBadge: {
+    flexDirection: 'row',
     alignItems: 'center',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
+    gap: 5,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: RADIUS.pill,
   },
-  avatarText: { fontSize: 28, fontWeight: '700' },
-  heroName: { fontSize: FONT_SIZE.hero, fontWeight: '700', color: '#ffffff', marginBottom: 4 },
-  heroSub: { fontSize: FONT_SIZE.lg, color: 'rgba(255,255,255,0.8)', marginBottom: 8 },
+  verifiedBadgeText: { color: '#ffffff', fontSize: 11, fontWeight: '700' },
+
   editAccountPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 5,
     backgroundColor: 'rgba(255,255,255,0.2)',
     paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: RADIUS.pill,
-    marginBottom: 12,
   },
-  editAccountPillText: { color: '#ffffff', fontSize: FONT_SIZE.sm, fontWeight: '600' },
+  editAccountPillText: { color: '#ffffff', fontSize: 12, fontWeight: '700' },
+
+  avatarWrapper: {
+    position: 'relative',
+    marginBottom: 10,
+  },
+  avatarCircle: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: '#ffffff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+    borderWidth: 3,
+    borderColor: 'rgba(255,255,255,0.4)',
+  },
+  avatarImage: { width: 88, height: 88, borderRadius: 44 },
+  avatarEditBadge: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#ffffff',
+  },
+  avatarText: { fontSize: 30, fontWeight: '700' },
+  heroName: { fontSize: 22, fontWeight: '700', color: '#ffffff', marginBottom: 2 },
+  heroSub: { fontSize: 13, color: 'rgba(255,255,255,0.85)', marginBottom: 8 },
+
+  bodyContent: {
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.md,
+  },
 
   // ── Stats ──
   statsCard: {
-    marginBottom: SPACING.md,
-    marginHorizontal: SPACING.md,
     flexDirection: 'row',
     borderRadius: RADIUS.xl,
-    padding: SPACING.lg,
-    borderWidth: 1,
+    padding: 16,
+    borderWidth: 1.2,
+    marginBottom: 16,
   },
   statItem: { flex: 1, alignItems: 'center' },
-  statValue: { fontSize: FONT_SIZE.hero, fontWeight: '700', marginBottom: 2 },
-  statLabel: { fontSize: FONT_SIZE.md },
+  statIconRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 },
+  statValue: { fontSize: 22, fontWeight: '800' },
+  statLabel: { fontSize: 12, fontWeight: '600' },
   statDivider: { width: 1, marginVertical: 4 },
 
-  // ── Menu ──
+  // Health Quick Banner
+  healthQuickCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 14,
+    borderRadius: RADIUS.xl,
+    borderWidth: 1.2,
+    marginBottom: 20,
+  },
+  healthQuickIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  healthQuickTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  healthQuickTitle: { fontSize: 14, fontWeight: '700' },
+  healthQuickSub: { fontSize: 11, marginTop: 2 },
+  activeTag: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: RADIUS.pill,
+    borderWidth: 1,
+  },
+  activeTagText: { fontSize: 10, fontWeight: '700' },
+
+  // Menu Groups
+  menuGroup: {
+    marginBottom: 18,
+  },
+  groupTitle: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+    marginBottom: 8,
+    paddingLeft: 4,
+  },
+  menuCard: {
+    borderRadius: RADIUS.xl,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
   menuRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
+    paddingVertical: 14,
     paddingHorizontal: 16,
-  },
-  
-  signOut: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    alignSelf: 'center',
-    width: '95%',
-    borderRadius: RADIUS.pill,
-    borderWidth: 1,
-    marginTop: 20,
   },
   menuIconCircle: {
     width: 36,
     height: 36,
-    borderRadius: RADIUS.md,
+    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 14,
   },
-  menuLabel: { flex: 1, fontSize: FONT_SIZE.lg, fontWeight: '700' },
+  menuLabel: { flex: 1, fontSize: FONT_SIZE.md, fontWeight: '600' },
+  itemBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: RADIUS.pill,
+    borderWidth: 1,
+    marginRight: 8,
+  },
+  itemBadgeText: { fontSize: 10, fontWeight: '700' },
+
+  // Sign Out
+  signOutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    height: 48,
+    borderRadius: RADIUS.pill,
+    borderWidth: 1,
+    marginVertical: 8,
+  },
+  signOutText: { fontSize: FONT_SIZE.md, fontWeight: '700' },
 });

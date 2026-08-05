@@ -1,60 +1,70 @@
 import React, { useEffect, useState } from 'react';
-import { 
-  StyleSheet, 
-  Text, 
-  View, 
-  ScrollView, 
+import {
+  StyleSheet,
+  Text,
+  View,
+  ScrollView,
   ActivityIndicator,
   Linking,
-  Pressable
+  Pressable,
+  Alert,
+  RefreshControl,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { colors } from '@/theme/colors';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import { useThemeContext } from '@/hooks/useThemeContext';
 import { Header } from '@/components/ui/Header';
-import { Card } from '@/components/ui/Card';
-import { Badge } from '@/components/ui/Badge';
-import { Button } from '@/components/ui/Button';
+import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
 import { supabase } from '@/lib/supabase';
+
+const PHARMACY_GREEN = '#10b981';
 
 export default function PharmacyReservationDetails() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const theme = colors.light;
+  const { theme } = useThemeContext();
 
   const [reservation, setReservation] = useState<any>(null);
   const [patient, setPatient] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [updating, setUpdating] = useState(false);
 
   useEffect(() => {
     fetchReservation();
   }, [id]);
 
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchReservation();
+    setRefreshing(false);
+  };
+
   const fetchReservation = async () => {
+    if (!id) return;
     setLoading(true);
     try {
       const { data: resData, error: resErr } = await supabase
         .from('reservations')
         .select('*')
         .eq('id', id)
-        .single();
+        .maybeSingle();
 
       if (resErr) throw resErr;
       setReservation(resData);
 
       if (resData?.user_id) {
-        const { data: profileData, error: profErr } = await supabase
+        const { data: profileData } = await supabase
           .from('app_users')
           .select('*')
           .eq('id', resData.user_id)
-          .single();
+          .maybeSingle();
 
-        if (profErr) throw profErr;
         setPatient(profileData);
       }
-    } catch (e) {
-      console.error('Error fetching reservation details:', e);
+    } catch (e: any) {
+      console.warn('Error fetching reservation details:', e.message);
     } finally {
       setLoading(false);
     }
@@ -68,15 +78,16 @@ export default function PharmacyReservationDetails() {
         updates.expires_at = new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString();
       }
 
-      const { error } = await supabase
-        .from('reservations')
-        .update(updates)
-        .eq('id', id);
+      const { error } = await supabase.from('reservations').update(updates).eq('id', id);
 
       if (error) throw error;
+      Alert.alert(
+        'Status Updated',
+        `Reservation has been ${status}.`
+      );
       fetchReservation();
-    } catch (e) {
-      console.error('Error updating status:', e);
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'Failed to update status.');
     } finally {
       setUpdating(false);
     }
@@ -85,106 +96,194 @@ export default function PharmacyReservationDetails() {
   if (loading) {
     return (
       <SafeAreaView style={[styles.loadingCenter, { backgroundColor: theme.background }]}>
-        <ActivityIndicator size="large" color={theme.pharmacy.primary} />
+        <ActivityIndicator size="large" color={PHARMACY_GREEN} />
       </SafeAreaView>
     );
   }
 
-  const items = reservation?.medicines || [];
-  const isPending = reservation?.status === 'pending';
-  const isAccepted = reservation?.status === 'accepted';
+  if (!reservation) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+        <Header title="Reservation Detail" showBack onBack={() => router.back()} />
+        <View style={styles.loadingCenter}>
+          <Text style={{ color: theme.textMuted }}>Reservation not found.</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const items = reservation.medicines || [];
+  const isPending = reservation.status === 'pending';
+  const isAccepted = reservation.status === 'accepted';
+  const isDeclined = reservation.status === 'declined';
+  const isCollected = reservation.status === 'collected';
+
+  const refCode = `RES-${(id || '').substring(0, 6).toUpperCase()}`;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
-      <Header title="Reservation Request" showBack onBack={() => router.canGoBack() ? router.back() : router.navigate('/(pharmacy)/(tabs)/reservations')} />
+      <Header title="Reservation Detail" showBack onBack={() => router.back()} />
 
-      <ScrollView contentContainerStyle={styles.scrollContent}
+      <ScrollView
+        contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
-        showsHorizontalScrollIndicator={false}>
-        {/* Status Card */}
-        <Card style={styles.card}>
-          <Text style={[styles.label, { color: theme.text.secondary }]}>Current Status</Text>
-          <View style={styles.statusRow}>
-            <Badge 
-              label={reservation?.status || 'pending'} 
-              status={
-                reservation?.status === 'accepted' ? 'success' : 
-                reservation?.status === 'pending' ? 'warning' : 
-                reservation?.status === 'declined' ? 'error' : 'success'
-              } 
-            />
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={PHARMACY_GREEN}
+            colors={[PHARMACY_GREEN]}
+          />
+        }
+      >
+        {/* Status Banner */}
+        {isPending && (
+          <View style={[styles.banner, { backgroundColor: '#fff7ed', borderColor: '#ffd6a8' }]}>
+            <Ionicons name="time-outline" size={18} color="#ca3500" />
+            <Text style={[styles.bannerText, { color: '#ca3500' }]}>Awaiting your response</Text>
           </View>
-        </Card>
+        )}
+        {isAccepted && (
+          <View style={[styles.banner, { backgroundColor: '#ecfdf5', borderColor: '#a7f3d0' }]}>
+            <Ionicons name="checkmark-circle-outline" size={18} color="#047857" />
+            <Text style={[styles.bannerText, { color: '#047857' }]}>Accepted — Ready for pickup</Text>
+          </View>
+        )}
+        {isDeclined && (
+          <View style={[styles.banner, { backgroundColor: '#fef2f2', borderColor: '#fecaca' }]}>
+            <Ionicons name="close-circle-outline" size={18} color="#b91c1c" />
+            <Text style={[styles.bannerText, { color: '#b91c1c' }]}>Declined</Text>
+          </View>
+        )}
+        {isCollected && (
+          <View style={[styles.banner, { backgroundColor: '#eff6ff', borderColor: '#bfdbfe' }]}>
+            <Ionicons name="gift-outline" size={18} color="#1d4ed8" />
+            <Text style={[styles.bannerText, { color: '#1d4ed8' }]}>Collected by patient</Text>
+          </View>
+        )}
 
-        {/* Patient Details */}
-        <Card style={styles.card}>
-          <Text style={[styles.cardTitle, { color: theme.text.primary }]}>Patient Information</Text>
-          <Text style={[styles.patientName, { color: theme.text.primary }]}>
-            👤 {patient?.full_name || 'Patient'}
-          </Text>
-          {patient?.phone && (
-            <Pressable style={({pressed})=>[pressed && {opacity: 0.5}]} onPress={() => Linking.openURL(`tel:${patient.phone}`)}>
-              <Text style={[styles.phoneLink, { color: theme.pharmacy.primary }]}>
-                📞 {patient.phone} (Call Patient)
-              </Text>
-            </Pressable>
-          )}
-        </Card>
+        {/* Card 1: Reservation Info */}
+        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
+          <Text style={[styles.cardHeading, { color: theme.textMuted }]}>RESERVATION INFO</Text>
 
-        {/* Medicines Reserved */}
-        <Card style={styles.card}>
-          <Text style={[styles.cardTitle, { color: theme.text.primary }]}>Requested Medicines</Text>
-          {items.map((item: any, idx: number) => (
-            <View key={idx} style={[styles.itemRow, { borderBottomColor: theme.border }]}>
-              <View>
-                <Text style={[styles.itemName, { color: theme.text.primary }]}>
-                  {item.name} {item.strength || ''}
-                </Text>
-                <Text style={[styles.itemQty, { color: theme.text.secondary }]}>
-                  Qty: {item.quantity}
-                </Text>
-              </View>
-              <Text style={[styles.itemPrice, { color: theme.text.primary }]}>
-                GH₵ {(item.price * item.quantity).toFixed(2)}
-              </Text>
-            </View>
-          ))}
+          <View style={styles.infoRow}>
+            <Text style={[styles.infoLabel, { color: theme.textMuted }]}>Reference</Text>
+            <Text style={[styles.infoVal, { color: theme.text.primary }]}>{refCode}</Text>
+          </View>
 
-          <View style={styles.totalRow}>
-            <Text style={[styles.totalLabel, { color: theme.text.primary }]}>Total Cost</Text>
-            <Text style={[styles.totalVal, { color: theme.pharmacy.primary }]}>
-              GH₵ {Number(reservation?.total_cost || 0).toFixed(2)}
+          <View style={styles.infoRow}>
+            <Text style={[styles.infoLabel, { color: theme.textMuted }]}>Date</Text>
+            <Text style={[styles.infoVal, { color: theme.text.primary }]}>
+              {new Date(reservation.created_at).toLocaleDateString()}
             </Text>
           </View>
-        </Card>
 
-        {/* Action Controls */}
+          <View style={styles.infoRow}>
+            <Text style={[styles.infoLabel, { color: theme.textMuted }]}>Est. Total</Text>
+            <Text style={[styles.infoVal, { color: PHARMACY_GREEN, fontWeight: '800' }]}>
+              GHS {parseFloat(reservation.total_cost || 0).toFixed(2)}
+            </Text>
+          </View>
+        </View>
+
+        {/* Card 2: Patient Details */}
+        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
+          <Text style={[styles.cardHeading, { color: theme.textMuted }]}>PATIENT DETAILS</Text>
+
+          <View style={styles.infoRow}>
+            <Text style={[styles.infoLabel, { color: theme.textMuted }]}>Name</Text>
+            <Text style={[styles.infoVal, { color: theme.text.primary }]}>
+              {patient?.full_name || 'Patient'}
+            </Text>
+          </View>
+
+          {patient?.phone && (
+            <View style={styles.infoRow}>
+              <Text style={[styles.infoLabel, { color: theme.textMuted }]}>Phone</Text>
+              <Pressable
+                onPress={() => Linking.openURL(`tel:${patient.phone}`)}
+                style={({ pressed }) => [
+                  styles.phoneBtn,
+                  pressed && { opacity: 0.6 },
+                ]}
+              >
+                <Ionicons name="call-outline" size={14} color={PHARMACY_GREEN} />
+                <Text style={[styles.phoneText, { color: PHARMACY_GREEN }]}>{patient.phone}</Text>
+              </Pressable>
+            </View>
+          )}
+        </View>
+
+        {/* Card 3: Requested Medicines */}
+        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
+          <Text style={[styles.cardHeading, { color: theme.textMuted }]}>REQUESTED MEDICINES</Text>
+
+          <View style={{ gap: 10, marginTop: 4 }}>
+            {items.map((med: string, idx: number) => (
+              <View
+                key={idx}
+                style={[
+                  styles.medItem,
+                  { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
+                ]}
+              >
+                <Ionicons name="medkit-outline" size={18} color={PHARMACY_GREEN} />
+                <Text style={[styles.medName, { color: theme.text.primary }]}>{med}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        {/* Action Buttons */}
         {isPending && (
-          <View style={styles.btnRow}>
-            <Button 
-              title="Accept Request" 
-              loading={updating}
+          <View style={styles.actionCol}>
+            <Pressable
+              style={({ pressed }) => [
+                styles.acceptBtn,
+                pressed && { opacity: 0.8 },
+                { backgroundColor: PHARMACY_GREEN },
+              ]}
               onPress={() => updateStatus('accepted')}
-              style={{ flex: 1 }}
-            />
-            <Button 
-              title="Decline" 
-              variant="outline"
-              loading={updating}
+              disabled={updating}
+            >
+              {updating ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <>
+                  <Ionicons name="checkmark-circle" size={18} color="#fff" />
+                  <Text style={styles.btnText}>Accept Order</Text>
+                </>
+              )}
+            </Pressable>
+
+            <Pressable
+              style={({ pressed }) => [
+                styles.declineBtn,
+                pressed && { opacity: 0.8 },
+                { backgroundColor: '#fef2f2', borderColor: '#fecaca' },
+              ]}
               onPress={() => updateStatus('declined')}
-              style={{ flex: 1, borderColor: theme.error }}
-              textStyle={{ color: theme.error }}
-            />
+              disabled={updating}
+            >
+              <Ionicons name="close-circle-outline" size={18} color="#ef4444" />
+              <Text style={[styles.btnText, { color: '#ef4444' }]}>Decline Order</Text>
+            </Pressable>
           </View>
         )}
 
         {isAccepted && (
-          <Button 
-            title="Mark as Collected" 
-            loading={updating}
+          <Pressable
+            style={({ pressed }) => [
+              styles.acceptBtn,
+              pressed && { opacity: 0.8 },
+              { backgroundColor: '#0f172a' },
+            ]}
             onPress={() => updateStatus('collected')}
-            style={styles.collectedBtn}
-          />
+            disabled={updating}
+          >
+            <Ionicons name="gift-outline" size={18} color="#fff" />
+            <Text style={styles.btnText}>Mark as Collected</Text>
+          </Pressable>
         )}
       </ScrollView>
     </SafeAreaView>
@@ -192,89 +291,93 @@ export default function PharmacyReservationDetails() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
+  container: { flex: 1 },
+  loadingCenter: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  scroll: { padding: SPACING.xl, gap: SPACING.md },
+
+  banner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: SPACING.md,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
   },
-  loadingCenter: {
-    flex: 1,
+  bannerText: {
+    fontSize: FONT_SIZE.md,
+    fontWeight: '700',
+  },
+
+  card: {
+    borderRadius: RADIUS.xl,
+    padding: SPACING.lg,
+    borderWidth: 1.5,
+    gap: 12,
+  },
+  cardHeading: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  infoLabel: {
+    fontSize: FONT_SIZE.md,
+  },
+  infoVal: {
+    fontSize: FONT_SIZE.lg,
+    fontWeight: '700',
+  },
+  phoneBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  phoneText: {
+    fontSize: FONT_SIZE.md,
+    fontWeight: '700',
+  },
+
+  medItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: SPACING.md,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+  },
+  medName: {
+    fontSize: FONT_SIZE.lg,
+    fontWeight: '700',
+  },
+
+  actionCol: {
+    gap: 10,
+    marginTop: 8,
+  },
+  acceptBtn: {
+    height: 48,
+    borderRadius: RADIUS.pill,
+    flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+    gap: 8,
   },
-  scrollContent: {
-    padding: 24,
-  },
-  card: {
-    marginBottom: 20,
-  },
-  label: {
-    fontSize: 10,
-    fontWeight: 'bold',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 8,
-  },
-  statusRow: {
-    alignItems: 'flex-start',
-  },
-  cardTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    marginBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
-    paddingBottom: 8,
-  },
-  patientName: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    marginBottom: 8,
-  },
-  phoneLink: {
-    fontSize: 13,
-    textDecorationLine: 'underline',
-  },
-  itemRow: {
+  declineBtn: {
+    height: 48,
+    borderRadius: RADIUS.pill,
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
+    gap: 8,
+    borderWidth: 1,
   },
-  itemName: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  itemQty: {
-    fontSize: 12,
-    marginTop: 2,
-  },
-  itemPrice: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  totalRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: 16,
-  },
-  totalLabel: {
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  totalVal: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  btnRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 16,
-    marginBottom: 40,
-  },
-  collectedBtn: {
-    marginTop: 16,
-    marginBottom: 40,
-    width: '100%',
+  btnText: {
+    color: '#fff',
+    fontSize: FONT_SIZE.lg,
+    fontWeight: '700',
   },
 });

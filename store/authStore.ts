@@ -8,6 +8,34 @@ import {
   revokeAllOtherSessions,
 } from '@/lib/deviceSession';
 import { enqueueOfflineAction } from '@/lib/offlineSyncQueue';
+import * as FileSystem from 'expo-file-system/legacy';
+import { Platform } from 'react-native';
+
+/** Base64 to ArrayBuffer helper for React Native Native uploads */
+function base64ToArrayBuffer(base64: string): ArrayBuffer {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
+  let str = base64.replace(/=+$/, '');
+  let output = '';
+  for (let i = 0; i < str.length; i += 4) {
+    const enc1 = chars.indexOf(str.charAt(i));
+    const enc2 = chars.indexOf(str.charAt(i + 1));
+    const enc3 = chars.indexOf(str.charAt(i + 2));
+    const enc4 = chars.indexOf(str.charAt(i + 3));
+
+    const chr1 = (enc1 << 2) | (enc2 >> 4);
+    const chr2 = ((enc2 & 15) << 4) | (enc3 >> 2);
+    const chr3 = ((enc3 & 3) << 6) | enc4;
+
+    output += String.fromCharCode(chr1);
+    if (enc3 !== 64 && enc3 !== -1) output += String.fromCharCode(chr2);
+    if (enc4 !== 64 && enc4 !== -1) output += String.fromCharCode(chr3);
+  }
+  const bytes = new Uint8Array(output.length);
+  for (let i = 0; i < output.length; i++) {
+    bytes[i] = output.charCodeAt(i);
+  }
+  return bytes.buffer;
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -78,6 +106,7 @@ interface AuthState {
   updateAppUser: (data: Partial<AppUser>) => Promise<void>;
   updateProfile: (data: Partial<Pick<Profile, 'full_name' | 'phone' | 'avatar_url'>>) => Promise<void>;
   uploadAvatar: (imageUri: string) => Promise<string | null>;
+  refreshProfile: () => Promise<void>;
 }
 
 // ─── Role + profile resolution ───────────────────────────────────────────────
@@ -88,18 +117,34 @@ interface AuthState {
  */
 async function resolveProfile(userId: string): Promise<Profile | null> {
   // 1. Fast role lookup (1 row, indexed PK)
-  const { data: roleRow, error: roleErr } = await supabase
+  const { data: roleRow } = await supabase
     .from('user_roles')
     .select('id, role')
     .eq('id', userId)
     .single();
 
-  if (roleErr || !roleRow) {
-    console.warn('user_roles lookup failed:', roleErr?.message);
-    return null;
-  }
+  let role: 'user' | 'pharmacy' | 'both' = (roleRow?.role as any) || 'user';
 
-  const role = roleRow.role as 'user' | 'pharmacy' | 'both';
+  // Fallback: Check if user is an owner in pharmacies table
+  if (!roleRow || role === 'user') {
+    const { data: pharm } = await supabase
+      .from('pharmacies')
+      .select('id, name, phone, created_at')
+      .eq('owner_id', userId)
+      .maybeSingle();
+
+    if (pharm) {
+      role = 'pharmacy';
+      return {
+        id: userId,
+        role: 'pharmacy',
+        full_name: pharm.name ?? 'Pharmacy Manager',
+        phone: pharm.phone ?? null,
+        avatar_url: null,
+        created_at: pharm.created_at ?? new Date().toISOString(),
+      };
+    }
+  }
 
   // For 'user' and 'both': identity lives in app_users
   if (role === 'user' || role === 'both') {
@@ -107,7 +152,7 @@ async function resolveProfile(userId: string): Promise<Profile | null> {
       .from('app_users')
       .select('id, full_name, phone, avatar_url, created_at')
       .eq('id', userId)
-      .single();
+      .maybeSingle();
 
     return {
       id: userId,
@@ -123,12 +168,12 @@ async function resolveProfile(userId: string): Promise<Profile | null> {
       .from('pharmacies')
       .select('name, phone, created_at')
       .eq('owner_id', userId)
-      .single();
+      .maybeSingle();
 
     return {
       id: userId,
-      role,
-      full_name: pharmacy?.name ?? null,
+      role: 'pharmacy',
+      full_name: pharmacy?.name ?? 'Pharmacy Manager',
       phone: pharmacy?.phone ?? null,
       avatar_url: null,
       created_at: pharmacy?.created_at ?? new Date().toISOString(),
@@ -172,9 +217,8 @@ export const useAuthStore = create<AuthState>((set, get) => {
     signUp: async (phone, email, password, role, fullName) => {
       set({ loading: true });
 
-      const finalEmail = role === 'pharmacy'
-        ? `${phone.replace(/\s+/g, '')}@pharmafindr.com`
-        : email.trim();
+      const cleanEmail = email && email.trim() ? email.trim() : null;
+      const finalEmail = cleanEmail || `${phone.replace(/[\s+]+/g, '')}@PharmFindr.com`;
 
       const { data, error } = await supabase.auth.signUp({
         email: finalEmail,
@@ -184,7 +228,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
             role,
             full_name: fullName,
             phone,
-            business_email: role === 'pharmacy' ? email.trim() : undefined,
+            business_email: cleanEmail,
           },
         },
       });
@@ -208,7 +252,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
 
       const email = emailOrPhone.includes('@')
         ? emailOrPhone.trim()
-        : `${emailOrPhone.replace(/\s+/g, '')}@pharmafindr.com`;
+        : `${emailOrPhone.replace(/[\s+]+/g, '')}@PharmFindr.com`;
 
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
@@ -371,7 +415,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
       const currentProfile = get().profile;
       if (!user) return;
 
-      // Optimistic local update
+      // Optimistic local update in Zustand state
       set({
         profile: currentProfile
           ? { ...currentProfile, ...dataToUpdate }
@@ -379,21 +423,37 @@ export const useAuthStore = create<AuthState>((set, get) => {
       });
 
       const role = currentProfile?.role ?? 'user';
+      const isRemoteUrl = !dataToUpdate.avatar_url || dataToUpdate.avatar_url.startsWith('http');
 
-      if (role === 'user') {
-        try {
-          const { error } = await supabase.from('app_users').upsert({
-            id: user.id,
-            full_name: dataToUpdate.full_name ?? currentProfile?.full_name,
-            phone: dataToUpdate.phone ?? currentProfile?.phone,
-            avatar_url: dataToUpdate.avatar_url ?? currentProfile?.avatar_url,
-            updated_at: new Date().toISOString(),
-          });
-          if (error) throw error;
-        } catch (e) {
-          console.warn('Profile update enqueued offline.');
-          await enqueueOfflineAction('UPDATE_PROFILE', user.id, dataToUpdate);
+      // Only save avatar_url to DB if it is a remote HTTP/HTTPS URL or null (NEVER blob: or file:)
+      try {
+        const payload: any = {
+          id: user.id,
+          full_name: dataToUpdate.full_name ?? currentProfile?.full_name,
+          phone: dataToUpdate.phone ?? currentProfile?.phone,
+          updated_at: new Date().toISOString(),
+        };
+        if (isRemoteUrl && dataToUpdate.avatar_url !== undefined) {
+          payload.avatar_url = dataToUpdate.avatar_url;
         }
+
+        if (role === 'user' || role === 'both') {
+          await supabase.from('app_users').upsert(payload);
+        }
+
+        if (role === 'pharmacy' || role === 'both') {
+          const pharmPayload: any = {
+            name: dataToUpdate.full_name ?? currentProfile?.full_name,
+            phone: dataToUpdate.phone ?? currentProfile?.phone,
+          };
+          if (isRemoteUrl && dataToUpdate.avatar_url !== undefined) {
+            pharmPayload.avatar_url = dataToUpdate.avatar_url;
+          }
+          await supabase.from('pharmacies').update(pharmPayload).eq('owner_id', user.id);
+        }
+      } catch (e) {
+        console.warn('Profile update enqueued offline.');
+        await enqueueOfflineAction('UPDATE_PROFILE', user.id, dataToUpdate);
       }
     },
 
@@ -402,39 +462,76 @@ export const useAuthStore = create<AuthState>((set, get) => {
       const user = get().user;
       if (!user) return null;
 
-      // Optimistic local update
-      await get().updateProfile({ avatar_url: imageUri });
+      const previousProfile = get().profile;
 
       try {
-        const fileExt = imageUri.split('.').pop()?.toLowerCase() || 'jpg';
+        const cleanUri = imageUri.split('?')[0];
+        const fileExt = cleanUri.split('.').pop()?.toLowerCase() || 'jpg';
         const fileName = `${user.id}-${Date.now()}.${fileExt}`;
+        const contentType = `image/${fileExt === 'png' ? 'png' : fileExt === 'webp' ? 'webp' : 'jpeg'}`;
 
-        const response = await fetch(imageUri);
-        const blob = await response.blob();
+        let fileData: any;
 
+        if (Platform.OS === 'web') {
+          // Web: fetch blob URL natively
+          const res = await fetch(imageUri);
+          fileData = await res.blob();
+        } else {
+          // Native iOS & Android: read via FileSystem legacy API into Base64 -> ArrayBuffer
+          const base64 = await FileSystem.readAsStringAsync(imageUri, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+          fileData = base64ToArrayBuffer(base64);
+        }
+
+        // 1. Upload file to public Supabase Storage bucket 'avatars'
         const { data: uploadData, error: uploadErr } = await supabase.storage
           .from('avatars')
-          .upload(fileName, blob, {
-            contentType: `image/${fileExt === 'png' ? 'png' : 'jpeg'}`,
+          .upload(fileName, fileData, {
+            contentType,
             upsert: true,
           });
 
-        if (!uploadErr && uploadData) {
-          const { data: urlData } = supabase.storage
-            .from('avatars')
-            .getPublicUrl(fileName);
-          if (urlData?.publicUrl) {
-            await get().updateProfile({ avatar_url: urlData.publicUrl });
-            return urlData.publicUrl;
-          }
-        } else {
-          throw new Error(uploadErr?.message || 'Storage upload error');
+        if (uploadErr) {
+          console.error('Supabase avatars storage error:', uploadErr.message);
+          throw uploadErr;
+        }
+
+        // 2. Get the permanent public HTTP URL from Supabase Storage
+        const { data: urlData } = supabase.storage
+          .from('avatars')
+          .getPublicUrl(fileName);
+
+        const publicUrl = urlData?.publicUrl;
+
+        if (publicUrl) {
+          // 3. Save permanent public URL in database tables & Zustand store
+          await get().updateProfile({ avatar_url: publicUrl });
+          return publicUrl;
         }
       } catch (e: any) {
-        console.warn('Avatar upload enqueued for offline sync:', e?.message || e);
+        console.warn('Avatar upload warning:', e?.message || e);
+        // Revert profile state on failure so broken blob: URLs do not remain stuck in memory
+        if (previousProfile) {
+          set({ profile: previousProfile });
+        }
         await enqueueOfflineAction('UPLOAD_AVATAR', user.id, { imageUri });
       }
-      return imageUri;
+
+      return null;
+    },
+
+    refreshProfile: async () => {
+      const user = get().user;
+      if (!user) return;
+      try {
+        const freshProfile = await resolveProfile(user.id);
+        if (freshProfile) {
+          set({ profile: freshProfile });
+        }
+      } catch (e: any) {
+        console.warn('refreshProfile error:', e?.message || e);
+      }
     },
   };
 });

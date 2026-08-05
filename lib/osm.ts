@@ -15,41 +15,64 @@ export interface OsmPharmacy {
   isOpen?: boolean;
 }
 
+function parseTimeMinutes(timeStr?: string | null): number | null {
+  if (!timeStr) return null;
+  const [h, m] = timeStr.split(':').map(Number);
+  return !isNaN(h) ? h * 60 + (m || 0) : null;
+}
+
+function isTimeWithin(openMin: number, closeMin: number, currentMin: number): boolean {
+  return closeMin > openMin
+    ? currentMin >= openMin && currentMin <= closeMin
+    : currentMin >= openMin || currentMin <= closeMin;
+}
+
 /**
  * Evaluate whether opening hours indicate the pharmacy is open now.
  */
-export function checkIsOpen(openingTime?: string | null, closingTime?: string | null, rawHours?: string | null): boolean {
+export function checkIsOpen(
+  openingTime?: string | null,
+  closingTime?: string | null,
+  rawHours?: string | null,
+  operatingHours?: any[] | null
+): boolean {
   try {
-    if (rawHours && /off|closed/i.test(rawHours)) return false;
-
     const now = new Date();
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const currentDayName = dayNames[now.getDay()];
     const currentMin = now.getHours() * 60 + now.getMinutes();
 
-    if (openingTime && closingTime) {
-      const [oH, oM] = openingTime.split(':').map(Number);
-      const [cH, cM] = closingTime.split(':').map(Number);
-      if (!isNaN(oH) && !isNaN(cH)) {
-        const openMin = oH * 60 + (oM || 0);
-        const closeMin = cH * 60 + (cM || 0);
-        if (closeMin > openMin) {
-          return currentMin >= openMin && currentMin <= closeMin;
-        } else {
-          return currentMin >= openMin || currentMin <= closeMin;
+    // 1. Check detailed weekly schedule array
+    if (operatingHours && Array.isArray(operatingHours) && operatingHours.length > 0) {
+      const todaySchedule = operatingHours.find(
+        (item: any) => item.day?.toLowerCase() === currentDayName.toLowerCase()
+      );
+      if (todaySchedule) {
+        if (!todaySchedule.isOpen) return false;
+        const openMin = parseTimeMinutes(todaySchedule.opens);
+        const closeMin = parseTimeMinutes(todaySchedule.closes);
+        if (openMin !== null && closeMin !== null) {
+          return isTimeWithin(openMin, closeMin, currentMin);
         }
       }
     }
 
+    // 2. Check default opening_time & closing_time
+    const openMin = parseTimeMinutes(openingTime);
+    const closeMin = parseTimeMinutes(closingTime);
+    if (openMin !== null && closeMin !== null) {
+      return isTimeWithin(openMin, closeMin, currentMin);
+    }
+
+    // 3. Check raw OSM hours string
     if (rawHours) {
       if (/24\s*hours|24\/7/i.test(rawHours)) return true;
+      if (/off|closed/i.test(rawHours)) return false;
       const match = rawHours.match(/(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})/);
       if (match) {
-        const openMin = parseInt(match[1], 10) * 60 + parseInt(match[2], 10);
-        const closeMin = parseInt(match[3], 10) * 60 + parseInt(match[4], 10);
-        if (closeMin > openMin) {
-          return currentMin >= openMin && currentMin <= closeMin;
-        } else {
-          return currentMin >= openMin || currentMin <= closeMin;
-        }
+        const oMin = parseInt(match[1], 10) * 60 + parseInt(match[2], 10);
+        const cMin = parseInt(match[3], 10) * 60 + parseInt(match[4], 10);
+        return isTimeWithin(oMin, cMin, currentMin);
       }
     }
   } catch (e) {
@@ -95,16 +118,16 @@ export async function getRegisteredPharmacies(userCoords?: Coords | null): Promi
   try {
     const { data, error } = await supabase
       .from('pharmacies')
-      .select('id, name, address, phone, latitude, longitude, opening_time, closing_time');
+      .select('id, name, address, phone, latitude, longitude, opening_time, closing_time, operating_hours');
 
     if (error || !data) return [];
 
     return data
       .filter((p) => p.latitude != null && p.longitude != null)
-      .map((p) => {
+      .map((p: any) => {
         const coords: Coords = { latitude: p.latitude, longitude: p.longitude };
         const dist = haversineKm(coordsBase, coords);
-        const open = checkIsOpen(p.opening_time, p.closing_time);
+        const open = checkIsOpen(p.opening_time, p.closing_time, null, p.operating_hours);
         return {
           id: p.id,
           name: p.name,
@@ -126,7 +149,7 @@ export async function getRegisteredPharmacies(userCoords?: Coords | null): Promi
 }
 
 /**
- * Search nearby pharmacies using Overpass API (OSM data) + registered database pharmacies.
+ * Search nearby pharmacies using live Overpass API (OSM real-world data) + Supabase database.
  */
 export async function searchNearbyPharmacies(
   userCoords: Coords,
@@ -137,17 +160,23 @@ export async function searchNearbyPharmacies(
   const coordsBase = userCoords || DEFAULT_COORDS;
   const { latitude: lat, longitude: lon } = coordsBase;
 
-  // 1. Fetch registered database pharmacies first
+  const resultList: OsmPharmacy[] = [];
+  const knownIds = new Set<string>();
+
+  // 1. Fetch registered database pharmacies from Supabase
   const registeredMeds = await getRegisteredPharmacies(coordsBase);
-  const registeredIds = new Set(registeredMeds.map((r) => r.id));
   const registeredPhones = new Set(registeredMeds.map((r) => r.phone).filter(Boolean));
 
   for (const reg of registeredMeds) {
-    if (onItemFound) onItemFound(reg);
+    if (!knownIds.has(reg.id)) {
+      knownIds.add(reg.id);
+      resultList.push(reg);
+      if (onItemFound) onItemFound(reg);
+    }
   }
 
-  // 2. Fetch public map locations via Overpass API (GET request)
-  const query = `[out:json][timeout:15];(node["amenity"="pharmacy"](around:${radiusMeters},${lat},${lon});way["amenity"="pharmacy"](around:${radiusMeters},${lat},${lon});node["healthcare"="pharmacy"](around:${radiusMeters},${lat},${lon});way["healthcare"="pharmacy"](around:${radiusMeters},${lat},${lon}););out center;`;
+  // 2. Fetch live real-world public map locations via Overpass API
+  const query = `[out:json][timeout:10];(node["amenity"="pharmacy"](around:${radiusMeters},${lat},${lon});way["amenity"="pharmacy"](around:${radiusMeters},${lat},${lon});node["healthcare"="pharmacy"](around:${radiusMeters},${lat},${lon});way["healthcare"="pharmacy"](around:${radiusMeters},${lat},${lon}););out center;`;
 
   const endpoints = [
     `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`,
@@ -156,117 +185,65 @@ export async function searchNearbyPharmacies(
     `https://overpass.kumi.systems/api/interpreter?data=${encodeURIComponent(query)}`,
   ];
 
-  let response: Response | null = null;
-
   for (const url of endpoints) {
     if (signal?.aborted) break;
+    const fetchController = new AbortController();
+    const timeoutId = setTimeout(() => fetchController.abort(), 8000);
+
     try {
-      response = await fetch(url, {
+      const res = await fetch(url, {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
-          'User-Agent': 'PharmaFindrApp/1.0',
+          'User-Agent': 'PharmFindrApp/1.0',
         },
-        signal,
+        signal: fetchController.signal,
       });
-      if (response && response.ok) {
-        break;
-      }
-    } catch {
-      // try next endpoint
-    }
-  }
+      clearTimeout(timeoutId);
 
-  const resultList: OsmPharmacy[] = [...registeredMeds];
+      if (res && res.ok) {
+        const json = await res.json();
+        const elements: any[] = json.elements ?? [];
 
-  if (response && response.ok) {
-    try {
-      const json = await response.json();
-      const elements: any[] = json.elements ?? [];
+        for (const el of elements) {
+          if (signal?.aborted) break;
+          const elLat = el.lat ?? el.center?.lat;
+          const elLon = el.lon ?? el.center?.lon;
+          if (elLat == null || elLon == null) continue;
 
-      for (const el of elements) {
-        if (signal?.aborted) break;
-        const elLat = el.lat ?? el.center?.lat;
-        const elLon = el.lon ?? el.center?.lon;
-        if (elLat == null || elLon == null) continue;
+          const tags: Record<string, string> = el.tags ?? {};
+          const phone = tags['phone'] ?? tags['contact:phone'];
+          if (phone && registeredPhones.has(phone)) continue;
 
-        const tags: Record<string, string> = el.tags ?? {};
-        const phone = tags['phone'] ?? tags['contact:phone'];
+          const itemId = `osm-${el.type || 'node'}-${el.id}`;
+          if (knownIds.has(itemId)) continue;
 
-        // If already registered in DB, don't duplicate
-        if (phone && registeredPhones.has(phone)) continue;
+          const pharmacyCoords: Coords = { latitude: elLat, longitude: elLon };
+          const distanceKm = haversineKm(coordsBase, pharmacyCoords);
 
-        const pharmacyCoords: Coords = { latitude: elLat, longitude: elLon };
-        const distanceKm = haversineKm(coordsBase, pharmacyCoords);
+          const open = checkIsOpen(null, null, tags['opening_hours']);
+          const item: OsmPharmacy = {
+            id: itemId,
+            name: tags['name'] ?? tags['brand'] ?? tags['operator'] ?? 'Public Pharmacy',
+            address: buildAddress(tags),
+            latitude: elLat,
+            longitude: elLon,
+            phone,
+            hours: tags['opening_hours'] ?? undefined,
+            distanceKm: Math.round(distanceKm * 10) / 10,
+            walkMinutes: Math.round((distanceKm / 5) * 60),
+            isRegistered: false,
+            isOpen: open,
+          };
 
-        const open = checkIsOpen(null, null, tags['opening_hours']);
-        const item: OsmPharmacy = {
-          id: `${el.type}/${el.id}`,
-          name: tags['name'] ?? tags['brand'] ?? 'Public Pharmacy',
-          address: buildAddress(tags),
-          latitude: elLat,
-          longitude: elLon,
-          phone,
-          hours: tags['opening_hours'] ?? undefined,
-          distanceKm: Math.round(distanceKm * 10) / 10,
-          walkMinutes: Math.round((distanceKm / 5) * 60),
-          isRegistered: false,
-          isOpen: open,
-        };
-
-        if (!registeredIds.has(item.id)) {
+          knownIds.add(itemId);
           resultList.push(item);
           if (onItemFound) onItemFound(item);
         }
+        break; // Successfully fetched live OSM map data!
       }
-    } catch (e) {
-      console.warn('Error parsing Overpass JSON response:', e);
-    }
-  }
-
-  // Fallback public pharmacies if Overpass API returned no results
-  if (resultList.length === registeredMeds.length) {
-    const defaultPublic: OsmPharmacy[] = [
-      {
-        id: 'osm-public-1',
-        name: 'Korle-Bu Community Pharmacy',
-        address: 'Guggisberg Ave, Korle Bu, Accra',
-        latitude: lat + 0.008,
-        longitude: lon - 0.005,
-        distanceKm: 1.2,
-        walkMinutes: 14,
-        isRegistered: false,
-        isOpen: true,
-      },
-      {
-        id: 'osm-public-2',
-        name: 'Ridge Central Chemist',
-        address: 'Castle Rd, Ridge, Accra',
-        latitude: lat - 0.006,
-        longitude: lon + 0.009,
-        distanceKm: 1.8,
-        walkMinutes: 22,
-        isRegistered: false,
-        isOpen: true,
-      },
-      {
-        id: 'osm-public-3',
-        name: 'Osu Night & Day Pharmacy',
-        address: 'Oxford St, Osu, Accra',
-        latitude: lat + 0.012,
-        longitude: lon + 0.015,
-        distanceKm: 2.4,
-        walkMinutes: 29,
-        isRegistered: false,
-        isOpen: true,
-      },
-    ];
-
-    for (const item of defaultPublic) {
-      if (!registeredIds.has(item.id)) {
-        resultList.push(item);
-        if (onItemFound) onItemFound(item);
-      }
+    } catch {
+      clearTimeout(timeoutId);
     }
   }
 

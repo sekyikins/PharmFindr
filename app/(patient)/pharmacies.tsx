@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
@@ -9,6 +9,7 @@ import {
   Easing,
   Linking,
   PanResponder,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -266,13 +267,15 @@ export default function Pharmacies() {
     }
   };
 
-  const filtered = pharmacies.filter((p) => {
-    const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesDistance = p.distanceKm <= maxDistanceKm;
-    const matchesOpen = !onlyOpen || p.isOpen !== false;
-    const matchesVerified = !onlyVerified || p.isRegistered === true;
-    return matchesSearch && matchesDistance && matchesOpen && matchesVerified;
-  });
+  const filtered = useMemo(() => {
+    return pharmacies.filter((p) => {
+      const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesDistance = p.distanceKm <= maxDistanceKm;
+      const matchesOpen = !onlyOpen || p.isOpen !== false;
+      const matchesVerified = !onlyVerified || p.isRegistered === true;
+      return matchesSearch && matchesDistance && matchesOpen && matchesVerified;
+    });
+  }, [pharmacies, searchQuery, maxDistanceKm, onlyOpen, onlyVerified]);
 
   const mapRegion = userCoords
     ? {
@@ -357,10 +360,13 @@ export default function Pharmacies() {
                 { backgroundColor: theme.surfaceSecondary },
               ]}
               onPress={handleRefreshPress}
+              disabled={loading}
             >
-              <Animated.View style={{ transform: [{ rotate: spinInterpolate }] }}>
+              {loading ? (
+                <ActivityIndicator size="small" color={primaryColor} />
+              ) : (
                 <Ionicons name="refresh-outline" size={18} color={theme.text.primary} />
-              </Animated.View>
+              )}
             </Pressable>
           }
         />
@@ -761,11 +767,6 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: RADIUS.xl,
     borderTopRightRadius: RADIUS.xl,
     borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 16,
     zIndex: 999,
   },
   handleContainer: {

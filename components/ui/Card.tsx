@@ -16,7 +16,6 @@ export function Card({ children, style, elevated = true, ...props }: CardProps) 
       style={[
         styles.card,
         { backgroundColor: theme.card, borderColor: theme.border },
-        elevated && styles.shadow,
         style,
       ]}
       {...props}
@@ -32,12 +31,5 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: 16,
     marginVertical: 6,
-  },
-  shadow: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
   },
 });

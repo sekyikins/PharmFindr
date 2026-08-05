@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { StyleSheet, Text, View, Animated, Platform } from 'react-native';
+import { StyleSheet, Text, View, Animated, PanResponder } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNetworkStore } from '@/store/networkStore';
@@ -8,10 +8,69 @@ import { useThemeContext } from '@/hooks/useThemeContext';
 export default function OfflineBanner() {
   const insets = useSafeAreaInsets();
   const { theme } = useThemeContext();
-  const { isConnected, isPoorConnection, wasOffline, checkConnection } = useNetworkStore();
+  const { isConnected, isPoorConnection, wasOffline, isBannerDismissed, dismissBanner, checkConnection } =
+    useNetworkStore();
 
-  const slideAnim = useRef(new Animated.Value(-100)).current;
+  const translateY = useRef(new Animated.Value(-120)).current;
+  const translateX = useRef(new Animated.Value(0)).current;
+  const opacity = useRef(new Animated.Value(1)).current;
   const [showRestoredNotice, setShowRestoredNotice] = useState(false);
+
+  // PanResponder to handle Swipe Up, Left, or Right to clear
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        return (
+          Math.abs(gestureState.dx) > 10 ||
+          Math.abs(gestureState.dy) > 10
+        );
+      },
+      onPanResponderMove: (_, gestureState) => {
+        translateX.setValue(gestureState.dx);
+        if (gestureState.dy < 0) {
+          translateY.setValue(gestureState.dy);
+        }
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        const swipedUp = gestureState.dy < -20;
+        const swipedLeft = gestureState.dx < -35;
+        const swipedRight = gestureState.dx > 35;
+
+        if (swipedUp || swipedLeft || swipedRight) {
+          // Animate out and trigger dismiss in store
+          Animated.parallel([
+            Animated.timing(translateY, {
+              toValue: swipedUp ? -120 : 0,
+              duration: 200,
+              useNativeDriver: true,
+            }),
+            Animated.timing(translateX, {
+              toValue: swipedLeft ? -400 : swipedRight ? 400 : 0,
+              duration: 200,
+              useNativeDriver: true,
+            }),
+            Animated.timing(opacity, {
+              toValue: 0,
+              duration: 200,
+              useNativeDriver: true,
+            }),
+          ]).start(() => {
+            dismissBanner();
+            translateX.setValue(0);
+            translateY.setValue(-120);
+            opacity.setValue(1);
+          });
+        } else {
+          // Reset position if swipe wasn't far enough
+          Animated.parallel([
+            Animated.spring(translateY, { toValue: 0, useNativeDriver: true }),
+            Animated.spring(translateX, { toValue: 0, useNativeDriver: true }),
+          ]).start();
+        }
+      },
+    })
+  ).current;
 
   // Poll connection state periodically
   useEffect(() => {
@@ -24,25 +83,28 @@ export default function OfflineBanner() {
 
   // Handle connection status changes & auto-dismiss on reconnection
   useEffect(() => {
-    if (!isConnected || isPoorConnection) {
+    if ((!isConnected || isPoorConnection) && !isBannerDismissed) {
       setShowRestoredNotice(false);
-      Animated.timing(slideAnim, {
+      opacity.setValue(1);
+      translateX.setValue(0);
+      Animated.timing(translateY, {
         toValue: 0,
         duration: 300,
         useNativeDriver: true,
       }).start();
     } else if (isConnected && !isPoorConnection && wasOffline) {
-      // Temporarily flash "Back Online" green toast, then auto-slide away
       setShowRestoredNotice(true);
-      Animated.timing(slideAnim, {
+      opacity.setValue(1);
+      translateX.setValue(0);
+      Animated.timing(translateY, {
         toValue: 0,
         duration: 300,
         useNativeDriver: true,
       }).start();
 
       const timer = setTimeout(() => {
-        Animated.timing(slideAnim, {
-          toValue: -100,
+        Animated.timing(translateY, {
+          toValue: -120,
           duration: 350,
           useNativeDriver: true,
         }).start(() => {
@@ -53,28 +115,27 @@ export default function OfflineBanner() {
 
       return () => clearTimeout(timer);
     } else {
-      Animated.timing(slideAnim, {
-        toValue: -100,
+      Animated.timing(translateY, {
+        toValue: -120,
         duration: 300,
         useNativeDriver: true,
       }).start();
     }
-  }, [isConnected, isPoorConnection, wasOffline]);
+  }, [isConnected, isPoorConnection, wasOffline, isBannerDismissed]);
 
-  if (isConnected && !isPoorConnection && !showRestoredNotice) {
+  if ((isConnected && !isPoorConnection && !showRestoredNotice) || isBannerDismissed) {
     return null;
   }
 
-  const isWarning = !isConnected || isPoorConnection;
-
   return (
     <Animated.View
-      pointerEvents="box-none"
+      {...panResponder.panHandlers}
       style={[
         styles.container,
         {
           paddingTop: Math.max(insets.top, 8) + 4,
-          transform: [{ translateY: slideAnim }],
+          opacity: opacity,
+          transform: [{ translateY }, { translateX }],
         },
       ]}
     >
@@ -85,7 +146,7 @@ export default function OfflineBanner() {
             backgroundColor: showRestoredNotice
               ? '#059669'
               : !isConnected
-              ? '#334155'
+              ? '#1e293b'
               : '#d97706',
           },
         ]}
@@ -108,6 +169,9 @@ export default function OfflineBanner() {
             ? 'No Internet · Saved items remain accessible'
             : 'Weak Connection · Live searches may be slow'}
         </Text>
+        {!showRestoredNotice && (
+          <Ionicons name="close-outline" size={14} color="rgba(255,255,255,0.7)" style={{ marginLeft: 2 }} />
+        )}
       </View>
     </Animated.View>
   );
@@ -127,13 +191,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     paddingHorizontal: 14,
-    paddingVertical: 7,
+    paddingVertical: 8,
     borderRadius: 20,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
   pillText: {
     color: '#ffffff',

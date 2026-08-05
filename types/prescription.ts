@@ -8,6 +8,10 @@ export interface PrescriptionMedicine {
   duration: string | null;
   route: string | null;
   instructions: string | null;
+  /** Target demographic (e.g., 'Infant / Pediatric', 'Adult', 'Geriatric'). */
+  targetDemographic?: string | null;
+  /** Advisory note when health parameters like weight or age are needed for dosing. */
+  missingParametersNote?: string | null;
   /** 0–100 confidence score from the AI model. */
   confidence: number;
 }

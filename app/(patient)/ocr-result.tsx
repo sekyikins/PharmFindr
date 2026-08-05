@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   Linking,
   Platform,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { useRouter, useLocalSearchParams, useNavigation } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -43,7 +44,12 @@ function confidenceLabel(confidence: number): string {
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function OcrResult() {
-  const { medicines, imageUri, prescriptionId } = useLocalSearchParams<{ medicines: string; imageUri?: string; prescriptionId?: string }>();
+  const { medicines, imageUri, prescriptionId, isManual } = useLocalSearchParams<{
+    medicines: string;
+    imageUri?: string;
+    prescriptionId?: string;
+    isManual?: string;
+  }>();
   const router = useRouter();
   const navigation = useNavigation();
   const { user } = useAuthStore();
@@ -53,6 +59,39 @@ export default function OcrResult() {
   const scrollViewRef = useRef<ScrollView>(null);
   const isSavedRef = useRef<boolean>(!!prescriptionId);
   const [savedPrescriptionId, setSavedPrescriptionId] = useState<string | null>(prescriptionId || null);
+
+  const isManualEntry = isManual === 'true';
+
+  const handleAddDrugSet = () => {
+    // Do not add another card if there is already a completely empty one
+    const hasEmptyCard = medsList.some(
+      (m) =>
+        !m.name?.trim() &&
+        !m.strength?.trim() &&
+        !m.dosage?.trim() &&
+        !m.instructions?.trim()
+    );
+
+    if (hasEmptyCard) {
+      scrollViewRef.current?.scrollToEnd({ animated: true });
+      return;
+    }
+
+    const newMed: PrescriptionMedicine = {
+      name: '',
+      strength: '',
+      dosage: '',
+      frequency: '',
+      duration: '',
+      route: '',
+      instructions: '',
+      confidence: 100,
+    };
+    setMedsList((prev) => [...prev, newMed]);
+    setTimeout(() => {
+      scrollViewRef.current?.scrollToEnd({ animated: true });
+    }, 100);
+  };
 
   // Parse list of medicines from route params (guard against null/invalid JSON)
   const initialMeds: PrescriptionMedicine[] = (() => {
@@ -119,79 +158,82 @@ export default function OcrResult() {
     }
   };
 
-  // ─── Save prescription to Supabase ────────────────────────────────────────
+  // Keep ref of latest medsList for cleanup/leave handlers
+  const medsListRef = useRef(medsList);
+  useEffect(() => {
+    medsListRef.current = medsList;
+  }, [medsList]);
 
-  const savePrescription = async (meds: PrescriptionMedicine[]) => {
+  // ─── Save or Update prescription in Supabase ──────────────────────────────
+
+  const saveOrUpdatePrescription = async (meds: PrescriptionMedicine[]) => {
     if (!user?.id) return null;
-    if (isSavedRef.current && savedPrescriptionId) return savedPrescriptionId;
-    try {
-      const { data } = await supabase
-        .from('prescriptions')
-        .insert({
-          user_id: user.id,
-          image_url: imageUri || null,
-          ocr_text: meds.map((m) => `${m.name} ${m.strength || ''}`).join(', '),
-          ai_interpretation: {
-            medicines: meds,
-            doctor: 'AI Analysis',
-          },
-          status: 'completed',
-        })
-        .select('id')
-        .single();
+    const validMeds = meds.filter((m) => m.name && m.name.trim() !== '');
+    if (validMeds.length === 0) return null;
 
-      if (data?.id) {
+    const targetId = savedPrescriptionId || prescriptionId;
+
+    try {
+      if (targetId) {
+        // Update existing prescription
+        const { error } = await supabase
+          .from('prescriptions')
+          .update({
+            ocr_text: validMeds.map((m) => `${m.name} ${m.strength || ''}`).join(', '),
+            ai_interpretation: {
+              medicines: validMeds,
+              doctor: isManualEntry ? 'Manual Entry' : 'AI Analysis',
+            },
+          })
+          .eq('id', targetId);
+
+        if (error) throw error;
         isSavedRef.current = true;
-        setSavedPrescriptionId(data.id);
-        return data.id;
+        return targetId;
+      } else {
+        // Insert new prescription
+        const { data, error } = await supabase
+          .from('prescriptions')
+          .insert({
+            user_id: user.id,
+            image_url: imageUri || null,
+            ocr_text: validMeds.map((m) => `${m.name} ${m.strength || ''}`).join(', '),
+            ai_interpretation: {
+              medicines: validMeds,
+              doctor: isManualEntry ? 'Manual Entry' : 'AI Analysis',
+            },
+            status: 'completed',
+          })
+          .select('id')
+          .single();
+
+        if (error) throw error;
+        if (data?.id) {
+          isSavedRef.current = true;
+          setSavedPrescriptionId(data.id);
+          return data.id;
+        }
       }
-      return null;
     } catch (e: any) {
-      console.warn('Error saving prescription:', e.message);
-      return null;
+      console.warn('Error saving/updating prescription:', e.message);
     }
+    return null;
   };
 
-  // ─── Unsaved confirmation prompt on leave ──────────────────────────────────
+  const savePrescription = (meds: PrescriptionMedicine[]) => saveOrUpdatePrescription(meds);
+
+  // ─── Auto-Save/Update on leave ─────────────────────────────────────────────
 
   useEffect(() => {
-    const unsubscribe = navigation.addListener('beforeRemove', (e) => {
-      if (isSavedRef.current || medsList.length === 0) {
-        return;
+    const unsubscribe = navigation.addListener('beforeRemove', async (e) => {
+      const validMeds = medsListRef.current.filter((m) => m.name && m.name.trim() !== '');
+      if (validMeds.length > 0 && user?.id) {
+        await saveOrUpdatePrescription(validMeds);
       }
-
-      e.preventDefault();
-
-      Alert.alert(
-        'Save Prescription?',
-        'Would you like to save this prescription to your history before leaving?',
-        [
-          {
-            text: 'Save to History',
-            onPress: async () => {
-              await savePrescription(medsList);
-              isSavedRef.current = true;
-              navigation.dispatch(e.data.action);
-            },
-          },
-          {
-            text: 'Discard & Leave',
-            style: 'destructive',
-            onPress: () => {
-              isSavedRef.current = true;
-              navigation.dispatch(e.data.action);
-            },
-          },
-          {
-            text: 'Cancel',
-            style: 'cancel',
-          },
-        ]
-      );
     });
 
     return unsubscribe;
-  }, [navigation, medsList]);
+  }, [navigation, user?.id, savedPrescriptionId, prescriptionId, isManualEntry]);
 
   // ─── Search pharmacies ────────────────────────────────────────────────────
 
@@ -310,7 +352,7 @@ export default function OcrResult() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
       <Header
-        title="Scan Results"
+        title="Prescription Details"
         showBack
         onBack={() => {
           if (router.canGoBack()) {
@@ -319,9 +361,31 @@ export default function OcrResult() {
             router.navigate('/(patient)/(tabs)/home');
           }
         }}
+        right={
+          <Pressable
+            style={({ pressed }) => [
+              styles.headerAddBtn,
+              pressed && { opacity: 0.7 },
+              { backgroundColor: primaryColor + '15' },
+            ]}
+            onPress={handleAddDrugSet}
+          >
+            <Ionicons name="add-circle" size={16} color={primaryColor} />
+            <Text style={[styles.headerAddBtnText, { color: primaryColor }]}>Add</Text>
+          </Pressable>
+        }
       />
 
-      <ScrollView ref={scrollViewRef} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <ScrollView
+          ref={scrollViewRef}
+          contentContainerStyle={styles.scroll}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
         {medsList.length === 0 ? (
           /* ── Empty state — no medicines detected ── */
           <View style={styles.emptyStateContainer}>
@@ -329,41 +393,49 @@ export default function OcrResult() {
               <Ionicons name="document-text-outline" size={48} color={theme.textMuted} />
             </View>
             <Text style={[styles.emptyTitle, { color: theme.text.primary }]}>
-              No Medicines Detected
+              No Medicines Listed
             </Text>
             <Text style={[styles.emptyText, { color: theme.textMuted }]}>
-              I couldn't identify any medicines in this image. This can happen with poor lighting, or non-prescription images.
+              No medicines currently added. Tap "Add" in the top header or retake a prescription photo.
             </Text>
             <Pressable
               style={({ pressed }) => [styles.primaryBtn, pressed && { opacity: 0.5 }, { backgroundColor: primaryColor, marginTop: SPACING.lg }]}
-              onPress={() => {
-                if (router.canGoBack()) {
-                    router.back();
-                  } else {
-                  router.push('/(patient)/scan');
-                }
-              }}
+              onPress={handleAddDrugSet}
             >
-              <Ionicons name="camera-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
-              <Text style={styles.primaryBtnText}>Retake Photo</Text>
+              <Ionicons name="add-circle-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
+              <Text style={styles.primaryBtnText}>Add Medicine Manually</Text>
             </Pressable>
           </View>
         ) : (
         <>
-        {/* ── Success banner ── */}
-        <View style={[styles.banner, { backgroundColor: theme.successBg, borderColor: theme.successBorder }]}>
-          <Ionicons name="checkmark-circle" size={18} color={theme.success} style={{ marginRight: 8 }} />
-          <Text style={[styles.bannerText, { color: theme.successText }]}>
-            Prescription detected — {medsList.length} medicine{medsList.length !== 1 ? 's' : ''} identified
+        {/* ── Success Banner / Hero Card ── */}
+        <View style={[styles.banner, { backgroundColor: theme.card, borderColor: theme.border }]}>
+          <View style={styles.bannerTopRow}>
+            <View style={[styles.bannerBadge, { backgroundColor: isManualEntry ? '#0284c715' : '#10b98115' }]}>
+              <Ionicons
+                name={isManualEntry ? 'create-outline' : 'checkmark-circle'}
+                size={14}
+                color={isManualEntry ? '#0284c7' : '#10b981'}
+              />
+              <Text style={[styles.bannerBadgeText, { color: isManualEntry ? '#0284c7' : '#10b981' }]}>
+                {isManualEntry ? 'Manual Entry' : 'AI Extracted'}
+              </Text>
+            </View>
+            <Text style={[styles.bannerCountText, { color: theme.textDim }]}>
+              {medsList.length} medicine{medsList.length !== 1 ? 's' : ''}
+            </Text>
+          </View>
+          <Text style={[styles.bannerTitle, { color: theme.text.primary }]}>
+            {isManualEntry ? 'Prescription Medicines & Dosage' : 'Extracted Medicines & Dosage'}
           </Text>
         </View>
 
         {/* ── Low-confidence warning ── */}
         {medsList.some((m) => m.confidence < 50) && (
-          <View style={[styles.warningBanner, { backgroundColor: '#fef3c7', borderColor: '#f59e0b' }]}>
-            <Ionicons name="warning" size={16} color="#d97706" style={{ marginRight: 8 }} />
-            <Text style={[styles.bannerText, { color: '#92400e', flex: 1 }]}>
-              I have low confidence in some of the medicines I detected. Please verify before proceeding.
+          <View style={[styles.warningBanner, { backgroundColor: '#fffbeb', borderColor: '#fde68a' }]}>
+            <Ionicons name="warning" size={18} color="#d97706" style={{ marginRight: 10 }} />
+            <Text style={[styles.warningBannerText, { color: '#92400e', flex: 1 }]}>
+              Some detected items have lower confidence. Tap any field to edit details if needed.
             </Text>
           </View>
         )}
@@ -371,10 +443,12 @@ export default function OcrResult() {
         {/* ── Medicine Cards ── */}
         {medsList.map((med, idx) => (
           <View key={idx} style={[styles.medCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
-            {/* Header row: name + confidence badge + delete */}
+            {/* Card Top Row */}
             <View style={styles.cardHeader}>
-              <View style={styles.cardHeaderLeft}>
-                
+              <View style={[styles.medIconCircle, { backgroundColor: primaryColor + '15' }]}>
+                <Ionicons name="medkit" size={20} color={primaryColor} />
+              </View>
+              <View style={styles.cardHeaderContent}>
                 <View style={styles.badgeRow}>
                   <TextInput
                     style={[styles.medNameInput, { color: theme.text.primary }]}
@@ -385,7 +459,7 @@ export default function OcrResult() {
                   />
                   {med.strength && (
                     <TextInput
-                      style={[styles.medStrengthInput, { color: primaryColor, backgroundColor: theme.patientSecondary }]}
+                      style={[styles.medStrengthInput, { color: primaryColor, backgroundColor: primaryColor + '12' }]}
                       value={med.strength}
                       onChangeText={(val) => handleEditField(idx, 'strength', val)}
                       placeholder="Strength"
@@ -393,16 +467,23 @@ export default function OcrResult() {
                     />
                   )}
                 </View>
-                <View style={[styles.confidenceBadge, { backgroundColor: `${confidenceColor(med.confidence)}18` }]}>
-                  <Text style={[styles.confidenceText, { color: confidenceColor(med.confidence) }]}>
-                    Confidence
-                  </Text>
-                  <View style={[styles.confidenceDot, { backgroundColor: confidenceColor(med.confidence) }]} />
-                  <Text style={[styles.confidenceText, { color: confidenceColor(med.confidence) }]}>
-                    {confidenceLabel(med.confidence)} ({med.confidence}%)
-                  </Text>
+
+                <View style={styles.metaBadgeRow}>
+                  <View style={[styles.confidenceBadge, { backgroundColor: `${confidenceColor(med.confidence)}15` }]}>
+                    <View style={[styles.confidenceDot, { backgroundColor: confidenceColor(med.confidence) }]} />
+                    <Text style={[styles.confidenceText, { color: confidenceColor(med.confidence) }]}>
+                      {confidenceLabel(med.confidence)} ({med.confidence}%)
+                    </Text>
+                  </View>
+                  {med.targetDemographic && (
+                    <View style={[styles.demographicBadge, { backgroundColor: '#3b82f615', borderColor: '#93c5fd' }]}>
+                      <Ionicons name="people" size={12} color="#2563eb" />
+                      <Text style={[styles.demographicText, { color: '#2563eb' }]}>{med.targetDemographic}</Text>
+                    </View>
+                  )}
                 </View>
               </View>
+
               <Pressable
                 style={({ pressed }) => [styles.deleteBtn, pressed && { opacity: 0.5 }]}
                 onPress={() => handleDeleteMed(idx)}
@@ -411,27 +492,55 @@ export default function OcrResult() {
               </Pressable>
             </View>
 
-            {/* Detail fields */}
-            <View style={styles.cardDetails}>
+            {/* Structured Details Grid */}
+            <View style={styles.cardDetailsGrid}>
               {[
-                { label: 'Dosage', field: 'dosage' as const },
-                { label: 'Frequency', field: 'frequency' as const },
-                { label: 'Duration', field: 'duration' as const },
-                { label: 'Route', field: 'route' as const },
-                { label: 'Instructions', field: 'instructions' as const },
-              ].map(({ label, field }) => (
-                <View key={field} style={styles.detailRow}>
-                  <Text style={[styles.detailLabel, { color: theme.textMuted }]}>{label}</Text>
+                { label: 'Dosage', field: 'dosage' as const, icon: 'flask-outline' },
+                { label: 'Frequency', field: 'frequency' as const, icon: 'time-outline' },
+                { label: 'Duration', field: 'duration' as const, icon: 'calendar-outline' },
+                { label: 'Route', field: 'route' as const, icon: 'body-outline' },
+              ].map(({ label, field, icon }) => (
+                <View key={field} style={[styles.gridCell, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
+                  <View style={styles.cellHeader}>
+                    <Ionicons name={icon as any} size={12} color={theme.textDim} />
+                    <Text style={[styles.cellLabel, { color: theme.textMuted }]}>{label}</Text>
+                  </View>
                   <TextInput
-                    style={[styles.detailInput, { color: theme.text.primary, borderColor: theme.border }]}
+                    style={[styles.cellInput, { color: theme.text.primary }]}
                     value={med[field] ?? ''}
                     onChangeText={(val) => handleEditField(idx, field, val)}
-                    placeholder={label}
+                    placeholder={`e.g. ${label}`}
                     placeholderTextColor={theme.textDim}
                   />
                 </View>
               ))}
             </View>
+
+            {/* Special Instructions Row */}
+            <View style={[styles.instructionsRow, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
+              <View style={styles.instructionsHeader}>
+                <Ionicons name="information-circle-outline" size={14} color={primaryColor} />
+                <Text style={[styles.cellLabel, { color: theme.textMuted }]}>Instructions</Text>
+              </View>
+              <TextInput
+                style={[styles.instructionsInput, { color: theme.text.primary }]}
+                value={med.instructions ?? ''}
+                onChangeText={(val) => handleEditField(idx, 'instructions', val)}
+                placeholder="Dosage instructions..."
+                placeholderTextColor={theme.textDim}
+                multiline
+              />
+            </View>
+
+            {/* Missing Parameters / Demographic Note Row */}
+            {med.missingParametersNote && (
+              <View style={[styles.advisoryNoteBox, { backgroundColor: '#eff6ff', borderColor: '#bfdbfe' }]}>
+                <Ionicons name="alert-circle-outline" size={16} color="#2563eb" style={{ marginRight: 6 }} />
+                <Text style={[styles.advisoryNoteText, { color: '#1e40af', flex: 1 }]}>
+                  {med.missingParametersNote}
+                </Text>
+              </View>
+            )}
           </View>
         ))}
 
@@ -586,6 +695,7 @@ export default function OcrResult() {
         </>
         )}
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -599,13 +709,41 @@ const styles = StyleSheet.create({
 
   // ── Banners ──
   banner: {
+    borderRadius: RADIUS.xl,
+    borderWidth: 1.2,
+    padding: SPACING.lg,
+    marginBottom: SPACING.md,
+  },
+  bannerTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: RADIUS.lg,
-    borderWidth: 1,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: 10,
-    marginBottom: SPACING.md,
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  bannerBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: RADIUS.pill,
+  },
+  bannerBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  bannerCountText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  bannerTitle: {
+    fontSize: FONT_SIZE.title,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  bannerSub: {
+    fontSize: FONT_SIZE.sm,
+    lineHeight: 18,
   },
   warningBanner: {
     flexDirection: 'row',
@@ -616,22 +754,29 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     marginBottom: SPACING.lg,
   },
-  bannerText: { fontSize: FONT_SIZE.lg, fontWeight: '600' },
+  warningBannerText: { fontSize: FONT_SIZE.sm, fontWeight: '600', lineHeight: 18 },
 
   // ── Medicine Card ──
   medCard: {
     borderRadius: RADIUS.xl,
     padding: SPACING.lg,
     marginBottom: SPACING.lg,
-    borderWidth: 1,
+    borderWidth: 1.2,
   },
   cardHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'flex-start',
+    gap: 12,
     marginBottom: SPACING.md,
   },
-  cardHeaderLeft: { gap: 6 },
+  medIconCircle: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cardHeaderContent: { flex: 1, gap: 4 },
   badgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -644,11 +789,16 @@ const styles = StyleSheet.create({
     padding: 0,
   },
   medStrengthInput: {
-    fontSize: FONT_SIZE.sm,
-    fontWeight: '600',
+    fontSize: FONT_SIZE.xs,
+    fontWeight: '700',
     paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingVertical: 3,
     borderRadius: RADIUS.sm,
+  },
+  metaBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   confidenceBadge: {
     flexDirection: 'row',
@@ -656,7 +806,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: RADIUS.sm,
-    gap: 4,
+    gap: 5,
   },
   confidenceDot: {
     width: 6,
@@ -664,29 +814,61 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   confidenceText: {
-    fontSize: FONT_SIZE.sm,
-    fontWeight: '600',
+    fontSize: FONT_SIZE.xs,
+    fontWeight: '700',
   },
-  deleteBtn: { padding: 6 },
+  deleteBtn: { padding: 4 },
 
-  cardDetails: { gap: 8, marginTop: 4 },
-  detailRow: {
+  // ── Structured Grid ──
+  cardDetailsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 10,
+  },
+  gridCell: {
+    width: '48%',
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  cellHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 4,
+    marginBottom: 2,
   },
-  detailLabel: {
-    fontSize: FONT_SIZE.sm,
-    width: 80,
+  cellLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
-  detailInput: {
-    flex: 1,
+  cellInput: {
+    fontSize: FONT_SIZE.lg,
+    fontWeight: '600',
+    padding: 0,
+  },
+
+  // ── Instructions Row ──
+  instructionsRow: {
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  instructionsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 4,
+  },
+  instructionsInput: {
     fontSize: FONT_SIZE.lg,
     fontWeight: '500',
-    borderWidth: 1,
-    borderRadius: RADIUS.md,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    padding: 0,
+    minHeight: 32,
   },
 
   // ── Action Buttons ──
@@ -799,5 +981,60 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: FONT_SIZE.lg,
     fontWeight: '600',
+  },
+
+  demographicBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: RADIUS.sm,
+    borderWidth: 1,
+  },
+  demographicText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  advisoryNoteBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: SPACING.md,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    marginTop: SPACING.sm,
+  },
+  advisoryNoteText: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '500',
+  },
+  profileAdvisoryCard: {
+    padding: SPACING.lg,
+    borderRadius: RADIUS.xl,
+    borderWidth: 1,
+    marginTop: SPACING.md,
+    marginBottom: SPACING.md,
+  },
+  profileBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 42,
+    borderRadius: RADIUS.pill,
+    paddingHorizontal: SPACING.lg,
+  },
+
+  headerAddBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: RADIUS.pill,
+  },
+  headerAddBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
   },
 });

@@ -98,8 +98,7 @@ export default function TabsLayout() {
             tabBarStyle: {
               backgroundColor: theme.card,
               borderTopColor: theme.border,
-              elevation: 8,
-              shadowOpacity: 0.1,
+              borderTopWidth: 1,
               height: 60,
               paddingBottom: 8,
               paddingTop: 8,
