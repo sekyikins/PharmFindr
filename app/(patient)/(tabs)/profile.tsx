@@ -17,7 +17,7 @@ import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuthStore } from '@/store/authStore';
 import { useThemeContext } from '@/hooks/useThemeContext';
-import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
+import { COLORS,  FONT_SIZE, RADIUS, SPACING  } from '@/styles/theme';
 import { supabase } from '@/lib/supabase';
 import Svg, { Path } from 'react-native-svg';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
@@ -27,21 +27,21 @@ const MENU_GROUPS = [
   {
     title: 'CLINICAL & HEALTH',
     items: [
-      { id: 'history', icon: 'time', color: '#3b82f6', label: 'Prescription History', route: '/(patient)/prescription-history' },
-      { id: 'saved', icon: 'heart', color: '#ec4899', label: 'Saved Medicines', route: '/(patient)/medicines' },
+      { id: 'history', icon: 'time', color: COLORS.info, label: 'Prescription History', route: '/(patient)/prescription-history' },
+      { id: 'saved', icon: 'heart', color: COLORS.pink, label: 'Saved Medicines', route: '/(patient)/medicines' },
     ],
   },
   {
     title: 'ACTIVITY & ORDERS',
     items: [
-      { id: 'reservations', icon: 'receipt', color: '#8b5cf6', label: 'My Reservations', route: '/(patient)/reservations-history' },
-      { id: 'notifs', icon: 'notifications', color: '#f59e0b', label: 'Notifications', route: '/(patient)/notifications' },
+      { id: 'reservations', icon: 'receipt', color: COLORS.purple, label: 'My Reservations', route: '/(patient)/reservations-history' },
+      { id: 'notifs', icon: 'notifications', color: COLORS.warning, label: 'Notifications', route: '/(patient)/notifications' },
     ],
   },
   {
     title: 'SUPPORT & LEGAL',
     items: [
-      { id: 'help', icon: 'help-circle', color: '#06b6d4', label: 'Help & Feedback', route: '/(patient)/help-feedback' },
+      { id: 'help', icon: 'help-circle', color: COLORS.cyan, label: 'Help & Feedback', route: '/(patient)/help-feedback' },
     ],
   },
 ];
@@ -136,7 +136,7 @@ export default function Profile() {
           {/* Top Row: Verification & Edit */}
           <View style={styles.heroTopRow}>
             <View style={styles.verifiedBadge}>
-              <Ionicons name="shield-checkmark" size={13} color="#ffffff" />
+              <Ionicons name="shield-checkmark" size={13} color={COLORS.white} />
               <Text style={styles.verifiedBadgeText}>Verified Account</Text>
             </View>
 
@@ -144,7 +144,7 @@ export default function Profile() {
               style={({ pressed }) => [styles.editAccountPill, pressed && { opacity: 0.7 }]}
               onPress={() => router.push('/(patient)/edit-account')}
             >
-              <Ionicons name="create-outline" size={14} color="#ffffff" />
+              <Ionicons name="create-outline" size={14} color={COLORS.white} />
               <Text style={styles.editAccountPillText}>Edit Profile</Text>
             </Pressable>
           </View>
@@ -206,9 +206,6 @@ export default function Profile() {
             <View style={{ flex: 1 }}>
               <View style={styles.healthQuickTitleRow}>
                 <Text style={[styles.healthQuickTitle, { color: theme.text.primary }]}>Health &amp; Safety Profile</Text>
-                <View style={[styles.activeTag, { backgroundColor: '#10b98115', borderColor: '#10b98140' }]}>
-                  <Text style={[styles.activeTagText, { color: '#10b981' }]}>Active</Text>
-                </View>
               </View>
               <Text style={[styles.healthQuickSub, { color: theme.textMuted }]}>
                 {appUser?.allergies?.length || 0} Allergies • {appUser?.existing_conditions?.length || 0} Conditions • {appUser?.current_medications?.length || 0} Meds
@@ -320,21 +317,23 @@ function StatItem({ value, label, icon, theme, valueColor }: { value: number; la
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: {
+    flex: 1
+  },
 
   // ── Hero ──
   hero: {
     alignItems: 'center',
     paddingTop: 16,
     paddingBottom: 4,
-    paddingHorizontal: SPACING.xl,
+    paddingHorizontal: SPACING.xl
   },
   heroTopRow: {
     width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: 16
   },
   verifiedBadge: {
     flexDirection: 'row',
@@ -343,9 +342,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.2)',
     paddingHorizontal: 10,
     paddingVertical: 5,
-    borderRadius: RADIUS.pill,
+    borderRadius: RADIUS.pill
   },
-  verifiedBadgeText: { color: '#ffffff', fontSize: 11, fontWeight: '700' },
+  verifiedBadgeText: {
+    color: COLORS.white, fontSize: 11, fontFamily: 'Inter-Bold'
+  },
 
   editAccountPill: {
     flexDirection: 'row',
@@ -354,26 +355,30 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.2)',
     paddingHorizontal: 12,
     paddingVertical: 5,
-    borderRadius: RADIUS.pill,
+    borderRadius: RADIUS.pill
   },
-  editAccountPillText: { color: '#ffffff', fontSize: 12, fontWeight: '700' },
+  editAccountPillText: {
+    color: COLORS.white, fontSize: 12, fontFamily: 'Inter-Bold'
+  },
 
   avatarWrapper: {
     position: 'relative',
-    marginBottom: 10,
+    marginBottom: 10
   },
   avatarCircle: {
     width: 88,
     height: 88,
     borderRadius: 44,
-    backgroundColor: '#ffffff',
+    backgroundColor: COLORS.white,
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
     borderWidth: 3,
-    borderColor: 'rgba(255,255,255,0.4)',
+    borderColor: 'rgba(255,255,255,0.4)'
   },
-  avatarImage: { width: 88, height: 88, borderRadius: 44 },
+  avatarImage: {
+    width: 88, height: 88, borderRadius: 44
+  },
   avatarEditBadge: {
     position: 'absolute',
     bottom: 2,
@@ -384,15 +389,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#ffffff',
+    borderColor: COLORS.white
   },
-  avatarText: { fontSize: 30, fontWeight: '700' },
-  heroName: { fontSize: 22, fontWeight: '700', color: '#ffffff', marginBottom: 2 },
-  heroSub: { fontSize: 13, color: 'rgba(255,255,255,0.85)', marginBottom: 8 },
+  avatarText: {
+    fontSize: 30, fontFamily: 'Inter-Bold'
+  },
+  heroName: {
+    fontSize: 22, fontFamily: 'Inter-Bold', color: COLORS.white, marginBottom: 2
+  },
+  heroSub: {
+    fontFamily: 'Inter-Regular',
+     fontSize: 13, color: 'rgba(255,255,255,0.85)', marginBottom: 8
+  },
 
   bodyContent: {
     paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.md,
+    paddingVertical: SPACING.md
   },
 
   // ── Stats ──
@@ -401,13 +413,23 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.xl,
     padding: 16,
     borderWidth: 1.2,
-    marginBottom: 16,
+    marginBottom: 16
   },
-  statItem: { flex: 1, alignItems: 'center' },
-  statIconRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 },
-  statValue: { fontSize: 22, fontWeight: '800' },
-  statLabel: { fontSize: 12, fontWeight: '600' },
-  statDivider: { width: 1, marginVertical: 4 },
+  statItem: {
+    flex: 1, alignItems: 'center'
+  },
+  statIconRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2
+  },
+  statValue: {
+    fontSize: 22, fontFamily: 'Inter-Bold'
+  },
+  statLabel: {
+    fontSize: 12, fontFamily: 'Inter-SemiBold'
+  },
+  statDivider: {
+    width: 1, marginVertical: 4
+  },
 
   // Health Quick Banner
   healthQuickCard: {
@@ -417,51 +439,49 @@ const styles = StyleSheet.create({
     padding: 14,
     borderRadius: RADIUS.xl,
     borderWidth: 1.2,
-    marginBottom: 20,
+    marginBottom: 20
   },
   healthQuickIconCircle: {
     width: 40,
     height: 40,
     borderRadius: 20,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   healthQuickTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 8
   },
-  healthQuickTitle: { fontSize: 14, fontWeight: '700' },
-  healthQuickSub: { fontSize: 11, marginTop: 2 },
-  activeTag: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: RADIUS.pill,
-    borderWidth: 1,
+  healthQuickTitle: {
+    fontSize: 14, fontFamily: 'Inter-Bold'
   },
-  activeTagText: { fontSize: 10, fontWeight: '700' },
+  healthQuickSub: {
+    fontFamily: 'Inter-Regular',
+     fontSize: 11, marginTop: 2
+  },
 
   // Menu Groups
   menuGroup: {
-    marginBottom: 18,
+    marginBottom: 18
   },
   groupTitle: {
     fontSize: 10,
-    fontWeight: '800',
+    fontFamily: 'Inter-Bold',
     letterSpacing: 0.8,
     marginBottom: 8,
-    paddingLeft: 4,
+    paddingLeft: 4
   },
   menuCard: {
     borderRadius: RADIUS.xl,
     borderWidth: 1,
-    overflow: 'hidden',
+    overflow: 'hidden'
   },
   menuRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 14,
-    paddingHorizontal: 16,
+    paddingHorizontal: 16
   },
   menuIconCircle: {
     width: 36,
@@ -469,17 +489,21 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 14,
+    marginRight: 14
   },
-  menuLabel: { flex: 1, fontSize: FONT_SIZE.md, fontWeight: '600' },
+  menuLabel: {
+    flex: 1, fontSize: FONT_SIZE.md, fontFamily: 'Inter-SemiBold'
+  },
   itemBadge: {
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: RADIUS.pill,
     borderWidth: 1,
-    marginRight: 8,
+    marginRight: 8
   },
-  itemBadgeText: { fontSize: 10, fontWeight: '700' },
+  itemBadgeText: {
+    fontSize: 10, fontFamily: 'Inter-Bold'
+  },
 
   // Sign Out
   signOutBtn: {
@@ -490,7 +514,10 @@ const styles = StyleSheet.create({
     height: 48,
     borderRadius: RADIUS.pill,
     borderWidth: 1,
-    marginVertical: 8,
+    marginVertical: 8
   },
-  signOutText: { fontSize: FONT_SIZE.md, fontWeight: '700' },
+  signOutText: {
+    fontSize: FONT_SIZE.md, fontFamily: 'Inter-Bold'
+  },
+
 });

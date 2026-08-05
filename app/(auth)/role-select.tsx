@@ -20,7 +20,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Path } from 'react-native-svg';
 import { useThemeContext } from '@/hooks/useThemeContext';
-import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
+import { COLORS,  FONT_SIZE, RADIUS, SPACING  } from '@/styles/theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const PHARMACY_GREEN = '#10b981';
@@ -58,7 +58,7 @@ export default function RoleSelect() {
 
           {/* Badge + Title */}
           <View style={[styles.heroBadge, { backgroundColor: 'rgba(255,255,255,0.18)' }]}>
-            <Ionicons name="shield-checkmark" size={12} color="#ffffff" />
+            <Ionicons name="shield-checkmark" size={12} color={COLORS.white} />
             <Text style={styles.heroBadgeText}>ROLE SELECTION</Text>
           </View>
           <Text style={styles.heroTitle}>Who are you?</Text>
@@ -111,7 +111,7 @@ export default function RoleSelect() {
               </View>
             </View>
             <View style={[styles.cardChevron, { backgroundColor: primaryColor }]}>
-              <Ionicons name="chevron-forward" size={16} color="#ffffff" />
+              <Ionicons name="chevron-forward" size={16} color={COLORS.white} />
             </View>
           </Animated.View>
         </Pressable>
@@ -143,7 +143,7 @@ export default function RoleSelect() {
               </View>
             </View>
             <View style={[styles.cardChevron, { backgroundColor: PHARMACY_GREEN }]}>
-              <Ionicons name="chevron-forward" size={16} color="#ffffff" />
+              <Ionicons name="chevron-forward" size={16} color={COLORS.white} />
             </View>
           </Animated.View>
         </Pressable>
@@ -188,34 +188,34 @@ export default function RoleSelect() {
 
 const styles = StyleSheet.create({
   root: {
-    flex: 1,
+    flex: 1
   },
 
   // ── Full-bleed hero ──
   hero: {
-    paddingBottom: 0,
+    paddingBottom: 0
   },
   heroInner: {
     paddingHorizontal: SPACING.xl,
     paddingTop: SPACING.md,
-    paddingBottom: SPACING.lg,
+    paddingBottom: SPACING.lg
   },
   brandRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: SPACING.lg,
+    marginBottom: SPACING.lg
   },
   brandIcon: {
     width: 32,
     height: 32,
-    borderRadius: 7,
+    borderRadius: 7
   },
   brandName: {
     fontSize: FONT_SIZE.xxl,
-    fontWeight: '800',
-    color: '#ffffff',
-    letterSpacing: -0.3,
+    fontFamily: 'Inter-Bold',
+    color: COLORS.white,
+    letterSpacing: -0.3
   },
   heroBadge: {
     flexDirection: 'row',
@@ -225,25 +225,27 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: RADIUS.pill,
-    marginBottom: 10,
+    marginBottom: 10
   },
   heroBadgeText: {
     fontSize: 9,
-    fontWeight: '800',
-    color: '#ffffff',
-    letterSpacing: 0.8,
+    fontFamily: 'Inter-Bold',
+    color: COLORS.white,
+    letterSpacing: 0.8
   },
   heroTitle: {
     fontSize: 28,
-    fontWeight: '800',
-    color: '#ffffff',
+    fontFamily: 'Inter-Bold',
+    color: COLORS.white,
     marginBottom: 6,
-    letterSpacing: -0.4,
+    letterSpacing: -0.4
   },
   heroSub: {
+    fontFamily: 'Inter-Regular',
+    
     fontSize: FONT_SIZE.lg,
     color: 'rgba(255,255,255,0.78)',
-    lineHeight: 21,
+    lineHeight: 21
   },
 
   // ── Cards content area ──
@@ -251,14 +253,14 @@ const styles = StyleSheet.create({
     gap: SPACING.md,
     paddingHorizontal: SPACING.xl,
     paddingTop: SPACING.lg,
-    flex: 1,
+    flex: 1
   },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: RADIUS.xl,
     padding: SPACING.lg,
-    borderWidth: 1.5,
+    borderWidth: 1.5
   },
   cardIconWrap: {
     width: 60,
@@ -267,20 +269,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: SPACING.md,
-    flexShrink: 0,
+    flexShrink: 0
   },
   cardBody: {
-    flex: 1,
+    flex: 1
   },
   cardTitle: {
     fontSize: FONT_SIZE.xl,
-    fontWeight: '700',
-    marginBottom: 3,
+    fontFamily: 'Inter-Bold',
+    marginBottom: 3
   },
   cardDesc: {
+    fontFamily: 'Inter-Regular',
+    
     fontSize: FONT_SIZE.md,
     lineHeight: 18,
-    marginBottom: 8,
+    marginBottom: 8
   },
   cardTag: {
     flexDirection: 'row',
@@ -289,11 +293,11 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: RADIUS.pill,
+    borderRadius: RADIUS.pill
   },
   cardTagText: {
     fontSize: 10,
-    fontWeight: '700',
+    fontFamily: 'Inter-Bold'
   },
   cardChevron: {
     width: 30,
@@ -302,31 +306,31 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: SPACING.sm,
-    flexShrink: 0,
+    flexShrink: 0
   },
 
   // ── Footer ──
   footer: {
     paddingHorizontal: SPACING.xl,
-    paddingBottom: SPACING.lg,
+    paddingBottom: SPACING.lg
   },
   dividerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     marginVertical: SPACING.lg,
-    gap: SPACING.sm,
+    gap: SPACING.sm
   },
   dividerLine: {
     flex: 1,
-    height: 1,
+    height: 1
   },
   dividerText: {
     fontSize: FONT_SIZE.md,
-    fontWeight: '500',
+    fontFamily: 'Inter-Medium'
   },
   signupRow: {
     flexDirection: 'row',
-    gap: SPACING.sm,
+    gap: SPACING.sm
   },
   signupBtn: {
     flex: 1,
@@ -336,10 +340,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: 6
   },
   signupText: {
     fontSize: FONT_SIZE.md,
-    fontWeight: '600',
+    fontFamily: 'Inter-SemiBold'
   },
+
 });

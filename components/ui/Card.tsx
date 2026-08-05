@@ -30,6 +30,7 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.xl,
     borderWidth: 1,
     padding: 16,
-    marginVertical: 6,
+    marginVertical: 6
   },
+
 });

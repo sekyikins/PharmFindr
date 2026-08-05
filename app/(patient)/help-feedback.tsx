@@ -15,7 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useThemeContext } from '@/hooks/useThemeContext';
-import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
+import { COLORS,  FONT_SIZE, RADIUS, SPACING  } from '@/styles/theme';
 import { Header, HeaderIconBtn } from '@/components/ui/Header';
 import { TERMS_OF_SERVICE } from '@/constants/termsOfService';
 import { PRIVACY_POLICY } from '@/constants/privacyPolicy';
@@ -143,7 +143,7 @@ export default function HelpAndFeedback() {
                 ]}
                 onPress={() => setSelectedCategory(cat)}
               >
-                <Text style={[styles.categoryChipText, { color: isSelected ? '#ffffff' : theme.text.primary }]}>
+                <Text style={[styles.categoryChipText, { color: isSelected ? COLORS.white : theme.text.primary }]}>
                   {cat}
                 </Text>
               </Pressable>
@@ -254,7 +254,7 @@ export default function HelpAndFeedback() {
             onPress={() => router.push('/(patient)/send-feedback')}
           >
             <View style={[styles.hubIconCircle, { backgroundColor: primaryColor }]}>
-              <Ionicons name="chatbubbles" size={22} color="#ffffff" />
+              <Ionicons name="chatbubbles" size={22} color={COLORS.white} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={[styles.hubTitle, { color: theme.text.primary }]}>Send Feedback</Text>
@@ -336,8 +336,12 @@ export default function HelpAndFeedback() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  scrollContent: { paddingHorizontal: SPACING.xl, paddingVertical: SPACING.md },
+  container: {
+    flex: 1
+  },
+  scrollContent: {
+    paddingHorizontal: SPACING.xl, paddingVertical: SPACING.md
+  },
 
   hubCard: {
     flexDirection: 'row',
@@ -346,26 +350,33 @@ const styles = StyleSheet.create({
     padding: 16,
     marginVertical: 10,
     borderWidth: 1,
-    gap: 14,
+    gap: 14
   },
   hubIconCircle: {
     width: 44,
     height: 44,
     borderRadius: 22,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
-  hubTitle: { fontSize: 15, fontWeight: '700' },
-  hubSub: { fontSize: 12, marginTop: 2, lineHeight: 16 },
+  hubTitle: {
+    fontSize: 15, fontFamily: 'Inter-Bold'
+  },
+  hubSub: {
+    fontFamily: 'Inter-Regular',
+     fontSize: 12, marginTop: 2, lineHeight: 16
+  },
 
   sectionHeading: {
     fontSize: 11,
-    fontWeight: '700',
+    fontFamily: 'Inter-Bold',
     letterSpacing: 0.8,
     textTransform: 'uppercase',
-    marginBottom: 8,
+    marginBottom: 8
   },
-  sectionHeaderRow: { marginBottom: 4 },
+  sectionHeaderRow: {
+    marginBottom: 4
+  },
 
   searchBar: {
     flexDirection: 'row',
@@ -374,57 +385,81 @@ const styles = StyleSheet.create({
     height: 44,
     paddingHorizontal: SPACING.lg,
     borderWidth: 1,
-    marginBottom: 10,
+    marginBottom: 10
   },
-  searchInput: { flex: 1, fontSize: FONT_SIZE.md },
+  searchInput: {
+    fontFamily: 'Inter-Regular',
+     flex: 1, fontSize: FONT_SIZE.md
+  },
 
-  categoryScroll: { gap: 8, marginBottom: 14 },
+  categoryScroll: {
+    gap: 8, marginBottom: 14
+  },
   categoryChip: {
     paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: RADIUS.pill,
-    borderWidth: 1,
+    borderWidth: 1
   },
-  categoryChipText: { fontSize: 12, fontWeight: '600' },
+  categoryChipText: {
+    fontSize: 12, fontFamily: 'Inter-SemiBold'
+  },
 
   faqCard: {
     borderRadius: RADIUS.xl,
     borderWidth: 1,
-    overflow: 'hidden',
+    overflow: 'hidden'
   },
-  faqItem: { padding: 16 },
+  faqItem: {
+    padding: 16
+  },
   faqHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 12,
+    gap: 12
   },
-  faqQuestion: { flex: 1, fontSize: 14, fontWeight: '700' },
-  faqAnswer: { fontSize: 13, marginTop: 8, lineHeight: 19 },
-  noFaqText: { fontSize: 13, textAlign: 'center' },
+  faqQuestion: {
+    flex: 1, fontSize: 14, fontFamily: 'Inter-Bold'
+  },
+  faqAnswer: {
+    fontFamily: 'Inter-Regular',
+     fontSize: 13, marginTop: 8, lineHeight: 19
+  },
+  noFaqText: {
+    fontFamily: 'Inter-Regular',
+     fontSize: 13, textAlign: 'center'
+  },
 
   menuCard: {
     borderRadius: RADIUS.xl,
     borderWidth: 1,
-    overflow: 'hidden',
+    overflow: 'hidden'
   },
   menuRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 14,
-    gap: 12,
+    gap: 12
   },
   menuIconCircle: {
     width: 34,
     height: 34,
     borderRadius: 17,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
-  menuTitle: { fontSize: 14, fontWeight: '600' },
-  menuSub: { fontSize: 11, marginTop: 1 },
-  rowDivider: { height: 1, marginLeft: 62 },
+  menuTitle: {
+    fontSize: 14, fontFamily: 'Inter-SemiBold'
+  },
+  menuSub: {
+    fontFamily: 'Inter-Regular',
+     fontSize: 11, marginTop: 1
+  },
+  rowDivider: {
+    height: 1, marginLeft: 62
+  },
 
   // App Info Modal
   modalOverlay: {
@@ -432,44 +467,73 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.55)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: SPACING.xl,
+    padding: SPACING.xl
   },
   appInfoCard: {
     width: '100%',
     borderRadius: RADIUS.xl,
-    padding: 24,
+    padding: 24
   },
-  appInfoContent: { alignItems: 'center' },
-  appInfoLogo: { width: 64, height: 64, marginBottom: 12 },
-  appInfoTitle: { fontSize: 20, fontWeight: '700' },
-  appInfoVersion: { fontSize: 13, fontWeight: '700', marginTop: 2, marginBottom: 12 },
-  appInfoDesc: { fontSize: 13, textAlign: 'center', lineHeight: 18, marginBottom: 16 },
-  appInfoCopyright: { fontSize: 11, marginBottom: 20 },
+  appInfoContent: {
+    alignItems: 'center'
+  },
+  appInfoLogo: {
+    width: 64, height: 64, marginBottom: 12
+  },
+  appInfoTitle: {
+    fontSize: 20, fontFamily: 'Inter-Bold'
+  },
+  appInfoVersion: {
+    fontSize: 13, fontFamily: 'Inter-Bold', marginTop: 2, marginBottom: 12
+  },
+  appInfoDesc: {
+    fontFamily: 'Inter-Regular',
+     fontSize: 13, textAlign: 'center', lineHeight: 18, marginBottom: 16
+  },
+  appInfoCopyright: {
+    fontFamily: 'Inter-Regular',
+     fontSize: 11, marginBottom: 20
+  },
   modalCloseBtn: {
     width: '100%',
     height: 44,
     borderRadius: RADIUS.pill,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
-  modalCloseBtnText: { color: '#ffffff', fontSize: 14, fontWeight: '700' },
+  modalCloseBtnText: {
+    color: COLORS.white, fontSize: 14, fontFamily: 'Inter-Bold'
+  },
 
-  legalModalContainer: { flex: 1 },
+  legalModalContainer: {
+    flex: 1
+  },
   legalMetaCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
     padding: 16,
     borderRadius: RADIUS.xl,
-    borderWidth: 1,
+    borderWidth: 1
   },
-  legalMetaTitle: { fontSize: 15, fontWeight: '700' },
-  legalMetaSub: { fontSize: 12, marginTop: 2 },
+  legalMetaTitle: {
+    fontSize: 15, fontFamily: 'Inter-Bold'
+  },
+  legalMetaSub: {
+    fontFamily: 'Inter-Regular',
+     fontSize: 12, marginTop: 2
+  },
   legalSectionCard: {
     padding: 16,
     borderRadius: RADIUS.xl,
-    borderWidth: 1,
+    borderWidth: 1
   },
-  legalSectionTitle: { fontSize: 15, fontWeight: '700', marginBottom: 8 },
-  legalSectionContent: { fontSize: 13, lineHeight: 20 },
+  legalSectionTitle: {
+    fontSize: 15, fontFamily: 'Inter-Bold', marginBottom: 8
+  },
+  legalSectionContent: {
+    fontFamily: 'Inter-Regular',
+     fontSize: 13, lineHeight: 20
+  },
+
 });

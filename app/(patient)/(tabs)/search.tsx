@@ -13,7 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useThemeContext } from '@/hooks/useThemeContext';
-import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
+import { COLORS,  FONT_SIZE, RADIUS, SPACING  } from '@/styles/theme';
 import Skeleton from '@/components/ui/Skeleton';
 import { Header } from '@/components/ui/Header';
 import { searchMasterMedicines, type MedicineItem } from '@/lib/medicineCatalogue';
@@ -200,7 +200,7 @@ export default function SearchMedicines() {
                 <Text
                   style={[
                     styles.categoryChipText,
-                    { color: isSelected ? '#ffffff' : theme.text.primary },
+                    { color: isSelected ? COLORS.white : theme.text.primary },
                   ]}
                 >
                   {cat}
@@ -364,81 +364,107 @@ export default function SearchMedicines() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: {
+    flex: 1
+  },
 
-  searchWrapper: { paddingHorizontal: SPACING.lg, paddingTop: 6, paddingBottom: 10 },
+  searchWrapper: {
+    paddingHorizontal: SPACING.lg, paddingTop: 6, paddingBottom: 10
+  },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: RADIUS.xl,
     height: 48,
-    paddingHorizontal: SPACING.lg,
+    paddingHorizontal: SPACING.lg
   },
-  searchInput: { flex: 1, fontSize: FONT_SIZE.md },
+  searchInput: {
+    fontFamily: 'Inter-Regular',
+     flex: 1, fontSize: FONT_SIZE.md
+  },
 
-  categoryScroll: { gap: 8, paddingTop: 10 },
+  categoryScroll: {
+    gap: 8, paddingTop: 10
+  },
   categoryChip: {
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: RADIUS.pill,
-    borderWidth: 1,
+    borderWidth: 1
   },
-  categoryChipText: { fontSize: 12, fontWeight: '600' },
+  categoryChipText: {
+    fontSize: 12, fontFamily: 'Inter-SemiBold'
+  },
 
-  section: { padding: SPACING.lg },
+  section: {
+    padding: SPACING.lg
+  },
   sectionHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: 8
   },
   sectionLabel: {
     fontSize: 11,
-    fontWeight: '700',
+    fontFamily: 'Inter-Bold',
     letterSpacing: 0.8,
-    textTransform: 'uppercase',
+    textTransform: 'uppercase'
   },
-  clearText: { fontSize: 12, fontWeight: '600' },
+  clearText: {
+    fontSize: 12, fontFamily: 'Inter-SemiBold'
+  },
 
   recentCard: {
     borderRadius: RADIUS.xl,
     borderWidth: 1,
-    overflow: 'hidden',
+    overflow: 'hidden'
   },
   recentRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 12
   },
-  recentText: { fontSize: FONT_SIZE.md, fontWeight: '500' },
+  recentText: {
+    fontSize: FONT_SIZE.md, fontFamily: 'Inter-Medium'
+  },
 
-  popularGrid: { gap: 10, marginTop: 8 },
+  popularGrid: {
+    gap: 10, marginTop: 8
+  },
   popularCard: {
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: RADIUS.xl,
     padding: 12,
     borderWidth: 1,
-    gap: 12,
+    gap: 12
   },
   popularIconCircle: {
     width: 38,
     height: 38,
     borderRadius: 19,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
-  popularName: { fontSize: FONT_SIZE.md, fontWeight: '700' },
-  popularSub: { fontSize: 12, marginTop: 1 },
+  popularName: {
+    fontSize: FONT_SIZE.md, fontFamily: 'Inter-Bold'
+  },
+  popularSub: {
+    fontFamily: 'Inter-Regular',
+     fontSize: 12, marginTop: 1
+  },
 
-  listContent: { padding: SPACING.lg, gap: 10 },
+  listContent: {
+    padding: SPACING.lg, gap: 10
+  },
   medicineCard: {
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: RADIUS.xl,
     padding: 14,
-    borderWidth: 1,
+    borderWidth: 1
   },
   medIcon: {
     width: 44,
@@ -446,26 +472,44 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.md,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 12
   },
-  medBody: { flex: 1 },
-  medName: { fontSize: FONT_SIZE.md, fontWeight: '700' },
-  medSub: { fontSize: 12, marginTop: 2 },
-  brandSub: { fontSize: 11, marginTop: 2 },
+  medBody: {
+    flex: 1
+  },
+  medName: {
+    fontSize: FONT_SIZE.md, fontFamily: 'Inter-Bold'
+  },
+  medSub: {
+    fontFamily: 'Inter-Regular',
+     fontSize: 12, marginTop: 2
+  },
+  brandSub: {
+    fontFamily: 'Inter-Regular',
+     fontSize: 11, marginTop: 2
+  },
 
   badgePill: {
     paddingHorizontal: 7,
     paddingVertical: 2,
-    borderRadius: RADIUS.pill,
+    borderRadius: RADIUS.pill
   },
-  badgePillText: { fontSize: 10, fontWeight: '700' },
+  badgePillText: {
+    fontSize: 10, fontFamily: 'Inter-Bold'
+  },
 
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 60,
-    paddingHorizontal: SPACING.xl,
+    paddingHorizontal: SPACING.xl
   },
-  emptyTitle: { fontSize: 18, fontWeight: '700', marginBottom: 6 },
-  emptySub: { fontSize: 13, textAlign: 'center', lineHeight: 18 },
+  emptyTitle: {
+    fontSize: 18, fontFamily: 'Inter-Bold', marginBottom: 6
+  },
+  emptySub: {
+    fontFamily: 'Inter-Regular',
+     fontSize: 13, textAlign: 'center', lineHeight: 18
+  },
+
 });

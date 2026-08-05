@@ -4,7 +4,7 @@
  * This file is the import target for all screens and components.
  * All token values live in styles/theme.tsx — never add raw hex here.
  */
-import { LIGHT_COLORS } from '@/styles/theme';
+import { COLORS,  LIGHT_COLORS  } from '@/styles/theme';
 
 export { LIGHT_COLORS };
 
@@ -14,7 +14,7 @@ const lightThemeColors = {
     primary:   LIGHT_COLORS.text,
     secondary: LIGHT_COLORS.textMuted,
     muted:     LIGHT_COLORS.textDim,
-    white:     '#ffffff',
+    white:     COLORS.white,
   },
 };
 

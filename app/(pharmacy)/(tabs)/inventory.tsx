@@ -14,7 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useThemeContext } from '@/hooks/useThemeContext';
-import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
+import { COLORS,  FONT_SIZE, RADIUS, SPACING  } from '@/styles/theme';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
 import Skeleton from '@/components/ui/Skeleton';
@@ -252,7 +252,7 @@ export default function Inventory() {
           </View>
 
           <View style={styles.itemRight}>
-            <Text style={[styles.priceText, { color: '#10b981' }]}>GHS {item.price.toFixed(2)}</Text>
+            <Text style={[styles.priceText, { color: COLORS.pharmacyPrimary }]}>GHS {item.price.toFixed(2)}</Text>
             <Text style={[styles.stockQty, { color: theme.textMuted }]}>{item.quantity} units</Text>
           </View>
         </View>
@@ -262,7 +262,7 @@ export default function Inventory() {
             style={[
               styles.statusPill,
               isOutOfStock
-                ? { backgroundColor: '#fef2f2' }
+                ? { backgroundColor: COLORS.errorBg }
                 : isLow
                 ? { backgroundColor: '#fffbeb' }
                 : { backgroundColor: '#ecfdf5' },
@@ -273,10 +273,10 @@ export default function Inventory() {
                 styles.statusDot,
                 {
                   backgroundColor: isOutOfStock
-                    ? '#ef4444'
+                    ? COLORS.error
                     : isLow
-                    ? '#f59e0b'
-                    : '#10b981',
+                    ? COLORS.warning
+                    : COLORS.pharmacyPrimary,
                 },
               ]}
             />
@@ -288,7 +288,7 @@ export default function Inventory() {
                     ? '#b91c1c'
                     : isLow
                     ? '#b45309'
-                    : '#047857',
+                    : COLORS.pharmacyTextDark,
                 },
               ]}
             >
@@ -331,10 +331,10 @@ export default function Inventory() {
         right={
           <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
             <Pressable
-              style={({ pressed }) => [styles.fabSmall, pressed && { opacity: 0.8 }, { backgroundColor: '#10b981' }]}
+              style={({ pressed }) => [styles.fabSmall, pressed && { opacity: 0.8 }, { backgroundColor: COLORS.pharmacyPrimary }]}
               onPress={() => router.push('/(pharmacy)/add-medicine')}
             >
-              <Ionicons name="add" size={22} color="#fff" />
+              <Ionicons name="add" size={22} color={COLORS.white} />
             </Pressable>
             <Pressable
               style={({ pressed }) => [styles.uploadBtn, pressed && { opacity: 0.5 }, { borderColor: theme.border }]}
@@ -370,12 +370,12 @@ export default function Inventory() {
           style={[
             styles.chip,
             filterMode === 'all'
-              ? { backgroundColor: '#10b981', borderColor: '#10b981' }
+              ? { backgroundColor: COLORS.pharmacyPrimary, borderColor: COLORS.pharmacyPrimary }
               : { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
           ]}
           onPress={() => setFilterMode('all')}
         >
-          <Text style={[styles.chipText, { color: filterMode === 'all' ? '#ffffff' : theme.text.primary }]}>
+          <Text style={[styles.chipText, { color: filterMode === 'all' ? COLORS.white : theme.text.primary }]}>
             All Items ({inventory.length})
           </Text>
         </Pressable>
@@ -384,12 +384,12 @@ export default function Inventory() {
           style={[
             styles.chip,
             filterMode === 'low'
-              ? { backgroundColor: '#10b981', borderColor: '#10b981' }
+              ? { backgroundColor: COLORS.pharmacyPrimary, borderColor: COLORS.pharmacyPrimary }
               : { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
           ]}
           onPress={() => setFilterMode('low')}
         >
-          <Text style={[styles.chipText, { color: filterMode === 'low' ? '#ffffff' : theme.text.primary }]}>
+          <Text style={[styles.chipText, { color: filterMode === 'low' ? COLORS.white : theme.text.primary }]}>
             Low Stock
           </Text>
         </Pressable>
@@ -398,12 +398,12 @@ export default function Inventory() {
           style={[
             styles.chip,
             filterMode === 'instock'
-              ? { backgroundColor: '#10b981', borderColor: '#10b981' }
+              ? { backgroundColor: COLORS.pharmacyPrimary, borderColor: COLORS.pharmacyPrimary }
               : { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
           ]}
           onPress={() => setFilterMode('instock')}
         >
-          <Text style={[styles.chipText, { color: filterMode === 'instock' ? '#ffffff' : theme.text.primary }]}>
+          <Text style={[styles.chipText, { color: filterMode === 'instock' ? COLORS.white : theme.text.primary }]}>
             In Stock
           </Text>
         </Pressable>
@@ -421,12 +421,12 @@ export default function Inventory() {
           data={filteredInventory}
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
-          contentContainerStyle={{ padding: SPACING.xl, gap: 12, paddingBottom: 100 }}
+          contentContainerStyle={{ padding: SPACING.xl, gap: 12 }}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
               onRefresh={handleRefresh}
-              tintColor="#10b981"
+              tintColor={COLORS.pharmacyPrimary}
               colors={['#10b981']}
             />
           }
@@ -512,8 +512,8 @@ export default function Inventory() {
               disabled={saving}
             >
               {saving
-                ? <ActivityIndicator color="#fff" />
-                : <Text style={{ color: '#fff', fontWeight: '600' }}>Save</Text>
+                ? <ActivityIndicator color={COLORS.white} />
+                : <Text style={{ color: COLORS.white, fontFamily: 'Inter-SemiBold' }}>Save</Text>
               }
             </Pressable>
           </View>
@@ -524,124 +524,147 @@ export default function Inventory() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: {
+    flex: 1
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: SPACING.xl,
     paddingVertical: SPACING.md,
-    borderBottomWidth: 1,
+    borderBottomWidth: 1
   },
-  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  headerLeft: {
+    flexDirection: 'row', alignItems: 'center', gap: 12
+  },
   backBtn: {
     width: 36,
     height: 36,
     borderRadius: RADIUS.pill,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
-  headerTitle: { fontSize: FONT_SIZE.xxl, fontWeight: '700' },
+  headerTitle: {
+    fontSize: FONT_SIZE.xxl, fontFamily: 'Inter-Bold'
+  },
   fabSmall: {
     width: 36,
     height: 36,
     borderRadius: RADIUS.md,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
 
-  addForm: { padding: SPACING.lg, borderBottomWidth: 1, gap: 10 },
-  addFormTitle: { fontSize: FONT_SIZE.lg, fontWeight: '700' },
-  addFormRow: { flexDirection: 'row', gap: 10 },
+  addForm: {
+    padding: SPACING.lg, borderBottomWidth: 1, gap: 10
+  },
+  addFormTitle: {
+    fontSize: FONT_SIZE.lg, fontFamily: 'Inter-Bold'
+  },
+  addFormRow: {
+    flexDirection: 'row', gap: 10
+  },
   addInput: {
+    fontFamily: 'Inter-Regular',
+    
     flex: 1,
     height: 40,
     borderWidth: 1,
     borderRadius: RADIUS.md,
     paddingHorizontal: 12,
-    fontSize: FONT_SIZE.lg,
+    fontSize: FONT_SIZE.lg
   },
   addBtn: {
     height: 40,
     borderRadius: RADIUS.md,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 4,
+    marginTop: 4
   },
-  addBtnText: { color: '#fff', fontWeight: '600', fontSize: FONT_SIZE.lg },
+  addBtnText: {
+    color: COLORS.white, fontFamily: 'Inter-SemiBold', fontSize: FONT_SIZE.lg
+  },
 
-  searchRow: { flexDirection: 'row', paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md, gap: 8 },
+  searchRow: {
+    flexDirection: 'row', paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md, gap: 8
+  },
   searchBar: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: RADIUS.pill,
     height: 40,
-    paddingHorizontal: 14,
+    paddingHorizontal: 14
   },
-  searchInput: { flex: 1, fontSize: FONT_SIZE.lg },
+  searchInput: {
+    fontFamily: 'Inter-Regular',
+     flex: 1, fontSize: FONT_SIZE.lg
+  },
   uploadBtn: {
     width: 40,
     height: 40,
     borderRadius: RADIUS.md,
     borderWidth: 1,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
 
   chipRow: {
     flexDirection: 'row',
     paddingHorizontal: SPACING.lg,
     paddingBottom: SPACING.sm,
-    gap: 8,
+    gap: 8
   },
   chip: {
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: RADIUS.pill,
-    borderWidth: 1.2,
+    borderWidth: 1.2
   },
   chipText: {
     fontSize: 12,
-    fontWeight: '700',
+    fontFamily: 'Inter-Bold'
   },
 
   itemCard: {
     borderRadius: RADIUS.xl,
     padding: SPACING.lg,
     borderWidth: 1.5,
-    gap: 12,
+    gap: 12
   },
   itemHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'flex-start'
   },
   medName: {
     fontSize: FONT_SIZE.xl,
-    fontWeight: '700',
+    fontFamily: 'Inter-Bold'
   },
   strengthChip: {
     alignSelf: 'flex-start',
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: RADIUS.pill,
-    marginTop: 4,
+    marginTop: 4
   },
   strengthText: {
     fontSize: 11,
-    fontWeight: '600',
+    fontFamily: 'Inter-SemiBold'
   },
   itemRight: {
-    alignItems: 'flex-end',
+    alignItems: 'flex-end'
   },
   priceText: {
     fontSize: FONT_SIZE.xl,
-    fontWeight: '800',
+    fontFamily: 'Inter-Bold'
   },
   stockQty: {
+    fontFamily: 'Inter-Regular',
+    
     fontSize: FONT_SIZE.md,
-    marginTop: 2,
+    marginTop: 2
   },
   itemFooter: {
     flexDirection: 'row',
@@ -649,7 +672,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.04)',
+    borderTopColor: 'rgba(0,0,0,0.04)'
   },
   statusPill: {
     flexDirection: 'row',
@@ -657,16 +680,16 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: RADIUS.pill,
+    borderRadius: RADIUS.pill
   },
   statusDot: {
     width: 6,
     height: 6,
-    borderRadius: 3,
+    borderRadius: 3
   },
   statusPillText: {
     fontSize: 11,
-    fontWeight: '700',
+    fontFamily: 'Inter-Bold'
   },
   editBtn: {
     flexDirection: 'row',
@@ -675,25 +698,27 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: RADIUS.pill,
-    borderWidth: 1.2,
+    borderWidth: 1.2
   },
   editBtnText: {
     fontSize: 12,
-    fontWeight: '700',
+    fontFamily: 'Inter-Bold'
   },
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 60,
-    gap: 8,
+    gap: 8
   },
   emptyTitle: {
     fontSize: FONT_SIZE.xl,
-    fontWeight: '700',
+    fontFamily: 'Inter-Bold'
   },
   emptySub: {
+    fontFamily: 'Inter-Regular',
+    
     fontSize: FONT_SIZE.md,
-    textAlign: 'center',
+    textAlign: 'center'
   },
 
   iconBtn: {
@@ -701,33 +726,38 @@ const styles = StyleSheet.create({
     height: 36,
     borderRadius: RADIUS.pill,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
 
   // Bottom sheet edit form
   editSheetContent: {
     paddingHorizontal: SPACING.xl,
     paddingTop: SPACING.sm,
-    gap: 12,
+    gap: 12
   },
   fieldLabel: {
     fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.5,
+    fontFamily: 'Inter-Bold',
+    letterSpacing: 0.5
   },
   modalInput: {
+    fontFamily: 'Inter-Regular',
+    
     height: 48,
     borderWidth: 1,
     borderRadius: RADIUS.md,
     paddingHorizontal: 14,
-    fontSize: FONT_SIZE.lg,
+    fontSize: FONT_SIZE.lg
   },
-  modalActions: { flexDirection: 'row', gap: 10, marginTop: 10 },
+  modalActions: {
+    flexDirection: 'row', gap: 10, marginTop: 10
+  },
   modalBtn: {
     flex: 1,
     height: 46,
     borderRadius: RADIUS.pill,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
+
 });

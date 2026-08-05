@@ -121,46 +121,49 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: SPACING.lg,
     borderBottomWidth: 1,
-    position: 'relative',
+    position: 'relative'
   },
   titleContainer: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 60,
+    paddingHorizontal: 60
   },
   titleContainerLeft: {
     alignItems: 'flex-start',
-    paddingLeft: 60,
+    paddingLeft: 60
   },
   title: {
     fontSize: FONT_SIZE.xxl,
-    fontWeight: '700',
-    textAlign: 'center',
+    fontFamily: 'Inter-Bold',
+    textAlign: 'center'
   },
   titleTextLeft: {
-    textAlign: 'left',
+    fontFamily: 'Inter-Regular',
+    
+    textAlign: 'left'
   },
   leftSide: {
     flexDirection: 'row',
     alignItems: 'center',
     minWidth: 40,
-    zIndex: 1,
+    zIndex: 1
   },
   rightSide: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
     minWidth: 40,
-    zIndex: 1,
+    zIndex: 1
   },
   iconBtn: {
     width: 36,
     height: 36,
     borderRadius: RADIUS.pill,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
+
 });
 
 // ── Back-compat alias ──

@@ -17,6 +17,7 @@ import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
 import { Header } from '@/components/ui/Header';
+import { toast } from '@/context/ToastContext';
 import Skeleton from '@/components/ui/Skeleton';
 import { logAuditEvent } from '@/lib/auditLogger';
 
@@ -160,7 +161,7 @@ export default function ReservationScreen() {
 
               if (error) throw error;
               setReservation((prev) => (prev ? { ...prev, status: 'cancelled' } : null));
-              Alert.alert('Cancelled', 'Your reservation has been cancelled.');
+              toast.info('Reservation Cancelled', 'Your reservation has been cancelled.');
             } catch (e: any) {
               Alert.alert('Error', e.message || 'Failed to cancel reservation.');
             } finally {
@@ -206,21 +207,8 @@ export default function ReservationScreen() {
         metadata: { pharmacy_name: pharmName, total_cost: totalCost },
       });
 
-      Alert.alert(
-        'Reservation Requested ✓',
-        `Your request has been sent to ${pharmName}. You'll receive a notification when it's confirmed.`,
-        [
-          {
-            text: 'View My Reservations',
-            onPress: () => router.replace('/(patient)/reservations-history'),
-          },
-          {
-            text: 'Done',
-            style: 'cancel',
-            onPress: () => router.back(),
-          },
-        ]
-      );
+      toast.success('Reservation Requested', `Your request has been sent to ${pharmName}.`);
+      router.replace('/(patient)/reservations-history');
     } catch (e: any) {
       Alert.alert('Error', e.message || 'Failed to place reservation request.');
     } finally {

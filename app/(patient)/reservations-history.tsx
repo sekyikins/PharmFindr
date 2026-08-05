@@ -11,7 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useThemeContext } from '@/hooks/useThemeContext';
-import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
+import { COLORS,  FONT_SIZE, RADIUS, SPACING  } from '@/styles/theme';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
 import Skeleton from '@/components/ui/Skeleton';
@@ -119,7 +119,7 @@ export default function PatientReservationsHistory() {
             {item.total_cost > 0 ? `$${Number(item.total_cost).toFixed(2)}` : 'Est. Price Available'}
           </Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-            <Text style={{ fontSize: FONT_SIZE.sm, color: primaryColor, fontWeight: '600' }}>View Details</Text>
+            <Text style={{ fontSize: FONT_SIZE.sm, color: primaryColor, fontFamily: 'Inter-SemiBold' }}>View Details</Text>
             <Ionicons name="chevron-forward" size={14} color={primaryColor} />
           </View>
         </View>
@@ -201,54 +201,90 @@ export default function PatientReservationsHistory() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: {
+    flex: 1
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: SPACING.xl,
     paddingVertical: SPACING.md,
-    borderBottomWidth: 1,
+    borderBottomWidth: 1
   },
   navBtn: {
     width: 36,
     height: 36,
     borderRadius: RADIUS.pill,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
-  headerTitle: { fontSize: FONT_SIZE.xxl, fontWeight: '700' },
+  headerTitle: {
+    fontSize: FONT_SIZE.xxl, fontFamily: 'Inter-Bold'
+  },
   filterRow: {
     flexDirection: 'row',
     paddingHorizontal: SPACING.lg,
     paddingVertical: SPACING.sm,
     gap: 8,
-    borderBottomWidth: 1,
+    borderBottomWidth: 1
   },
   filterChip: {
     flex: 1,
     alignItems: 'center',
     paddingVertical: 6,
     borderRadius: RADIUS.pill,
-    borderWidth: 1,
+    borderWidth: 1
   },
-  filterText: { fontSize: FONT_SIZE.sm, fontWeight: '600' },
-  list: { padding: SPACING.lg, gap: SPACING.md },
-  skeletonContainer: { padding: SPACING.lg, gap: SPACING.md },
+  filterText: {
+    fontSize: FONT_SIZE.sm, fontFamily: 'Inter-SemiBold'
+  },
+  list: {
+    padding: SPACING.lg, gap: SPACING.md
+  },
+  skeletonContainer: {
+    padding: SPACING.lg, gap: SPACING.md
+  },
   card: {
     borderRadius: RADIUS.xl,
     padding: SPACING.lg,
-    borderWidth: 1,
+    borderWidth: 1
   },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 },
-  pharmacyName: { fontSize: FONT_SIZE.xl, fontWeight: '700' },
-  dateText: { fontSize: FONT_SIZE.sm, marginTop: 2 },
-  badge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 3, borderRadius: RADIUS.pill },
-  badgeText: { fontSize: FONT_SIZE.sm, fontWeight: '600' },
-  medsText: { fontSize: FONT_SIZE.lg, marginBottom: 12 },
-  cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#e2e8f0' },
-  priceText: { fontSize: FONT_SIZE.lg, fontWeight: '700' },
-  emptyContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60, gap: 8 },
-  emptyTitle: { fontSize: FONT_SIZE.xl, fontWeight: '700' },
-  emptySub: { fontSize: FONT_SIZE.lg, textAlign: 'center', paddingHorizontal: 32 },
+  cardHeader: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6
+  },
+  pharmacyName: {
+    fontSize: FONT_SIZE.xl, fontFamily: 'Inter-Bold'
+  },
+  dateText: {
+    fontFamily: 'Inter-Regular',
+     fontSize: FONT_SIZE.sm, marginTop: 2
+  },
+  badge: {
+    flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 3, borderRadius: RADIUS.pill
+  },
+  badgeText: {
+    fontSize: FONT_SIZE.sm, fontFamily: 'Inter-SemiBold'
+  },
+  medsText: {
+    fontFamily: 'Inter-Regular',
+     fontSize: FONT_SIZE.lg, marginBottom: 12
+  },
+  cardFooter: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: COLORS.borderSubtle
+  },
+  priceText: {
+    fontSize: FONT_SIZE.lg, fontFamily: 'Inter-Bold'
+  },
+  emptyContainer: {
+    alignItems: 'center', justifyContent: 'center', paddingVertical: 60, gap: 8
+  },
+  emptyTitle: {
+    fontSize: FONT_SIZE.xl, fontFamily: 'Inter-Bold'
+  },
+  emptySub: {
+    fontFamily: 'Inter-Regular',
+     fontSize: FONT_SIZE.lg, textAlign: 'center', paddingHorizontal: 32
+  },
+
 });

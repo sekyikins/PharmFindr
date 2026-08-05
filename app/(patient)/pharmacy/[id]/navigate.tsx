@@ -14,7 +14,7 @@ import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import FullMapComponent from '@/components/FullMapComponent';
 import { useThemeContext } from '@/hooks/useThemeContext';
-import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
+import { COLORS,  FONT_SIZE, RADIUS, SPACING  } from '@/styles/theme';
 import { getCurrentLocation, type Coords } from '@/lib/location';
 import { getRoute, formatDistance, formatDuration, type RouteResult } from '@/lib/ors';
 
@@ -130,7 +130,7 @@ export default function Navigate() {
               <Ionicons name="warning-outline" size={20} color={theme.warning} />
             ) : (
               <View style={[styles.directionsIconCircle, { backgroundColor: primaryColor }]}>
-                <Ionicons name="navigate" size={16} color="#fff" />
+                <Ionicons name="navigate" size={16} color={COLORS.white} />
               </View>
             )}
 
@@ -197,7 +197,7 @@ export default function Navigate() {
               ]}
               onPress={openExternalNav}
             >
-              <Ionicons name="navigate" size={18} color="#fff" style={{ marginRight: 8 }} />
+              <Ionicons name="navigate" size={18} color={COLORS.white} style={{ marginRight: 8 }} />
               <Text style={styles.startBtnText}>Open in Google Maps</Text>
             </Pressable>
           </BottomSheetView>
@@ -208,42 +208,58 @@ export default function Navigate() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: {
+    flex: 1
+  },
   floatingHeader: {
     position: 'absolute', top: 0, left: 0, right: 0,
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: SPACING.lg, paddingTop: SPACING.md, gap: 12,
-    zIndex: 10,
+    zIndex: 10
   },
   backBtn: {
     width: 44, height: 44, borderRadius: 22,
     justifyContent: 'center', alignItems: 'center',
-    borderWidth: 1,
+    borderWidth: 1
   },
   directionsCard: {
     flex: 1, flexDirection: 'row', alignItems: 'center',
     borderRadius: RADIUS.xl, paddingVertical: 10, paddingHorizontal: 14, gap: 12,
-    borderWidth: 1.5,
+    borderWidth: 1.5
   },
-  directionsIconCircle: { width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center' },
-  directionsTitle: { fontSize: FONT_SIZE.lg, fontWeight: '700' },
-  directionsSub: { fontSize: FONT_SIZE.sm },
+  directionsIconCircle: {
+    width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center'
+  },
+  directionsTitle: {
+    fontSize: FONT_SIZE.lg, fontFamily: 'Inter-Bold'
+  },
+  directionsSub: {
+    fontFamily: 'Inter-Regular',
+     fontSize: FONT_SIZE.sm
+  },
 
   sheetBodyContainer: {
     paddingHorizontal: SPACING.xl,
     paddingTop: 4,
     paddingBottom: 16,
-    gap: 16,
+    gap: 16
   },
-  sheetHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  pharmName: { fontSize: FONT_SIZE.title, fontWeight: '700' },
-  pharmMeta: { fontSize: FONT_SIZE.lg },
+  sheetHeader: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'
+  },
+  pharmName: {
+    fontSize: FONT_SIZE.title, fontFamily: 'Inter-Bold'
+  },
+  pharmMeta: {
+    fontFamily: 'Inter-Regular',
+     fontSize: FONT_SIZE.lg
+  },
   expandToggle: {
     width: 32,
     height: 32,
     borderRadius: 16,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   startBtn: {
     height: 48,
@@ -251,7 +267,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 4,
+    marginTop: 4
   },
-  startBtnText: { color: '#ffffff', fontSize: FONT_SIZE.lg, fontWeight: '600' },
+  startBtnText: {
+    color: COLORS.white, fontSize: FONT_SIZE.lg, fontFamily: 'Inter-SemiBold'
+  },
+
 });

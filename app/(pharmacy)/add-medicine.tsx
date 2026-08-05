@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Header } from '@/components/ui/Header';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
+import { toast } from '@/context/ToastContext';
 import { supabase } from '@/lib/supabase';
 import { useThemeContext } from '@/hooks/useThemeContext';
 import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
@@ -225,9 +226,8 @@ export default function AddMedicine() {
 
         if (updateErr) throw updateErr;
 
-        Alert.alert('Success', 'Medicine stock updated successfully!', [
-          { text: 'OK', onPress: () => router.back() },
-        ]);
+        toast.success('Stock Updated', 'Medicine stock updated successfully!');
+        router.back();
       } else {
         const { error: insertErr } = await supabase.from('inventory').insert({
           pharmacy_id: pharmId,
@@ -239,9 +239,8 @@ export default function AddMedicine() {
 
         if (insertErr) throw insertErr;
 
-        Alert.alert('Success', 'Medicine added to inventory successfully!', [
-          { text: 'OK', onPress: () => router.back() },
-        ]);
+        toast.success('Medicine Added', 'Medicine added to inventory successfully!');
+        router.back();
       }
     } catch (e: any) {
       setErrorMsg(e.message || 'Failed to save inventory stock.');
@@ -427,7 +426,7 @@ export default function AddMedicine() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  scrollContent: { padding: SPACING.xl, paddingBottom: 160 },
+  scrollContent: { padding: SPACING.xl },
   errorBox: {
     flexDirection: 'row',
     alignItems: 'center',

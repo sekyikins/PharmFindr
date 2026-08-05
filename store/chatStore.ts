@@ -45,6 +45,7 @@ interface ChatState {
   ) => Promise<Consultation>;
   sendMessage: (userId: string | undefined, content: string) => Promise<void>;
   clearCurrentConsultation: (userId?: string) => Promise<void>;
+  clearGeneralAssistantChats: (userId?: string) => Promise<void>;
   deleteConsultation: (userId: string, consultationId: string) => Promise<void>;
 }
 
@@ -337,15 +338,49 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const active = get().activeConsultation;
     set({ messages: [], error: null });
 
-    if (userId && active?.id && !active.id.startsWith('temp')) {
+    if (userId) {
       try {
-        await supabase
-          .from('chat_messages')
-          .delete()
-          .eq('consultation_id', active.id);
+        if (active?.type === 'general') {
+          // General Assistant: Delete both consultation_id matching and legacy null consultation_id messages
+          await supabase
+            .from('chat_messages')
+            .delete()
+            .eq('user_id', userId)
+            .or(`consultation_id.eq.${active.id},consultation_id.is.null`);
+        } else if (active?.id && !active.id.startsWith('temp')) {
+          await supabase
+            .from('chat_messages')
+            .delete()
+            .eq('consultation_id', active.id);
+        }
       } catch (err) {
         console.error('Failed to clear consultation messages:', err);
       }
+    }
+  },
+
+  // ── Clear general assistant messages ONLY (Does NOT touch consultations) ─
+  clearGeneralAssistantChats: async (userId) => {
+    const active = get().activeConsultation;
+
+    // If currently viewing General Assistant, clear active message list in UI
+    if (!active || active.type === 'general') {
+      set({ messages: [], error: null });
+    }
+
+    if (userId) {
+      try {
+        const gen = await get().getOrCreateGeneralConsultation(userId);
+        await supabase
+          .from('chat_messages')
+          .delete()
+          .eq('user_id', userId)
+          .or(`consultation_id.eq.${gen.id},consultation_id.is.null`);
+      } catch (err) {
+        console.error('Failed to clear general assistant chats:', err);
+      }
+    } else {
+      set({ messages: [], error: null });
     }
   },
 

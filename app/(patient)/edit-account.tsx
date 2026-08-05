@@ -28,6 +28,7 @@ import { supabase } from '@/lib/supabase';
 import { BottomSheetModal, BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import AppBottomSheet from '@/components/ui/AppBottomSheet';
 import AvatarPickerSheet from '@/components/ui/AvatarPickerSheet';
+import { toast } from '@/context/ToastContext';
 import { Header } from '@/components/ui/Header';
 import {
   getBiometricsPreference,
@@ -195,7 +196,7 @@ export default function EditAccount() {
               setUploadingAvatar(true);
               await updateProfile({ avatar_url: null });
               setAvatarModalVisible(false);
-              Alert.alert('Removed', 'Profile photo removed successfully.');
+              toast.success('Photo Removed', 'Profile photo removed successfully.');
             } catch (e: any) {
               Alert.alert('Error', e.message || 'Failed to remove photo.');
             } finally {
@@ -219,7 +220,7 @@ export default function EditAccount() {
         full_name: fullName.trim(),
         phone: phone.trim(),
       });
-      Alert.alert('Success', 'Account details updated successfully!');
+      toast.success('Account Updated', 'Account details updated successfully!');
     } catch (e: any) {
       Alert.alert('Error', e.message || 'Failed to update account.');
     } finally {
@@ -267,10 +268,7 @@ export default function EditAccount() {
 
       await updatePasswordAndRevokeOtherSessions(newPassword);
 
-      Alert.alert(
-        'Password Updated',
-        'Your password has been changed securely. All other active device sessions have been logged out for security.'
-      );
+      toast.success('Password Updated', 'Your password has been changed securely.');
       passwordSheetRef.current?.dismiss();
       setCurrentPassword('');
       setNewPassword('');
@@ -624,7 +622,7 @@ export default function EditAccount() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  scrollContent: { padding: SPACING.xl, paddingBottom: 160 },
+  scrollContent: { padding: SPACING.xl },
 
   // Avatar Section
   avatarSection: {
@@ -657,7 +655,7 @@ const styles = StyleSheet.create({
   },
   avatarText: {
     fontSize: 34,
-    fontWeight: '700',
+    fontFamily: 'Inter-Bold',
     color: '#ffffff',
   },
   editCameraBadge: {
@@ -672,11 +670,12 @@ const styles = StyleSheet.create({
   },
   profileNameText: {
     fontSize: 18,
-    fontWeight: '700',
+    fontFamily: 'Inter-Bold',
     marginTop: 10,
   },
   profileEmailText: {
     fontSize: 12,
+    fontFamily: 'Inter-Regular',
     marginTop: 2,
   },
 
@@ -689,13 +688,13 @@ const styles = StyleSheet.create({
   },
   sectionHeading: {
     fontSize: 11,
-    fontWeight: '800',
+    fontFamily: 'Inter-Bold',
     letterSpacing: 1,
     marginBottom: 8,
   },
   fieldLabel: {
     fontSize: 10,
-    fontWeight: '700',
+    fontFamily: 'Inter-Bold',
     letterSpacing: 0.6,
     marginTop: 10,
     marginBottom: 5,
@@ -714,6 +713,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: FONT_SIZE.md,
+    fontFamily: 'Inter-Regular',
   },
 
   // Security Rows
@@ -733,10 +733,11 @@ const styles = StyleSheet.create({
   },
   securityTitle: {
     fontSize: 14,
-    fontWeight: '600',
+    fontFamily: 'Inter-SemiBold',
   },
   securitySub: {
     fontSize: 11,
+    fontFamily: 'Inter-Regular',
     marginTop: 2,
   },
 
@@ -751,7 +752,7 @@ const styles = StyleSheet.create({
   saveBtnText: {
     color: '#ffffff',
     fontSize: 15,
-    fontWeight: '700',
+    fontFamily: 'Inter-Bold',
   },
 
   // WhatsApp Full-Screen Avatar Modal
@@ -784,7 +785,7 @@ const styles = StyleSheet.create({
   waHeaderTitle: {
     color: '#ffffff',
     fontSize: 18,
-    fontWeight: '700',
+    fontFamily: 'Inter-Bold',
   },
   waHeaderRight: {
     flexDirection: 'row',
@@ -826,7 +827,7 @@ const styles = StyleSheet.create({
   avatarActionLabel: {
     color: '#ffffff',
     fontSize: 14,
-    fontWeight: '600',
+    fontFamily: 'Inter-SemiBold',
   },
 
   // Password bottom sheet
@@ -835,6 +836,7 @@ const styles = StyleSheet.create({
   },
   passwordSub: {
     fontSize: 12,
+    fontFamily: 'Inter-Regular',
     marginVertical: 8,
   },
   modalInput: {
@@ -843,6 +845,7 @@ const styles = StyleSheet.create({
     height: 46,
     borderWidth: 1,
     fontSize: 14,
+    fontFamily: 'Inter-Regular',
   },
   passwordActionRow: {
     flexDirection: 'row',
@@ -860,7 +863,7 @@ const styles = StyleSheet.create({
   },
   cancelPasswordText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontFamily: 'Inter-SemiBold',
   },
   confirmPasswordBtn: {
     flex: 1,
@@ -872,6 +875,6 @@ const styles = StyleSheet.create({
   confirmPasswordText: {
     color: '#ffffff',
     fontSize: 14,
-    fontWeight: '700',
+    fontFamily: 'Inter-Bold',
   },
 });

@@ -1,5 +1,5 @@
 import { useSegments } from 'expo-router';
-import { LIGHT_COLORS } from '@/styles/theme';
+import { COLORS,  LIGHT_COLORS  } from '@/styles/theme';
 
 type TextObject = {
   primary:   string;
@@ -20,7 +20,7 @@ function buildTheme(): FullTheme {
       primary:   base.text,   // flat string on the palette
       secondary: base.textMuted,
       muted:     base.textDim,
-      white:     '#ffffff',
+      white:     COLORS.white,
     },
   } as FullTheme;
 }

@@ -13,7 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useThemeContext } from '@/hooks/useThemeContext';
-import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
+import { COLORS,  FONT_SIZE, RADIUS, SPACING  } from '@/styles/theme';
 import { Header } from '@/components/ui/Header';
 import { useSavedMedicinesStore } from '@/store/savedMedicinesStore';
 import { type MedicineItem } from '@/lib/medicineCatalogue';
@@ -157,7 +157,7 @@ export default function SavedMedicinesScreen() {
               style={({ pressed }) => [styles.exploreBtn, { backgroundColor: primaryColor }, pressed && { opacity: 0.7 }]}
               onPress={() => router.push('/(patient)/(tabs)/search')}
             >
-              <Ionicons name="search" size={18} color="#ffffff" style={{ marginRight: 8 }} />
+              <Ionicons name="search" size={18} color={COLORS.white} style={{ marginRight: 8 }} />
               <Text style={styles.exploreBtnText}>Explore & Search Medicines</Text>
             </Pressable>
           </View>
@@ -200,8 +200,8 @@ export default function SavedMedicinesScreen() {
                 style={({ pressed }) => [styles.actionBtn, pressed && { opacity: 0.6 }]}
                 onPress={() => handleFindPharmacies(item)}
               >
-                <Ionicons name="location-outline" size={16} color="#10b981" />
-                <Text style={[styles.actionBtnText, { color: '#10b981' }]}>Find Stock</Text>
+                <Ionicons name="location-outline" size={16} color={COLORS.pharmacyPrimary} />
+                <Text style={[styles.actionBtnText, { color: COLORS.pharmacyPrimary }]}>Find Stock</Text>
               </Pressable>
 
               <View style={[styles.divider, { backgroundColor: theme.border }]} />
@@ -222,39 +222,52 @@ export default function SavedMedicinesScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: {
+    flex: 1
+  },
 
-  topSection: { paddingHorizontal: SPACING.xl, paddingTop: SPACING.md },
+  topSection: {
+    paddingHorizontal: SPACING.xl, paddingTop: SPACING.md
+  },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: RADIUS.xl,
     height: 46,
     paddingHorizontal: SPACING.lg,
-    borderWidth: 1,
+    borderWidth: 1
   },
-  searchInput: { flex: 1, fontSize: FONT_SIZE.md },
+  searchInput: {
+    fontFamily: 'Inter-Regular',
+     flex: 1, fontSize: FONT_SIZE.md
+  },
 
   countRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 10,
+    marginTop: 10
   },
-  countText: { fontSize: 12, fontWeight: '600' },
-  removeText: { fontSize: 12, fontWeight: '600' },
+  countText: {
+    fontSize: 12, fontFamily: 'Inter-SemiBold'
+  },
+  removeText: {
+    fontSize: 12, fontFamily: 'Inter-SemiBold'
+  },
 
-  listContent: { padding: SPACING.md, gap: 14 },
+  listContent: {
+    padding: SPACING.md, gap: 14
+  },
 
   card: {
     borderRadius: RADIUS.xl,
     borderWidth: 1,
-    overflow: 'hidden',
+    overflow: 'hidden'
   },
   cardTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 14,
+    padding: 14
   },
   medIcon: {
     width: 44,
@@ -262,47 +275,58 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.md,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 12
   },
-  medBody: { flex: 1 },
-  medName: { fontSize: FONT_SIZE.md, fontWeight: '700' },
-  medSub: { fontSize: 12, marginTop: 2 },
-  priceSub: { fontSize: 11, fontWeight: '700', marginTop: 2 },
+  medBody: {
+    flex: 1
+  },
+  medName: {
+    fontSize: FONT_SIZE.md, fontFamily: 'Inter-Bold'
+  },
+  medSub: {
+    fontFamily: 'Inter-Regular',
+     fontSize: 12, marginTop: 2
+  },
+  priceSub: {
+    fontSize: 11, fontFamily: 'Inter-Bold', marginTop: 2
+  },
 
   badgePill: {
     paddingHorizontal: 7,
     paddingVertical: 2,
-    borderRadius: RADIUS.pill,
+    borderRadius: RADIUS.pill
   },
-  badgePillText: { fontSize: 10, fontWeight: '700' },
+  badgePillText: {
+    fontSize: 10, fontFamily: 'Inter-Bold'
+  },
 
   cardActionRow: {
     flexDirection: 'row',
     alignItems: 'center',
     borderTopWidth: 1,
-    paddingVertical: 10,
+    paddingVertical: 10
   },
   actionBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: 6
   },
   actionBtnText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontFamily: 'Inter-SemiBold'
   },
   divider: {
     width: 1,
-    height: 18,
+    height: 18
   },
 
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 60,
-    paddingHorizontal: SPACING.xl,
+    paddingHorizontal: SPACING.xl
   },
   emptyIconCircle: {
     width: 72,
@@ -310,21 +334,27 @@ const styles = StyleSheet.create({
     borderRadius: 36,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 16
   },
-  emptyTitle: { fontSize: 18, fontWeight: '700', marginBottom: 6 },
-  emptySub: { fontSize: 13, textAlign: 'center', lineHeight: 18, marginBottom: 20 },
+  emptyTitle: {
+    fontSize: 18, fontFamily: 'Inter-Bold', marginBottom: 6
+  },
+  emptySub: {
+    fontFamily: 'Inter-Regular',
+     fontSize: 13, textAlign: 'center', lineHeight: 18, marginBottom: 20
+  },
 
   exploreBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
     height: 46,
-    borderRadius: RADIUS.pill,
+    borderRadius: RADIUS.pill
   },
   exploreBtnText: {
-    color: '#ffffff',
+    color: COLORS.white,
     fontSize: 14,
-    fontWeight: '700',
+    fontFamily: 'Inter-Bold'
   },
+
 });

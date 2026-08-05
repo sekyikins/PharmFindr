@@ -45,11 +45,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignSelf: 'flex-start',
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   text: {
     fontSize: FONT_SIZE.sm,
-    fontWeight: '600',
-    textTransform: 'uppercase',
+    fontFamily: 'Inter-SemiBold',
+    textTransform: 'uppercase'
   },
+
 });

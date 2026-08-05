@@ -19,7 +19,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as XLSX from 'xlsx';
 import { supabase } from '@/lib/supabase';
-import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
+import { COLORS,  FONT_SIZE, RADIUS, SPACING  } from '@/styles/theme';
 
 const PHARMACY_GREEN = '#10b981';
 
@@ -201,10 +201,10 @@ export default function UploadInventory() {
             disabled={loading}
           >
             {loading ? (
-              <ActivityIndicator color="#ffffff" />
+              <ActivityIndicator color={COLORS.white} />
             ) : (
               <>
-                <Ionicons name="document-text-outline" size={18} color="#ffffff" />
+                <Ionicons name="document-text-outline" size={18} color={COLORS.white} />
                 <Text style={styles.chooseBtnText}>Choose File from Device</Text>
               </>
             )}
@@ -223,7 +223,7 @@ export default function UploadInventory() {
         {/* ── 2. Format Requirements Guide ── */}
         <View style={[styles.formatCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
           <View style={styles.formatHeader}>
-            <Ionicons name="information-circle-outline" size={20} color="#2563eb" />
+            <Ionicons name="information-circle-outline" size={20} color={COLORS.patientPrimary} />
             <Text style={[styles.formatTitle, { color: theme.text.primary }]}>Spreadsheet Column Format</Text>
           </View>
           <Text style={[styles.formatSub, { color: theme.textMuted }]}>
@@ -232,17 +232,17 @@ export default function UploadInventory() {
 
           <View style={styles.colGrid}>
             {[
-              { name: 'Name', tag: 'REQUIRED', req: true, color: '#ef4444' },
-              { name: 'Quantity', tag: 'REQUIRED', req: true, color: '#ef4444' },
-              { name: 'Price', tag: 'REQUIRED', req: true, color: '#ef4444' },
-              { name: 'Strength', tag: 'OPTIONAL', req: false, color: '#64748b' },
+              { name: 'Name', tag: 'REQUIRED', req: true, color: COLORS.error },
+              { name: 'Quantity', tag: 'REQUIRED', req: true, color: COLORS.error },
+              { name: 'Price', tag: 'REQUIRED', req: true, color: COLORS.error },
+              { name: 'Strength', tag: 'OPTIONAL', req: false, color: COLORS.textMuted },
             ].map((col) => (
               <View
                 key={col.name}
                 style={[styles.colPill, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}
               >
                 <Text style={[styles.colPillName, { color: theme.text.primary }]}>{col.name}</Text>
-                <View style={[styles.colTag, { backgroundColor: col.req ? '#fee2e2' : '#f1f5f9' }]}>
+                <View style={[styles.colTag, { backgroundColor: col.req ? '#fee2e2' : COLORS.surfaceSecondary }]}>
                   <Text style={[styles.colTagText, { color: col.color }]}>{col.tag}</Text>
                 </View>
               </View>
@@ -253,7 +253,7 @@ export default function UploadInventory() {
         {/* ── 3. Error Alert ── */}
         {errorMsg && (
           <View style={styles.errorBox}>
-            <Ionicons name="alert-circle" size={20} color="#ef4444" />
+            <Ionicons name="alert-circle" size={20} color={COLORS.error} />
             <Text style={styles.errorText}>{errorMsg}</Text>
           </View>
         )}
@@ -312,8 +312,12 @@ export default function UploadInventory() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  scrollContent: { padding: SPACING.xl, gap: SPACING.lg, paddingBottom: 100 },
+  container: {
+    flex: 1
+  },
+  scrollContent: {
+    padding: SPACING.xl, gap: SPACING.lg
+  },
 
   dropZone: {
     borderRadius: RADIUS.xl,
@@ -321,7 +325,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderStyle: 'dashed',
     alignItems: 'center',
-    gap: 8,
+    gap: 8
   },
   iconCircle: {
     width: 60,
@@ -330,15 +334,17 @@ const styles = StyleSheet.create({
     backgroundColor: '#ecfdf5',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: 4
   },
   dropTitle: {
     fontSize: FONT_SIZE.xl,
-    fontWeight: '800',
+    fontFamily: 'Inter-Bold'
   },
   dropSub: {
+    fontFamily: 'Inter-Regular',
+    
     fontSize: FONT_SIZE.md,
-    textAlign: 'center',
+    textAlign: 'center'
   },
   chooseBtn: {
     flexDirection: 'row',
@@ -348,12 +354,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     gap: 8,
-    marginTop: 12,
+    marginTop: 12
   },
   chooseBtnText: {
-    color: '#ffffff',
+    color: COLORS.white,
     fontSize: FONT_SIZE.md,
-    fontWeight: '700',
+    fontFamily: 'Inter-Bold'
   },
   fileSelectedBadge: {
     flexDirection: 'row',
@@ -363,37 +369,39 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: RADIUS.pill,
-    marginTop: 10,
+    marginTop: 10
   },
   fileNameText: {
     fontSize: 12,
-    fontWeight: '700',
-    color: PHARMACY_GREEN,
+    fontFamily: 'Inter-Bold',
+    color: PHARMACY_GREEN
   },
 
   formatCard: {
     borderRadius: RADIUS.xl,
     padding: SPACING.lg,
     borderWidth: 1.5,
-    gap: 10,
+    gap: 10
   },
   formatHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 8
   },
   formatTitle: {
     fontSize: FONT_SIZE.lg,
-    fontWeight: '700',
+    fontFamily: 'Inter-Bold'
   },
   formatSub: {
-    fontSize: FONT_SIZE.md,
+    fontFamily: 'Inter-Regular',
+    
+    fontSize: FONT_SIZE.md
   },
   colGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-    marginTop: 4,
+    marginTop: 4
   },
   colPill: {
     flexDirection: 'row',
@@ -402,53 +410,53 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: RADIUS.pill,
-    borderWidth: 1,
+    borderWidth: 1
   },
   colPillName: {
     fontSize: 12,
-    fontWeight: '700',
+    fontFamily: 'Inter-Bold'
   },
   colTag: {
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 4,
+    borderRadius: 4
   },
   colTagText: {
     fontSize: 9,
-    fontWeight: '800',
+    fontFamily: 'Inter-Bold'
   },
 
   errorBox: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: '#fef2f2',
+    backgroundColor: COLORS.errorBg,
     borderColor: '#fecaca',
     borderWidth: 1,
     padding: SPACING.md,
-    borderRadius: RADIUS.lg,
+    borderRadius: RADIUS.lg
   },
   errorText: {
-    color: '#ef4444',
+    color: COLORS.error,
     fontSize: FONT_SIZE.md,
-    fontWeight: '600',
-    flex: 1,
+    fontFamily: 'Inter-SemiBold',
+    flex: 1
   },
 
   previewCard: {
     borderRadius: RADIUS.xl,
     padding: SPACING.lg,
     borderWidth: 1.5,
-    gap: 12,
+    gap: 12
   },
   previewHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   previewTitle: {
     fontSize: FONT_SIZE.lg,
-    fontWeight: '800',
+    fontFamily: 'Inter-Bold'
   },
   validBadge: {
     flexDirection: 'row',
@@ -457,39 +465,42 @@ const styles = StyleSheet.create({
     backgroundColor: '#ecfdf5',
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: RADIUS.pill,
+    borderRadius: RADIUS.pill
   },
   validBadgeText: {
-    color: '#047857',
+    color: COLORS.pharmacyTextDark,
     fontSize: 11,
-    fontWeight: '800',
+    fontFamily: 'Inter-Bold'
   },
   previewList: {
-    gap: 8,
+    gap: 8
   },
   previewRow: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: SPACING.md,
     borderRadius: RADIUS.lg,
-    borderWidth: 1,
+    borderWidth: 1
   },
   itemTitle: {
     fontSize: FONT_SIZE.md,
-    fontWeight: '700',
+    fontFamily: 'Inter-Bold'
   },
   itemQty: {
+    fontFamily: 'Inter-Regular',
+    
     fontSize: 11,
-    marginTop: 2,
+    marginTop: 2
   },
   itemPrice: {
     fontSize: FONT_SIZE.lg,
-    fontWeight: '800',
+    fontFamily: 'Inter-Bold'
   },
   moreText: {
     textAlign: 'center',
     fontSize: 12,
-    fontWeight: '600',
-    marginTop: 4,
+    fontFamily: 'Inter-SemiBold',
+    marginTop: 4
   },
+
 });

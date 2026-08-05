@@ -1,3 +1,4 @@
+import { COLORS } from '@/styles/theme';
 /**
  * MapComponent.tsx
  *
@@ -167,7 +168,7 @@ function MapCanvas({
             }}
             hitSlop={10}
           >
-            <Ionicons name="location" size={28} color="#10b981" />
+            <Ionicons name="location" size={28} color={COLORS.pharmacyPrimary} />
             <View style={styles.knownLabel}>
               <Text style={styles.knownLabelText} numberOfLines={1}>{pharm.name}</Text>
             </View>
@@ -180,7 +181,7 @@ function MapCanvas({
         const { x, y } = coordToPixel(pin.latitude, pin.longitude, containerW, containerH);
         return (
           <View style={[styles.pinWrapper, { left: x - 16, top: y - 32 }]} pointerEvents="none">
-            <Ionicons name="location" size={34} color="#2563eb" />
+            <Ionicons name="location" size={34} color={COLORS.patientPrimary} />
             <View style={styles.customLabel}>
               <Text style={styles.customLabelText}>Your Pharmacy</Text>
             </View>
@@ -190,7 +191,7 @@ function MapCanvas({
 
       {/* Info bar */}
       <View style={styles.infoBar}>
-        <Ionicons name="information-circle-outline" size={13} color="#64748b" />
+        <Ionicons name="information-circle-outline" size={13} color={COLORS.textMuted} />
         <Text style={styles.infoText}>Tap green pin to claim · tap map for custom pin</Text>
       </View>
     </Pressable>
@@ -229,7 +230,7 @@ export default function MapComponent({
 
         {/* Expand button */}
         <Pressable style={({pressed})=>[styles.expandBtn, pressed && {opacity: 0.5}]} onPress={() => setFullscreen(true)}>
-          <Ionicons name="expand-outline" size={16} color="#fff" />
+          <Ionicons name="expand-outline" size={16} color={COLORS.white} />
           <Text style={styles.expandText}>Full Screen</Text>
         </Pressable>
       </View>
@@ -248,7 +249,7 @@ export default function MapComponent({
           {/* Legend */}
           <View style={styles.modalLegend}>
             <View style={styles.legendItem}>
-              <Ionicons name="location" size={16} color="#10b981" />
+              <Ionicons name="location" size={16} color={COLORS.pharmacyPrimary} />
               <Text style={styles.legendText}>Available (tap to claim)</Text>
             </View>
             <View style={styles.legendItem}>
@@ -256,7 +257,7 @@ export default function MapComponent({
               <Text style={styles.legendText}>Already registered</Text>
             </View>
             <View style={styles.legendItem}>
-              <Ionicons name="location" size={16} color="#2563eb" />
+              <Ionicons name="location" size={16} color={COLORS.patientPrimary} />
               <Text style={styles.legendText}>Custom pin</Text>
             </View>
           </View>
@@ -279,7 +280,7 @@ export default function MapComponent({
 
           {/* Done button */}
           <Pressable style={({pressed})=>[styles.doneBtn, pressed && {opacity: 0.5}]} onPress={() => setFullscreen(false)}>
-            <Ionicons name="checkmark" size={18} color="#fff" />
+            <Ionicons name="checkmark" size={18} color={COLORS.white} />
             <Text style={styles.doneBtnText}>Confirm & Close</Text>
           </Pressable>
         </SafeAreaView>
@@ -294,85 +295,85 @@ const styles = StyleSheet.create({
   inlineContainer: {
     borderRadius: 16,
     overflow: 'hidden',
-    position: 'relative',
+    position: 'relative'
   },
   canvas: {
-    backgroundColor: '#e2e8f0',
+    backgroundColor: COLORS.borderSubtle,
     position: 'relative',
-    overflow: 'hidden',
+    overflow: 'hidden'
   },
   mapGrid: {
     position: 'absolute',
     top: 0,
     left: 0,
-    backgroundColor: '#f0f4f8',
+    backgroundColor: '#f0f4f8'
   },
   river: {
     position: 'absolute',
     left: 0,
     right: 0,
-    backgroundColor: '#bfdbfe',
+    backgroundColor: COLORS.borderBlue
   },
   road: {
     position: 'absolute',
-    backgroundColor: '#ffffff',
-    borderColor: '#e2e8f0',
-    borderWidth: 0.5,
+    backgroundColor: COLORS.white,
+    borderColor: COLORS.borderSubtle,
+    borderWidth: 0.5
   },
   street: {
     position: 'absolute',
-    backgroundColor: '#f8fafc',
+    backgroundColor: COLORS.background
   },
   block: {
     position: 'absolute',
-    backgroundColor: '#e2e8f0',
-    borderRadius: 4,
+    backgroundColor: COLORS.borderSubtle,
+    borderRadius: 4
   },
   pinWrapper: {
     position: 'absolute',
     alignItems: 'center',
-    zIndex: 10,
+    zIndex: 10
   },
   knownLabel: {
-    backgroundColor: '#d1fae5',
+    backgroundColor: COLORS.successBg,
     borderRadius: 6,
     paddingHorizontal: 5,
     paddingVertical: 2,
     marginTop: -4,
-    maxWidth: 90,
+    maxWidth: 90
   },
   knownLabelText: {
     fontSize: 9,
-    fontWeight: '700',
-    color: '#065f46',
-    textAlign: 'center',
+    fontFamily: 'Inter-Bold',
+    color: COLORS.pharmacyText,
+    textAlign: 'center'
   },
   registeredLabel: {
-    backgroundColor: '#fef3c7',
+    backgroundColor: COLORS.pendingBg,
     borderRadius: 6,
     paddingHorizontal: 5,
     paddingVertical: 2,
     marginTop: -4,
-    maxWidth: 90,
+    maxWidth: 90
   },
   registeredLabelText: {
     fontSize: 9,
-    fontWeight: '600',
-    color: '#78350f',
-    textAlign: 'center',
+    fontFamily: 'Inter-SemiBold',
+    color: COLORS.pendingText,
+    textAlign: 'center'
   },
   customLabel: {
-    backgroundColor: '#dbeafe',
+    backgroundColor: COLORS.infoBg,
     borderRadius: 6,
     paddingHorizontal: 6,
     paddingVertical: 2,
-    marginTop: -6,
+    marginTop: -6
   },
   customLabelText: {
     fontSize: 9,
-    fontWeight: '700',
-    color: '#1e3a8a',
-    textAlign: 'center',
+    fontFamily: 'Inter-Bold',
+    color: COLORS.patientTextDark,
+    textAlign: 'center'
   },
   infoBar: {
     position: 'absolute',
@@ -385,13 +386,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 5
   },
   infoText: {
     fontSize: 10,
-    color: '#64748b',
-    fontWeight: '500',
-    flex: 1,
+    color: COLORS.textMuted,
+    fontFamily: 'Inter-Medium',
+    flex: 1
   },
   expandBtn: {
     position: 'absolute',
@@ -404,18 +405,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    zIndex: 20,
+    zIndex: 20
   },
   expandText: {
     fontSize: 11,
-    fontWeight: '700',
-    color: '#fff',
+    fontFamily: 'Inter-Bold',
+    color: COLORS.white
   },
 
   // Modal styles
   modalRoot: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: COLORS.background
   },
   modalHeader: {
     flexDirection: 'row',
@@ -423,60 +424,61 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 14,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.white,
     borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: COLORS.borderSubtle
   },
   modalTitle: {
     fontSize: 17,
-    fontWeight: '700',
-    color: '#1d293d',
+    fontFamily: 'Inter-Bold',
+    color: COLORS.textDarkAlt
   },
   closeBtn: {
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: COLORS.surfaceSecondary,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   modalLegend: {
     flexDirection: 'row',
     paddingHorizontal: 16,
     paddingVertical: 10,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.white,
     gap: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
-    flexWrap: 'wrap',
+    borderBottomColor: COLORS.borderSubtle,
+    flexWrap: 'wrap'
   },
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 5
   },
   legendText: {
     fontSize: 11,
-    color: '#475569',
-    fontWeight: '500',
+    color: COLORS.textSecondary,
+    fontFamily: 'Inter-Medium'
   },
   modalMapWrap: {
     flex: 1,
-    overflow: 'hidden',
+    overflow: 'hidden'
   },
   doneBtn: {
     margin: 16,
     height: 50,
     borderRadius: 14,
-    backgroundColor: '#10b981',
+    backgroundColor: COLORS.pharmacyPrimary,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 8
   },
   doneBtnText: {
     fontSize: 15,
-    fontWeight: '700',
-    color: '#fff',
+    fontFamily: 'Inter-Bold',
+    color: COLORS.white
   },
+
 });

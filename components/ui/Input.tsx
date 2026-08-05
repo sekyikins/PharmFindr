@@ -44,29 +44,32 @@ export function Input({ label, error, containerStyle, style, ...props }: InputPr
 const styles = StyleSheet.create({
   wrapper: {
     width: '100%',
-    marginVertical: SPACING.sm,
+    marginVertical: SPACING.sm
   },
   label: {
     fontSize: FONT_SIZE.xs,
-    fontWeight: 'bold',
+    fontFamily: 'Inter-Bold',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    marginBottom: SPACING.sm,
+    marginBottom: SPACING.sm
   },
   inputContainer: {
     height: 52,
     borderRadius: RADIUS.lg,
     borderWidth: 1.2,
     paddingHorizontal: SPACING.lg,
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   input: {
+    fontFamily: 'Inter-Regular',
+    
     fontSize: FONT_SIZE.lg,
-    width: '100%',
+    width: '100%'
   },
   errorText: {
     fontSize: FONT_SIZE.sm,
     marginTop: SPACING.xs,
-    fontWeight: '500',
+    fontFamily: 'Inter-Medium'
   },
+
 });

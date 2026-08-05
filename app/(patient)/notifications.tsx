@@ -237,7 +237,9 @@ export default function Notifications() {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: {
+    flex: 1
+  },
 
   header: {
     flexDirection: 'row',
@@ -245,22 +247,33 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: SPACING.xl,
     paddingVertical: SPACING.md,
-    borderBottomWidth: 1,
+    borderBottomWidth: 1
   },
   iconBtn: {
     width: 36,
     height: 36,
     borderRadius: RADIUS.pill,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
-  headerTitle: { fontSize: FONT_SIZE.xxl, fontWeight: '700' },
+  headerTitle: {
+    fontSize: FONT_SIZE.xxl, fontFamily: 'Inter-Bold'
+  },
 
-  listContent: { padding: SPACING.lg, gap: 12 },
+  listContent: {
+    padding: SPACING.lg, gap: 12
+  },
 
-  emptyContainer: { alignItems: 'center', marginTop: 80, gap: 10 },
-  emptyTitle:     { fontSize: FONT_SIZE.xl, fontWeight: '700' },
-  emptySubtitle:  { fontSize: FONT_SIZE.lg, textAlign: 'center' },
+  emptyContainer: {
+    alignItems: 'center', marginTop: 80, gap: 10
+  },
+  emptyTitle: {
+    fontSize: FONT_SIZE.xl, fontFamily: 'Inter-Bold'
+  },
+  emptySubtitle: {
+    fontFamily: 'Inter-Regular',
+     fontSize: FONT_SIZE.lg, textAlign: 'center'
+  },
 
   card: {
     flexDirection: 'row',
@@ -268,10 +281,10 @@ const styles = StyleSheet.create({
     padding: SPACING.lg,
     gap: 14,
     borderWidth: 1,
-    position: 'relative',
+    position: 'relative'
   },
   unreadCard: {
-    borderWidth: 1.5,
+    borderWidth: 1.5
   },
   unreadDot: {
     position: 'absolute',
@@ -279,7 +292,7 @@ const styles = StyleSheet.create({
     right: 12,
     width: 8,
     height: 8,
-    borderRadius: 4,
+    borderRadius: 4
   },
   iconCircle: {
     width: 44,
@@ -287,10 +300,21 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
-    flexShrink: 0,
+    flexShrink: 0
   },
-  cardBody:    { flex: 1 },
-  cardTitle:   { fontSize: FONT_SIZE.xl, fontWeight: '700', marginBottom: 4 },
-  cardMessage: { fontSize: FONT_SIZE.lg, lineHeight: 19, marginBottom: 6 },
-  cardTime:    { fontSize: FONT_SIZE.sm },
+  cardBody: {
+    flex: 1
+  },
+  cardTitle: {
+    fontSize: FONT_SIZE.lg, fontFamily: 'Inter-Bold', marginBottom: 4
+  },
+  cardMessage: {
+    fontFamily: 'Inter-Regular',
+     fontSize: FONT_SIZE.md, lineHeight:20, marginBottom: 6
+  },
+  cardTime: {
+    fontFamily: 'Inter-Regular',
+     fontSize: FONT_SIZE.sm
+  },
+
 });

@@ -95,13 +95,15 @@ export default function TabsLayout() {
             tabBarInactiveTintColor: theme.textDim,
             tabBarHideOnKeyboard: true,
             animation: 'shift',
+            tabBarLabelStyle: {
+              fontSize: 12,
+              fontFamily: 'Inter-Medium',
+            },
             tabBarStyle: {
               backgroundColor: theme.card,
               borderTopColor: theme.border,
               borderTopWidth: 1,
               height: 60,
-              paddingBottom: 8,
-              paddingTop: 8,
             },
             headerShown: false,
           }}

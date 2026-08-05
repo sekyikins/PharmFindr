@@ -1,3 +1,4 @@
+import { COLORS } from '@/styles/theme';
 import React, { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, ViewStyle } from 'react-native';
 
@@ -53,6 +54,7 @@ export default function Skeleton({
 
 const styles = StyleSheet.create({
   skeleton: {
-    backgroundColor: '#cbd5e1',
+    backgroundColor: COLORS.borderSlate
   },
+
 });

@@ -22,7 +22,7 @@ import { sendArkeselOtp, verifyArkeselOtp, validateGhanaPhone } from '@/lib/arke
 import { useAuthStore } from '@/store/authStore';
 import { PHARMACY_PASS } from '@/lib/authConstants';
 import { supabase } from '@/lib/supabase';
-import { RADIUS } from '@/styles/theme';
+import { COLORS,  RADIUS  } from '@/styles/theme';
 import * as Location from 'expo-location';
 import { searchNearbyPharmacies } from '@/lib/osm';
 
@@ -46,8 +46,8 @@ function Hero({ step, onBack }: { step: 1 | 2 | 3 | 4; onBack: () => void }) {
       <View style={{ backgroundColor: GREEN }}>
         <SafeAreaView edges={['top']} style={hero.safe}>
           <Pressable onPress={onBack} style={({ pressed }) => [hero.backBtn, pressed && { opacity: 0.5 }]}>
-            <Ionicons name="arrow-back" size={20} color="#ffffff" />
-            <Text style={hero.backText}>Back</Text>
+            <Ionicons name="arrow-back" size={20} color={COLORS.white} />
+            <Text style={hero.backText}>Back To Login</Text>
           </Pressable>
           <Text style={hero.stepText}>STEP {step} OF 4</Text>
           <Text style={hero.title}>{stepTitles[step - 1]}</Text>
@@ -56,7 +56,7 @@ function Hero({ step, onBack }: { step: 1 | 2 | 3 | 4; onBack: () => void }) {
       </View>
       <View style={{ backgroundColor: GREEN }}>
         <Svg width={width} height={20} viewBox={`0 0 ${width} 20`}>
-          <Path d={`M0,20 Q${width / 2},0 ${width},20 L${width},20 L0,20 Z`} fill="#ffffff" />
+          <Path d={`M0,20 Q${width / 2},0 ${width},20 L${width},20 L0,20 Z`} fill={COLORS.white} />
         </Svg>
       </View>
     </>
@@ -64,12 +64,26 @@ function Hero({ step, onBack }: { step: 1 | 2 | 3 | 4; onBack: () => void }) {
 }
 
 const hero = StyleSheet.create({
-  safe: { paddingHorizontal: 24, paddingTop: 12, paddingBottom: 16 },
-  backBtn: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', padding: 8, borderRadius: 9999, backgroundColor: 'rgba(255,255,255,0.22)', marginBottom: 12 },
-  backText: { fontSize: 13, fontWeight: '600', color: '#fff', marginLeft: 6 },
-  stepText: { fontSize: 10, fontWeight: '800', color: 'rgba(255,255,255,0.75)', letterSpacing: 1, marginBottom: 2 },
-  title: { fontSize: 24, fontWeight: '800', color: '#ffffff', marginBottom: 2 },
-  sub: { fontSize: 13, color: 'rgba(255,255,255,0.85)' },
+  safe: {
+    paddingHorizontal: 24, paddingTop: 12, paddingBottom: 16
+  },
+  backBtn: {
+    flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', padding: 10, borderRadius: RADIUS.pill, backgroundColor: 'rgba(255,255,255,0.22)', marginBottom: 12
+  },
+  backText: {
+    fontSize: 13, fontFamily: 'Inter-SemiBold', color: COLORS.white, marginLeft: 6
+  },
+  stepText: {
+    fontSize: 10, fontFamily: 'Inter-Bold', color: 'rgba(255,255,255,0.75)', letterSpacing: 1, marginBottom: 2
+  },
+  title: {
+    fontSize: 24, fontFamily: 'Inter-Bold', color: COLORS.white, marginBottom: 2
+  },
+  sub: {
+    fontFamily: 'Inter-Regular',
+     fontSize: 13, color: 'rgba(255,255,255,0.85)'
+  },
+
 });
 
 // ── Shared Field Components ────────────────────────────────────────────────
@@ -123,21 +137,36 @@ function PrimaryBtn({ label, onPress, loading }: { label: string; onPress: () =>
       onPress={onPress}
       disabled={loading}
     >
-      {loading ? <ActivityIndicator color="#ffffff" /> : <Text style={btn.text}>{label}</Text>}
+      {loading ? <ActivityIndicator color={COLORS.white} /> : <Text style={btn.text}>{label}</Text>}
     </Pressable>
   );
 }
 
 const f = StyleSheet.create({
-  label: { fontSize: 10, fontWeight: '700', color: LABEL_COLOR, letterSpacing: 0.5, marginBottom: 8, textTransform: 'uppercase' },
-  row: { backgroundColor: INPUT_BG, borderRadius: 16, height: 52, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, borderWidth: 1, borderColor: '#e2e8f0' },
-  icon: { marginRight: 10 },
-  input: { flex: 1, fontSize: 14, color: TEXT_PRIMARY, height: '100%' },
+  label: {
+    fontSize: 10, fontFamily: 'Inter-Bold', color: LABEL_COLOR, letterSpacing: 0.5, marginBottom: 8, textTransform: 'uppercase'
+  },
+  row: {
+    backgroundColor: INPUT_BG, borderRadius: 16, height: 52, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, borderWidth: 1, borderColor: COLORS.borderSubtle
+  },
+  icon: {
+    marginRight: 10
+  },
+  input: {
+    fontFamily: 'Inter-Regular',
+     flex: 1, fontSize: 14, color: TEXT_PRIMARY, height: '100%'
+  },
+
 });
 
 const btn = StyleSheet.create({
-  base: { height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center', marginTop: 24 },
-  text: { color: '#ffffff', fontSize: 15, fontWeight: '700' },
+  base: {
+    height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center', marginTop: 24
+  },
+  text: {
+    color: COLORS.white, fontSize: 15, fontFamily: 'Inter-Bold'
+  },
+
 });
 
 // ══ STEP 1: Details (Name + Email + Physical Address) ═══════════
@@ -450,7 +479,7 @@ function Step2Location({
         <View style={locStyles.fullMapModal}>
           <SafeAreaView edges={['top']} style={locStyles.fullMapHeader}>
             <Pressable style={locStyles.modalCloseBtn} onPress={() => setIsMapExpanded(false)}>
-              <Ionicons name="close" size={20} color="#ffffff" />
+              <Ionicons name="close" size={20} color={COLORS.white} />
             </Pressable>
 
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -736,7 +765,7 @@ function Step4VerifyOTP({
         <Hero step={4} onBack={onBack} />
         <View style={s.form}>
           <Text style={s.secSub}>
-            We sent a 6-digit code to <Text style={{ fontWeight: '700', color: TEXT_PRIMARY }}>{phone}</Text>.
+            We sent a 6-digit code to <Text style={{ fontFamily: 'Inter-Bold', color: TEXT_PRIMARY }}>{phone}</Text>.
           </Text>
 
           {err && (
@@ -776,7 +805,7 @@ function SuccessScreen({
   const { width } = useWindowDimensions();
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#ffffff' }}>
+    <View style={{ flex: 1, backgroundColor: COLORS.white }}>
       <View style={{ backgroundColor: GREEN }}>
         <SafeAreaView edges={['top']} style={[hero.safe, { paddingBottom: 24 }]}>
           <Text style={hero.title}>PharmFindr Network</Text>
@@ -785,11 +814,11 @@ function SuccessScreen({
       </View>
       <View style={{ backgroundColor: GREEN }}>
         <Svg width={width} height={20} viewBox={`0 0 ${width} 20`}>
-          <Path d={`M0,20 Q${width / 2},0 ${width},20 L${width},20 L0,20 Z`} fill="#ffffff" />
+          <Path d={`M0,20 Q${width / 2},0 ${width},20 L${width},20 L0,20 Z`} fill={COLORS.white} />
         </Svg>
       </View>
 
-      <ScrollView contentContainerStyle={[s.form, { alignItems: 'center', paddingBottom: 60 }]}>
+      <ScrollView contentContainerStyle={[s.form, { alignItems: 'center' }]}>
         <View style={succ.iconCircle}>
           <Ionicons name="time-outline" size={52} color="#b45309" />
         </View>
@@ -819,7 +848,7 @@ function SuccessScreen({
           </View>
           <View style={succ.row}>
             <Text style={succ.rowKey}>Account Status</Text>
-            <Text style={[succ.rowVal, { color: '#b45309', fontWeight: '800' }]}>PENDING REVIEW</Text>
+            <Text style={[succ.rowVal, { color: '#b45309', fontFamily: 'Inter-Bold' }]}>PENDING REVIEW</Text>
           </View>
         </View>
 
@@ -835,40 +864,104 @@ function SuccessScreen({
 }
 
 const succ = StyleSheet.create({
-  iconCircle: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#fffbeb', borderWidth: 2, borderColor: '#fef3c7', justifyContent: 'center', alignItems: 'center', marginBottom: 20, marginTop: 12 },
-  title: { fontSize: 22, fontWeight: '800', color: TEXT_PRIMARY, marginBottom: 8 },
-  body: { fontSize: 13, color: LABEL_COLOR, textAlign: 'center', lineHeight: 20, marginBottom: 24, paddingHorizontal: 8 },
-  summaryBox: { width: '100%', backgroundColor: '#f8fafc', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#e2e8f0' },
-  row: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
-  rowKey: { fontSize: 13, color: LABEL_COLOR },
-  rowVal: { fontSize: 13, color: TEXT_PRIMARY, fontWeight: '600' },
+  iconCircle: {
+    width: 80, height: 80, borderRadius: 40, backgroundColor: '#fffbeb', borderWidth: 2, borderColor: COLORS.pendingBg, justifyContent: 'center', alignItems: 'center', marginBottom: 20, marginTop: 12
+  },
+  title: {
+    fontSize: 22, fontFamily: 'Inter-Bold', color: TEXT_PRIMARY, marginBottom: 8
+  },
+  body: {
+    fontFamily: 'Inter-Regular',
+     fontSize: 13, color: LABEL_COLOR, textAlign: 'center', lineHeight: 20, marginBottom: 24, paddingHorizontal: 8
+  },
+  summaryBox: {
+    width: '100%', backgroundColor: COLORS.background, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: COLORS.borderSubtle
+  },
+  row: {
+    flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10
+  },
+  rowKey: {
+    fontFamily: 'Inter-Regular',
+     fontSize: 13, color: LABEL_COLOR
+  },
+  rowVal: {
+    fontSize: 13, color: TEXT_PRIMARY, fontFamily: 'Inter-SemiBold'
+  },
+
 });
 
 const locStyles = StyleSheet.create({
-  mapCard: { borderRadius: RADIUS.xl, borderWidth: 1.5, borderColor: GREEN + '40', backgroundColor: '#f8fafc', overflow: 'hidden', marginTop: 6 },
-  mapHeader: { alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 10, backgroundColor: '#ecfdf5', borderBottomWidth: 1, borderBottomColor: GREEN },
-  mapHeaderTitle: { fontSize: 12, fontWeight: '700', color: TEXT_PRIMARY, flex: 1, marginLeft: 6 },
-  expandBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#ffffff', paddingHorizontal: 10, paddingVertical: 4, borderRadius: RADIUS.pill, borderWidth: 1, borderColor: GREEN + '40' },
-  expandBtnText: { fontSize: 11, fontWeight: '700', color: GREEN },
-  mapWrapper: { height: 220, width: '100%' },
-  fullMapModal: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999, backgroundColor: '#ffffff' },
-  fullMapHeader: { backgroundColor: GREEN, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 10 },
-  modalCloseBtn: { padding: 6, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.2)' },
-  modalTitle: { color: '#ffffff', fontSize: 16, fontWeight: '800' },
-  modalDoneBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: RADIUS.pill, backgroundColor: '#ffffff' },
-  modalDoneText: { color: GREEN, fontSize: 12, fontWeight: '800' },
-  fullMapFooter: { backgroundColor: '#ffffff', padding: 16, borderTopWidth: 1, borderTopColor: '#e2e8f0' },
-  footerAddress: { fontSize: 12, color: TEXT_PRIMARY, fontWeight: '600', marginBottom: 4 },
+  mapCard: {
+    borderRadius: RADIUS.xl, borderWidth: 1.5, borderColor: GREEN + '40', backgroundColor: COLORS.background, overflow: 'hidden', marginTop: 6
+  },
+  mapHeader: {
+    alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 10, backgroundColor: '#ecfdf5', borderBottomWidth: 1, borderBottomColor: GREEN
+  },
+  mapHeaderTitle: {
+    fontSize: 12, fontFamily: 'Inter-Bold', color: TEXT_PRIMARY, flex: 1, marginLeft: 6
+  },
+  expandBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: COLORS.white, paddingHorizontal: 10, paddingVertical: 4, borderRadius: RADIUS.pill, borderWidth: 1, borderColor: GREEN + '40'
+  },
+  expandBtnText: {
+    fontSize: 11, fontFamily: 'Inter-Bold', color: GREEN
+  },
+  mapWrapper: {
+    height: 220, width: '100%'
+  },
+  fullMapModal: {
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999, backgroundColor: COLORS.white
+  },
+  fullMapHeader: {
+    backgroundColor: GREEN, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 10
+  },
+  modalCloseBtn: {
+    padding: 6, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.2)'
+  },
+  modalTitle: {
+    color: COLORS.white, fontSize: 16, fontFamily: 'Inter-Bold'
+  },
+  modalDoneBtn: {
+    paddingHorizontal: 12, paddingVertical: 6, borderRadius: RADIUS.pill, backgroundColor: COLORS.white
+  },
+  modalDoneText: {
+    color: GREEN, fontSize: 12, fontFamily: 'Inter-Bold'
+  },
+  fullMapFooter: {
+    backgroundColor: COLORS.white, padding: 16, borderTopWidth: 1, borderTopColor: COLORS.borderSubtle
+  },
+  footerAddress: {
+    fontSize: 12, color: TEXT_PRIMARY, fontFamily: 'Inter-SemiBold', marginBottom: 4
+  },
+
 });
 
 const s = StyleSheet.create({
-  scroll: { flexGrow: 1, backgroundColor: '#ffffff' },
-  form: { padding: 24, backgroundColor: '#ffffff' },
-  secSub: { fontSize: 13, color: LABEL_COLOR, marginBottom: 20, lineHeight: 18 },
-  errBox: { backgroundColor: '#fef2f2', borderWidth: 1, borderColor: '#ef4444', borderRadius: 12, padding: 12, marginBottom: 16 },
-  errText: { color: '#ef4444', fontSize: 13, textAlign: 'center' },
-  successBox: { backgroundColor: '#ecfdf5', borderWidth: 1, borderColor: '#10b981', borderRadius: 12, padding: 12, marginBottom: 16, flexDirection: 'row', alignItems: 'center' },
-  successText: { color: '#047857', fontSize: 13, flex: 1 },
+  scroll: {
+    flexGrow: 1, backgroundColor: COLORS.white
+  },
+  form: {
+    padding: 24, backgroundColor: COLORS.white
+  },
+  secSub: {
+    fontFamily: 'Inter-Regular',
+     fontSize: 13, color: LABEL_COLOR, marginBottom: 20, lineHeight: 18
+  },
+  errBox: {
+    backgroundColor: COLORS.errorBg, borderWidth: 1, borderColor: COLORS.error, borderRadius: 12, padding: 12, marginBottom: 16
+  },
+  errText: {
+    fontFamily: 'Inter-Regular',
+     color: COLORS.error, fontSize: 13, textAlign: 'center'
+  },
+  successBox: {
+    backgroundColor: '#ecfdf5', borderWidth: 1, borderColor: COLORS.pharmacyPrimary, borderRadius: 12, padding: 12, marginBottom: 16, flexDirection: 'row', alignItems: 'center'
+  },
+  successText: {
+    fontFamily: 'Inter-Regular',
+     color: COLORS.pharmacyTextDark, fontSize: 13, flex: 1
+  },
+
 });
 
 // ══ Main export: Orchestrates 4 registration steps + success ══════════════

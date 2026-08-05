@@ -1,3 +1,4 @@
+import { COLORS } from '@/styles/theme';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Animated,
@@ -24,37 +25,40 @@ import { useChatStore, type Consultation } from '@/store/chatStore';
 import { useAuthStore } from '@/store/authStore';
 import { useNetworkStore } from '@/store/networkStore';
 import { FormattedMarkdown } from '@/components/ui/FormattedMarkdown';
+import { toast } from '@/context/ToastContext';
 
 const FEATURED_PROMPTS = [
   {
     icon: 'medkit-outline',
-    color: '#10b981',
+    color: COLORS.pharmacyPrimary,
     title: 'Explain My Prescription',
     desc: 'Understand purpose & dosages of scanned medicines',
     prompt: 'Can you explain the usage and guidelines for my prescribed medicines?',
   },
   {
     icon: 'shield-checkmark-outline',
-    color: '#ef4444',
+    color: COLORS.error,
     title: 'Check Safety & Interactions',
     desc: 'Avoid dangerous drug-drug interactions',
     prompt: 'Check if there are any known interactions or contraindications for my current medicines.',
   },
   {
     icon: 'location-outline',
-    color: '#3b82f6',
+    color: COLORS.info,
     title: 'Find Nearby Pharmacies',
     desc: 'Check inventory at verified pharmacies',
     prompt: 'Help me find nearby pharmacies that have my medicine in stock.',
   },
   {
     icon: 'time-outline',
-    color: '#8b5cf6',
+    color: COLORS.purple,
     title: 'Dosage & Schedule Tips',
     desc: 'Best times and meal guidelines for taking meds',
     prompt: 'What is the best daily schedule and meal timing for taking my medications?',
   },
 ];
+
+let hasShownClinicalToastSession = false;
 
 export default function AIChat() {
   const router = useRouter();
@@ -73,7 +77,7 @@ export default function AIChat() {
     getOrCreateGeneralConsultation,
     createConsultation,
     sendMessage,
-    clearCurrentConsultation,
+    clearGeneralAssistantChats,
     deleteConsultation,
   } = useChatStore();
 
@@ -160,6 +164,35 @@ export default function AIChat() {
     };
     init();
   }, [userId]);
+
+  // Toast prompt for completely empty health profile (only if zero parameters filled & shown once per app session)
+  useEffect(() => {
+    if (!appUser || hasShownClinicalToastSession) return;
+
+    const hasAnyHealthData = Boolean(
+      appUser.age ||
+      appUser.weight ||
+      appUser.height ||
+      (appUser.gender && appUser.gender !== 'Prefer not to say') ||
+      (appUser.allergies && appUser.allergies.length > 0) ||
+      (appUser.existing_conditions && appUser.existing_conditions.length > 0) ||
+      (appUser.current_medications && appUser.current_medications.length > 0)
+    );
+
+    // Suppress toast if even a single field is filled in health parameters
+    if (!hasAnyHealthData) {
+      hasShownClinicalToastSession = true;
+      const timer = setTimeout(() => {
+        toast.clinical(
+          'Complete your Health Profile (Age, Weight, Allergies) for customized AI safety alerts.',
+          undefined,
+          undefined,
+          'Clinical Safety Alert'
+        );
+      }, 600);
+      return () => clearTimeout(timer);
+    }
+  }, [appUser]);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -253,16 +286,22 @@ export default function AIChat() {
     sendMessage(userId, `I would like to start a consultation about: ${newTopicTitle.trim()}. Please explain what I should know.`);
   };
 
-  const handleClearCurrentThread = () => {
+  const handleClearAssistantChats = () => {
     closeSidebar();
     Alert.alert(
-      'Clear Thread History',
-      'Are you sure you want to clear messages in this consultation?',
+      'Clear Assistant Chats',
+      'Are you sure you want to clear your chat history with the General AI Assistant?',
       [
         {
           text: 'Clear',
           style: 'destructive',
-          onPress: () => clearCurrentConsultation(userId),
+          onPress: async () => {
+            await clearGeneralAssistantChats(userId);
+            if (userId) {
+              const gen = await getOrCreateGeneralConsultation(userId);
+              await selectConsultation(userId, gen.id);
+            }
+          },
         },
         { text: 'Cancel', style: 'cancel' },
       ],
@@ -332,7 +371,7 @@ export default function AIChat() {
                   setShowNewConsultModal(true);
                 }}
               >
-                <Ionicons name="add-circle" size={18} color="#fff" />
+                <Ionicons name="add-circle" size={18} color={COLORS.white} />
                 <Text style={styles.newChatText}>Start New Consultation</Text>
               </Pressable>
 
@@ -356,7 +395,7 @@ export default function AIChat() {
                   <Ionicons name="sparkles" size={18} color={primaryColor} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.chatItemText, { color: theme.text.primary, fontWeight: isGeneral ? '700' : '500' }]}>
+                  <Text style={[styles.chatItemText, { color: theme.text.primary, fontFamily: isGeneral ? 'Inter-Bold' : 'Inter-Medium' }]}>
                     General AI Assistant
                   </Text>
                   <Text style={[styles.chatItemSub, { color: theme.textDim }]}>Everyday health &amp; medicine questions</Text>
@@ -397,7 +436,7 @@ export default function AIChat() {
                             <Text
                               style={[
                                 styles.chatItemText,
-                                { color: theme.text.primary, fontWeight: isSelected ? '700' : '500' },
+                                { color: theme.text.primary, fontFamily: isSelected ? 'Inter-Bold' : 'Inter-Medium' },
                               ]}
                               numberOfLines={1}
                             >
@@ -424,9 +463,9 @@ export default function AIChat() {
               </ScrollView>
 
               <View style={{ borderTopWidth: 1, borderTopColor: theme.border, paddingTop: 8 }}>
-                <Pressable style={({ pressed }) => [styles.chatItem, pressed && { opacity: 0.5 }]} onPress={handleClearCurrentThread}>
+                <Pressable style={({ pressed }) => [styles.chatItem, pressed && { opacity: 0.5 }]} onPress={handleClearAssistantChats}>
                   <Ionicons name="trash-outline" size={18} color={theme.error} />
-                  <Text style={[styles.chatItemText, { color: theme.error }]}>Clear Current Thread</Text>
+                  <Text style={[styles.chatItemText, { color: theme.error }]}>Clear Assistant Chats</Text>
                 </Pressable>
               </View>
             </View>
@@ -449,7 +488,7 @@ export default function AIChat() {
           </Text>
           <View style={styles.badgeRow}>
             <View style={styles.onlineDot} />
-            <Text style={[styles.onlineText, { color: '#10b981' }]}>Clinical AI Online</Text>
+            <Text style={[styles.onlineText, { color: COLORS.pharmacyPrimary }]}>Clinical AI Online</Text>
             <View style={[styles.typePill, { backgroundColor: isGeneral ? theme.surfaceSecondary : primaryColor + '18' }]}>
               <Text style={[styles.typePillText, { color: isGeneral ? theme.textDim : primaryColor }]}>
                 {isGeneral ? 'General' : 'Consultation'}
@@ -500,48 +539,13 @@ export default function AIChat() {
                     router.push({ pathname: '/(patient)/pharmacies', params: { query: searchMed } });
                   }}
                 >
-                  <Ionicons name="location-outline" size={14} color="#fff" />
+                  <Ionicons name="location-outline" size={14} color={COLORS.white} />
                   <Text style={styles.bannerBtnText}>Find Nearby Pharmacies</Text>
                 </Pressable>
               </View>
             </View>
           )}
         </View>
-      )}
-
-      {/* ── Missing Health Profile Recommendation Banner (Swipeable / Dismissible) ── */}
-      {isProfileIncomplete && !bannerDismissed && (
-        <Animated.View
-          {...bannerPanResponder.panHandlers}
-          style={[
-            styles.missingProfileBanner,
-            bannerPan.getLayout(),
-            {
-              opacity: bannerOpacity,
-              backgroundColor: '#eff6ff',
-              borderColor: '#bfdbfe',
-            },
-          ]}
-        >
-          <Pressable
-            style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}
-            onPress={() => router.push('/(patient)/health-profile')}
-          >
-            <Ionicons name="sparkles" size={15} color="#2563eb" style={{ marginRight: 6 }} />
-            <Text style={{ fontSize: 12, color: '#1e40af', flex: 1, fontWeight: '500' }}>
-              Complete your <Text style={{ fontWeight: '700', textDecorationLine: 'underline' }}>Health Profile</Text> (Age, Weight, Allergies) for customized AI safety alerts.
-            </Text>
-          </Pressable>
-
-          {/* Dismiss Button */}
-          <Pressable
-            hitSlop={8}
-            onPress={handleDismissBanner}
-            style={({ pressed }) => [{ padding: 2 }, pressed && { opacity: 0.5 }]}
-          >
-            <Ionicons name="close" size={16} color="#2563eb" />
-          </Pressable>
-        </Animated.View>
       )}
 
       {/* ── Main Chat Area ── */}
@@ -630,9 +634,9 @@ export default function AIChat() {
                         <Ionicons
                           name={copiedMsgId === msg.id ? 'checkmark' : 'copy-outline'}
                           size={13}
-                          color={copiedMsgId === msg.id ? '#10b981' : theme.textDim}
+                          color={copiedMsgId === msg.id ? COLORS.pharmacyPrimary : theme.textDim}
                         />
-                        <Text style={[styles.toolbarBtnText, { color: copiedMsgId === msg.id ? '#10b981' : theme.textDim }]}>
+                        <Text style={[styles.toolbarBtnText, { color: copiedMsgId === msg.id ? COLORS.pharmacyPrimary : theme.textDim }]}>
                           {copiedMsgId === msg.id ? 'Copied' : 'Copy'}
                         </Text>
                       </Pressable>
@@ -669,7 +673,7 @@ export default function AIChat() {
                 height: Math.max(MIN_HEIGHT, inputHeight),
               },
             ]}
-            placeholder={isGeneral ? 'Ask health or medicine question...' : 'Ask about this prescription...'}
+            placeholder={isGeneral ? 'Ask health or meds question...' : 'Ask about prescription...'}
             placeholderTextColor={theme.textDim}
             value={inputText}
             onChangeText={setInputText}
@@ -691,7 +695,7 @@ export default function AIChat() {
             <Ionicons
               name="arrow-up"
               size={18}
-              color={inputText.trim() ? '#fff' : theme.textDim}
+              color={inputText.trim() ? COLORS.white : theme.textDim}
             />
           </Pressable>
         </View>
@@ -765,11 +769,13 @@ export default function AIChat() {
 
 // ── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: {
+    flex: 1
+  },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0, 0, 0, 0.45)',
-    zIndex: 90,
+    zIndex: 90
   },
   sidebar: {
     position: 'absolute',
@@ -778,7 +784,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     width: 300,
     zIndex: 100,
-    borderRightWidth: 1,
+    borderRightWidth: 1
   },
   sidebarHeader: {
     flexDirection: 'row',
@@ -787,11 +793,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 16,
     paddingBottom: 12,
-    borderBottomWidth: 1,
+    borderBottomWidth: 1
   },
-  sidebarTitle: { fontSize: 18, fontWeight: '700' },
-  sidebarSub: { fontSize: 11 },
-  sidebarBody: { flex: 1, padding: 16, paddingBottom: 8 },
+  sidebarTitle: {
+    fontSize: 18, fontFamily: 'Inter-Bold'
+  },
+  sidebarSub: {
+    fontFamily: 'Inter-Regular',
+     fontSize: 11
+  },
+  sidebarBody: {
+    flex: 1, padding: 16, paddingBottom: 8
+  },
   newChatBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -799,30 +812,46 @@ const styles = StyleSheet.create({
     gap: 8,
     height: 44,
     borderRadius: 22,
-    marginBottom: 8,
+    marginBottom: 8
   },
-  newChatText: { color: '#fff', fontWeight: '700', fontSize: 14 },
-  sidebarSection: { fontSize: 10, fontWeight: '800', letterSpacing: 0.8, marginBottom: 8 },
-  emptyDrawerBox: { alignItems: 'center', justifyContent: 'center', padding: 20, gap: 8 },
-  emptySectionText: { fontSize: 12, textAlign: 'center', lineHeight: 16 },
-  consultationRow: { flexDirection: 'row', alignItems: 'center' },
+  newChatText: {
+    color: COLORS.white, fontFamily: 'Inter-Bold', fontSize: 14
+  },
+  sidebarSection: {
+    fontSize: 10, fontFamily: 'Inter-Bold', letterSpacing: 0.8, marginBottom: 8
+  },
+  emptyDrawerBox: {
+    alignItems: 'center', justifyContent: 'center', padding: 20, gap: 8
+  },
+  emptySectionText: {
+    fontFamily: 'Inter-Regular',
+     fontSize: 12, textAlign: 'center', lineHeight: 16
+  },
+  consultationRow: {
+    flexDirection: 'row', alignItems: 'center'
+  },
   chatItem: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
     padding: 10,
     borderRadius: 10,
-    marginVertical: 3,
+    marginVertical: 3
   },
   chatIconBox: {
     width: 32,
     height: 32,
     borderRadius: 16,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
-  chatItemText: { fontSize: 13, fontWeight: '600' },
-  chatItemSub: { fontSize: 11, marginTop: 1 },
+  chatItemText: {
+    fontSize: 13, fontFamily: 'Inter-SemiBold'
+  },
+  chatItemSub: {
+    fontFamily: 'Inter-Regular',
+     fontSize: 11, marginTop: 1
+  },
 
   // Top Header
   header: {
@@ -831,33 +860,55 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    borderBottomWidth: 1,
+    borderBottomWidth: 1
   },
   menuBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
-  headerCenter: { alignItems: 'center', flex: 1, paddingHorizontal: 8 },
-  headerTitle: { fontSize: 15, fontWeight: '700', textAlign: 'center' },
-  badgeRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
-  onlineDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#10b981' },
-  onlineText: { fontSize: 10, fontWeight: '600' },
-  typePill: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8 },
-  typePillText: { fontSize: 9, fontWeight: '700' },
+  headerCenter: {
+    alignItems: 'center', flex: 1, paddingHorizontal: 8
+  },
+  headerTitle: {
+    fontSize: 15, fontFamily: 'Inter-Bold', textAlign: 'center'
+  },
+  badgeRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2
+  },
+  onlineDot: {
+    width: 6, height: 6, borderRadius: 3, backgroundColor: COLORS.pharmacyPrimary
+  },
+  onlineText: {
+    fontSize: 10, fontFamily: 'Inter-SemiBold'
+  },
+  typePill: {
+    paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8
+  },
+  typePillText: {
+    fontSize: 9, fontFamily: 'Inter-Bold'
+  },
 
   // Prescription Banner
   prescriptionBanner: {
     paddingHorizontal: 16,
     paddingVertical: 10,
-    borderBottomWidth: 1,
+    borderBottomWidth: 1
   },
-  bannerHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  bannerTitle: { fontSize: 13, fontWeight: '700' },
-  bannerContent: { marginTop: 8 },
-  medsRow: { gap: 6, paddingBottom: 8 },
+  bannerHeader: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'
+  },
+  bannerTitle: {
+    fontSize: 13, fontFamily: 'Inter-Bold'
+  },
+  bannerContent: {
+    marginTop: 8
+  },
+  medsRow: {
+    gap: 6, paddingBottom: 8
+  },
   medPill: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -865,10 +916,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 12,
-    borderWidth: 1,
+    borderWidth: 1
   },
-  medPillText: { fontSize: 11, fontWeight: '600' },
-  bannerActions: { flexDirection: 'row', gap: 10, marginTop: 4 },
+  medPillText: {
+    fontSize: 11, fontFamily: 'Inter-SemiBold'
+  },
+  bannerActions: {
+    flexDirection: 'row', gap: 10, marginTop: 4
+  },
   bannerBtn: {
     flex: 1,
     flexDirection: 'row',
@@ -877,9 +932,11 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: 18,
+    borderRadius: 18
   },
-  bannerBtnText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+  bannerBtnText: {
+    color: COLORS.white, fontSize: 12, fontFamily: 'Inter-Bold'
+  },
   bannerBtnOutline: {
     flex: 1,
     flexDirection: 'row',
@@ -889,25 +946,37 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 18,
-    borderWidth: 1,
+    borderWidth: 1
   },
-  bannerBtnOutlineText: { fontSize: 12, fontWeight: '600' },
+  bannerBtnOutlineText: {
+    fontSize: 12, fontFamily: 'Inter-SemiBold'
+  },
 
   // Chat Area
-  messageList: { flex: 1 },
-  messageContent: { padding: 16, paddingBottom: 0, gap: 12 },
-  msgRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
-  msgRowUser: { justifyContent: 'flex-end' },
-  msgRowAI: { justifyContent: 'flex-start' },
+  messageList: {
+    flex: 1
+  },
+  messageContent: {
+    padding: 16, paddingBottom: 0, gap: 12
+  },
+  msgRow: {
+    flexDirection: 'row', gap: 8, marginBottom: 8
+  },
+  msgRowUser: {
+    justifyContent: 'flex-end'
+  },
+  msgRowAI: {
+    justifyContent: 'flex-start'
+  },
 
   welcomeHeroContainer: {
-    paddingVertical: 10,
+    paddingVertical: 10
   },
   welcomeCard: {
     borderRadius: 16,
     padding: 18,
     borderWidth: 1,
-    alignItems: 'center',
+    alignItems: 'center'
   },
   welcomeIconCircle: {
     width: 52,
@@ -915,57 +984,77 @@ const styles = StyleSheet.create({
     borderRadius: 26,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 12
   },
-  welcomeTitle: { fontSize: 18, fontWeight: '700', textAlign: 'center', marginBottom: 6 },
-  welcomeSubText: { fontSize: 13, textAlign: 'center', lineHeight: 18, marginBottom: 18 },
+  welcomeTitle: {
+    fontSize: 18, fontFamily: 'Inter-Bold', textAlign: 'center', marginBottom: 6
+  },
+  welcomeSubText: {
+    fontFamily: 'Inter-Regular',
+     fontSize: 13, textAlign: 'center', lineHeight: 18, marginBottom: 18
+  },
 
-  featuredGrid: { width: '100%', gap: 10 },
+  featuredGrid: {
+    width: '100%', gap: 10
+  },
   featuredCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
     padding: 12,
     borderRadius: 12,
-    borderWidth: 1,
+    borderWidth: 1
   },
   promptIconBox: {
     width: 36,
     height: 36,
     borderRadius: 18,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
-  promptTitle: { fontSize: 13, fontWeight: '700' },
-  promptDesc: { fontSize: 11, marginTop: 1 },
+  promptTitle: {
+    fontSize: 13, fontFamily: 'Inter-Bold'
+  },
+  promptDesc: {
+    fontFamily: 'Inter-Regular',
+     fontSize: 11, marginTop: 1
+  },
 
-  aiBubbleWrapper: { width: '100%', gap: 4 },
-  aiHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 },
+  aiBubbleWrapper: {
+    width: '100%', gap: 4
+  },
+  aiHeaderRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2
+  },
   aiBadgeCircle: {
     width: 22,
     height: 22,
     borderRadius: 11,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
-  aiBadgeName: { fontSize: 11, fontWeight: '700' },
+  aiBadgeName: {
+    fontSize: 11, fontFamily: 'Inter-Bold'
+  },
 
   bubble: {
     maxWidth: '82%',
     borderRadius: 18,
     paddingHorizontal: 16,
-    paddingVertical: 11,
+    paddingVertical: 11
   },
   bubbleUser: {
-    borderBottomRightRadius: 4,
+    borderBottomRightRadius: 4
   },
   bubbleAIContainer: {
     maxWidth: '100%',
     borderRadius: 16,
     padding: 16,
-    borderWidth: 1,
+    borderWidth: 1
   },
-  bubbleTextUser: { color: '#fff', fontSize: 14, lineHeight: 20, fontWeight: '500' },
+  bubbleTextUser: {
+    color: COLORS.white, fontSize: 14, lineHeight: 20, fontFamily: 'Inter-Medium'
+  },
 
   msgToolbar: {
     flexDirection: 'row',
@@ -974,16 +1063,18 @@ const styles = StyleSheet.create({
     marginTop: 10,
     paddingTop: 8,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(0,0,0,0.06)',
+    borderTopColor: 'rgba(0,0,0,0.06)'
   },
   toolbarBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingVertical: 4
   },
-  toolbarBtnText: { fontSize: 11, fontWeight: '600' },
+  toolbarBtnText: {
+    fontSize: 11, fontFamily: 'Inter-SemiBold'
+  },
 
   loadingBubble: {
     flexDirection: 'row',
@@ -992,9 +1083,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 16,
-    borderWidth: 1,
+    borderWidth: 1
   },
-  loadingText: { fontSize: 12, fontWeight: '500' },
+  loadingText: {
+    fontSize: 12, fontFamily: 'Inter-Medium'
+  },
 
   missingProfileBanner: {
     position: 'absolute',
@@ -1008,7 +1101,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: 8
   },
 
   inputContainer: {
@@ -1017,23 +1110,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderTopWidth: 1,
-    gap: 8,
+    gap: 8
   },
   input: {
+    fontFamily: 'Inter-Regular',
+    
     flex: 1,
     borderRadius: 20,
     borderWidth: 1,
     paddingHorizontal: 16,
     paddingTop: 10,
     paddingBottom: 10,
-    fontSize: 14,
+    fontSize: 14
   },
   sendBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
 
   // Modal
@@ -1042,50 +1137,71 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: 20
   },
   modalCard: {
     width: '100%',
     borderRadius: 16,
     padding: 20,
-    borderWidth: 1,
+    borderWidth: 1
   },
-  modalTitle: { fontSize: 18, fontWeight: '700', marginBottom: 4 },
-  modalSub: { fontSize: 13, marginBottom: 16, lineHeight: 18 },
+  modalTitle: {
+    fontSize: 18, fontFamily: 'Inter-Bold', marginBottom: 4
+  },
+  modalSub: {
+    fontFamily: 'Inter-Regular',
+     fontSize: 13, marginBottom: 16, lineHeight: 18
+  },
   modalOption: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
     padding: 12,
     borderRadius: 12,
-    marginBottom: 8,
+    marginBottom: 8
   },
-  optionTitle: { fontSize: 14, fontWeight: '700' },
-  optionSub: { fontSize: 11, marginTop: 1 },
-  inputLabel: { fontSize: 10, fontWeight: '700', letterSpacing: 0.8, marginBottom: 4 },
+  optionTitle: {
+    fontSize: 14, fontFamily: 'Inter-Bold'
+  },
+  optionSub: {
+    fontFamily: 'Inter-Regular',
+     fontSize: 11, marginTop: 1
+  },
+  inputLabel: {
+    fontSize: 10, fontFamily: 'Inter-Bold', letterSpacing: 0.8, marginBottom: 4
+  },
   topicInput: {
+    fontFamily: 'Inter-Regular',
+    
     height: 44,
     borderRadius: 10,
     paddingHorizontal: 12,
     fontSize: 14,
-    borderWidth: 1,
+    borderWidth: 1
   },
-  modalBtnRow: { flexDirection: 'row', gap: 10, marginTop: 12 },
+  modalBtnRow: {
+    flexDirection: 'row', gap: 10, marginTop: 12
+  },
   modalCancelBtn: {
     flex: 1,
     height: 44,
     borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
+    borderWidth: 1
   },
-  modalCancelText: { fontSize: 14, fontWeight: '600' },
+  modalCancelText: {
+    fontSize: 14, fontFamily: 'Inter-SemiBold'
+  },
   modalConfirmBtn: {
     flex: 1,
     height: 44,
     borderRadius: 22,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
-  modalConfirmText: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  modalConfirmText: {
+    color: COLORS.white, fontSize: 14, fontFamily: 'Inter-SemiBold'
+  },
+
 });

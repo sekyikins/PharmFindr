@@ -1,3 +1,4 @@
+import { COLORS } from '@/styles/theme';
 import React from 'react';
 import { StyleSheet, View, Text, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -75,7 +76,7 @@ export default function FullMapComponent({
         {userCoords && (
           <View style={[styles.markerContainer, getPositionStyles(userCoords.latitude, userCoords.longitude), { zIndex: 100 }]}>
             <View style={styles.userPinBubble}>
-              <Ionicons name="person" size={16} color="#ffffff" />
+              <Ionicons name="person" size={16} color={COLORS.white} />
             </View>
             <Text style={[styles.markerLabel, styles.userLabel]}>You Are Here</Text>
           </View>
@@ -119,11 +120,11 @@ export default function FullMapComponent({
       {showLegend && (
         <View style={styles.legendContainer}>
           <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: '#2563eb' }]} />
+            <View style={[styles.legendDot, { backgroundColor: COLORS.patientPrimary }]} />
             <Text style={styles.legendText}>You</Text>
           </View>
           <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: '#10b981' }]} />
+            <View style={[styles.legendDot, { backgroundColor: COLORS.pharmacyPrimary }]} />
             <Text style={styles.legendText}>Verified</Text>
           </View>
           <View style={styles.legendItem}>
@@ -131,11 +132,11 @@ export default function FullMapComponent({
             <Text style={styles.legendText}>Public</Text>
           </View>
           <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: '#64748b' }]} />
+            <View style={[styles.legendDot, { backgroundColor: COLORS.textMuted }]} />
             <Text style={styles.legendText}>Closed</Text>
           </View>
           <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: '#f59e0b' }]} />
+            <View style={[styles.legendDot, { backgroundColor: COLORS.warning }]} />
             <Text style={styles.legendText}>Selected</Text>
           </View>
         </View>
@@ -151,13 +152,13 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: '#f1f5f9',
-    overflow: 'hidden',
+    backgroundColor: COLORS.surfaceSecondary,
+    overflow: 'hidden'
   },
   mapGrid: {
     flex: 1,
     position: 'relative',
-    backgroundColor: '#f1f5f9',
+    backgroundColor: COLORS.surfaceSecondary
   },
   river: {
     position: 'absolute',
@@ -165,71 +166,73 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 60,
-    backgroundColor: '#bfdbfe',
+    backgroundColor: COLORS.borderBlue
   },
   street: {
     position: 'absolute',
-    backgroundColor: '#ffffff',
-    borderColor: '#e2e8f0',
-    borderWidth: 1,
+    backgroundColor: COLORS.white,
+    borderColor: COLORS.borderSubtle,
+    borderWidth: 1
   },
   markerContainer: {
     position: 'absolute',
     alignItems: 'center',
     marginLeft: -13,
     marginTop: -26,
-    zIndex: 5,
+    zIndex: 5
   },
   markerLabel: {
     fontSize: 9,
-    fontWeight: 'bold',
-    color: '#065f46',
-    backgroundColor: '#d1fae5',
+    fontFamily: 'Inter-Bold',
+    color: COLORS.pharmacyText,
+    backgroundColor: COLORS.successBg,
     paddingHorizontal: 4,
     paddingVertical: 1,
     borderRadius: 4,
-    marginTop: -2,
+    marginTop: -2
   },
   userLabel: {
-    color: '#1e3a8a',
-    backgroundColor: '#dbeafe',
+    fontFamily: 'Inter-Regular',
+    
+    color: COLORS.patientTextDark,
+    backgroundColor: COLORS.infoBg
   },
   userPinBubble: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#2563eb',
+    backgroundColor: COLORS.patientPrimary,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#ffffff',
+    borderColor: COLORS.white
   },
   tooltip: {
-    alignItems: 'center',
+    alignItems: 'center'
   },
   badgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    marginTop: 2,
+    marginTop: 2
   },
   verifiedTag: {
     fontSize: 7,
-    fontWeight: '700',
-    color: '#047857',
-    backgroundColor: '#d1fae5',
+    fontFamily: 'Inter-Bold',
+    color: COLORS.pharmacyTextDark,
+    backgroundColor: COLORS.successBg,
     paddingHorizontal: 4,
     paddingVertical: 1,
-    borderRadius: 3,
+    borderRadius: 3
   },
   closedTag: {
     fontSize: 7,
-    fontWeight: '700',
-    color: '#475569',
-    backgroundColor: '#f1f5f9',
+    fontFamily: 'Inter-Bold',
+    color: COLORS.textSecondary,
+    backgroundColor: COLORS.surfaceSecondary,
     paddingHorizontal: 4,
     paddingVertical: 1,
-    borderRadius: 3,
+    borderRadius: 3
   },
   legendContainer: {
     position: 'absolute',
@@ -239,27 +242,28 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.96)',
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: '#cbd5e1',
+    borderColor: COLORS.borderSlate,
     paddingVertical: 8,
     paddingHorizontal: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
-    zIndex: 20,
+    zIndex: 20
   },
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 5
   },
   legendDot: {
     width: 9,
     height: 9,
-    borderRadius: 4.5,
+    borderRadius: 4.5
   },
   legendText: {
     fontSize: 10,
-    fontWeight: '600',
-    color: '#334155',
+    fontFamily: 'Inter-SemiBold',
+    color: '#334155'
   },
+
 });

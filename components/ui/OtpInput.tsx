@@ -1,3 +1,4 @@
+import { COLORS } from '@/styles/theme';
 /**
  * components/ui/OtpInput.tsx
  *
@@ -237,7 +238,7 @@ const OtpInput = forwardRef<OtpInputHandle, OtpInputProps>((props, ref) => {
                 styles.box,
                 isFilled && !isSuccess && { borderColor: accentColor, backgroundColor: accentColor + '10' },
                 isFocused && !isSuccess && { borderColor: accentColor, backgroundColor: accentColor + '08', borderWidth: 2 },
-                isSuccess && { borderColor: '#10b981', backgroundColor: '#10b98115' },
+                isSuccess && { borderColor: COLORS.pharmacyPrimary, backgroundColor: '#10b98115' },
               ]}
               value={digit}
               onChangeText={(text) => handleChangeText(text, i)}
@@ -259,7 +260,7 @@ const OtpInput = forwardRef<OtpInputHandle, OtpInputProps>((props, ref) => {
       {/* Success indicator */}
       {successState && (
         <View style={styles.successRow}>
-          <Ionicons name="checkmark-circle" size={18} color="#10b981" />
+          <Ionicons name="checkmark-circle" size={18} color={COLORS.pharmacyPrimary} />
           <Text style={styles.successText}>Code Verified!</Text>
         </View>
       )}
@@ -274,13 +275,13 @@ const OtpInput = forwardRef<OtpInputHandle, OtpInputProps>((props, ref) => {
           <Ionicons
             name="time-outline"
             size={14}
-            color={resendTimer > 0 ? '#94a3b8' : accentColor}
+            color={resendTimer > 0 ? COLORS.textDim : accentColor}
             style={{ marginRight: 4 }}
           />
           <Text
             style={[
               styles.resendText,
-              { color: resendTimer > 0 ? '#94a3b8' : accentColor },
+              { color: resendTimer > 0 ? COLORS.textDim : accentColor },
             ]}
           >
             {resendTimer > 0 ? `Resend code in ${resendTimer}s` : 'Resend Code'}
@@ -298,27 +299,27 @@ export default OtpInput;
 
 const styles = StyleSheet.create({
   container: {
-    marginVertical: 4,
+    marginVertical: 4
   },
   subtitleRow: {
-    marginBottom: 12,
+    marginBottom: 12
   },
   boxRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     gap: 8,
-    marginVertical: 10,
+    marginVertical: 10
   },
   box: {
     width: 44,
     height: 54,
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: '#cbd5e1',
-    backgroundColor: '#ffffff',
+    borderColor: COLORS.borderSlate,
+    backgroundColor: COLORS.white,
     fontSize: 22,
-    fontWeight: '800',
-    color: '#0f172a',
+    fontFamily: 'Inter-Bold',
+    color: COLORS.surfaceDark
   },
   successRow: {
     flexDirection: 'row',
@@ -326,25 +327,26 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
     marginTop: 6,
-    marginBottom: 4,
+    marginBottom: 4
   },
   successText: {
-    color: '#10b981',
+    color: COLORS.pharmacyPrimary,
     fontSize: 13,
-    fontWeight: '700',
+    fontFamily: 'Inter-Bold'
   },
   resendRow: {
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 8
   },
   resendBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 6,
-    paddingHorizontal: 12,
+    paddingHorizontal: 12
   },
   resendText: {
     fontSize: 13,
-    fontWeight: '600',
+    fontFamily: 'Inter-SemiBold'
   },
+
 });

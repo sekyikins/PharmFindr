@@ -19,7 +19,7 @@ import { Header } from '@/components/ui/Header';
 import { getDeviceId, revokeSpecificDeviceSession, revokeAllOtherSessions } from '@/lib/deviceSession';
 import { logAuditEvent } from '@/lib/auditLogger';
 import { supabase } from '@/lib/supabase';
-import { RADIUS, SPACING } from '@/styles/theme';
+import { COLORS,  RADIUS, SPACING  } from '@/styles/theme';
 
 interface SessionItem {
   device_id: string;
@@ -229,8 +229,12 @@ export default function ActiveDevicesScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  scrollContent: { padding: SPACING.xl },
+  container: {
+    flex: 1
+  },
+  scrollContent: {
+    padding: SPACING.xl
+  },
   bannerCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -238,10 +242,15 @@ const styles = StyleSheet.create({
     padding: 14,
     borderRadius: RADIUS.lg,
     borderWidth: 1,
-    marginBottom: 16,
+    marginBottom: 16
   },
-  bannerTitle: { fontSize: 14, fontWeight: '700' },
-  bannerSub: { fontSize: 12, marginTop: 2, lineHeight: 16 },
+  bannerTitle: {
+    fontSize: 14, fontFamily: 'Inter-Bold'
+  },
+  bannerSub: {
+    fontFamily: 'Inter-Regular',
+     fontSize: 12, marginTop: 2, lineHeight: 16
+  },
   revokeAllBtn: {
     height: 46,
     borderRadius: RADIUS.pill,
@@ -250,14 +259,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 18,
+    marginBottom: 18
   },
-  revokeAllText: { fontSize: 14, fontWeight: '700' },
+  revokeAllText: {
+    fontSize: 14, fontFamily: 'Inter-Bold'
+  },
   sectionTitle: {
     fontSize: 11,
-    fontWeight: '700',
+    fontFamily: 'Inter-Bold',
     letterSpacing: 0.8,
-    marginBottom: 10,
+    marginBottom: 10
   },
   deviceCard: {
     flexDirection: 'row',
@@ -266,27 +277,40 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.lg,
     borderWidth: 1,
     marginBottom: 10,
-    gap: 12,
+    gap: 12
   },
   deviceIconCircle: {
     width: 44,
     height: 44,
     borderRadius: 22,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
-  devicePlatform: { fontSize: 14, fontWeight: '700' },
+  devicePlatform: {
+    fontSize: 14, fontFamily: 'Inter-Bold'
+  },
   thisDeviceBadge: {
     paddingHorizontal: 8,
     paddingVertical: 2,
-    borderRadius: 10,
+    borderRadius: 10
   },
-  thisDeviceText: { color: '#ffffff', fontSize: 9, fontWeight: '800' },
-  deviceMeta: { fontSize: 11, marginTop: 2 },
-  deviceTime: { fontSize: 12, marginTop: 4 },
+  thisDeviceText: {
+    color: COLORS.white, fontSize: 9, fontFamily: 'Inter-Bold'
+  },
+  deviceMeta: {
+    fontFamily: 'Inter-Regular',
+     fontSize: 11, marginTop: 2
+  },
+  deviceTime: {
+    fontFamily: 'Inter-Regular',
+     fontSize: 12, marginTop: 4
+  },
   revokeSingleBtn: {
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 6
   },
-  revokeSingleText: { fontSize: 13, fontWeight: '700' },
+  revokeSingleText: {
+    fontSize: 13, fontFamily: 'Inter-Bold'
+  },
+
 });

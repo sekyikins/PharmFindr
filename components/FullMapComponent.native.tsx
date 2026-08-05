@@ -1,3 +1,4 @@
+import { COLORS } from '@/styles/theme';
 import React, { useEffect, useRef, useCallback } from 'react';
 import { StyleSheet, View, Text } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE, EdgePadding } from 'react-native-maps';
@@ -138,7 +139,7 @@ export default function FullMapComponent({
           <Marker
             coordinate={userCoords}
             title="You are here"
-            pinColor="#2563eb"
+            pinColor={COLORS.patientPrimary}
             zIndex={100}
           />
         )}
@@ -167,7 +168,7 @@ export default function FullMapComponent({
         {routeCoords && routeCoords.length > 1 && (
           <Polyline
             coordinates={routeCoords}
-            strokeColor="#2563eb"
+            strokeColor={COLORS.patientPrimary}
             strokeWidth={4}
           />
         )}
@@ -177,11 +178,11 @@ export default function FullMapComponent({
       {showLegend && (
         <View style={styles.legendBar} pointerEvents="box-none">
           <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: '#2563eb' }]} />
+            <View style={[styles.legendDot, { backgroundColor: COLORS.patientPrimary }]} />
             <Text style={styles.legendText}>You</Text>
           </View>
           <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: '#10b981' }]} />
+            <View style={[styles.legendDot, { backgroundColor: COLORS.pharmacyPrimary }]} />
             <Text style={styles.legendText}>Verified</Text>
           </View>
           <View style={styles.legendItem}>
@@ -189,11 +190,11 @@ export default function FullMapComponent({
             <Text style={styles.legendText}>Public</Text>
           </View>
           <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: '#64748b' }]} />
+            <View style={[styles.legendDot, { backgroundColor: COLORS.textMuted }]} />
             <Text style={styles.legendText}>Closed</Text>
           </View>
           <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: '#f59e0b' }]} />
+            <View style={[styles.legendDot, { backgroundColor: COLORS.warning }]} />
             <Text style={styles.legendText}>Selected</Text>
           </View>
         </View>
@@ -208,14 +209,14 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    bottom: 0,
+    bottom: 0
   },
   map: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    bottom: 0,
+    bottom: 0
   },
   legendBar: {
     position: 'absolute',
@@ -225,27 +226,28 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.96)',
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: '#cbd5e1',
+    borderColor: COLORS.borderSlate,
     paddingVertical: 8,
     paddingHorizontal: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
-    zIndex: 10,
+    zIndex: 10
   },
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 4
   },
   legendDot: {
     width: 8,
     height: 8,
-    borderRadius: 4,
+    borderRadius: 4
   },
   legendText: {
     fontSize: 10,
-    fontWeight: '600',
-    color: '#334155',
+    fontFamily: 'Inter-SemiBold',
+    color: '#334155'
   },
+
 });

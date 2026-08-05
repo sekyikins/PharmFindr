@@ -5,7 +5,7 @@ export const PRIVACY_POLICY = {
     {
       id: 'commitment',
       title: '1. Our Commitment to Patient Privacy',
-      content: `PharmFindr Inc. ("PharmFindr", "We", "Us") takes patient privacy and medical data protection with the utmost seriousness. We comply fully with the Ghana Data Protection Act 2012 (Act 843), international Patient Health Information (PHI) privacy guidelines, and global data safety standards.
+      content: `At PharmFindr we take patient privacy and medical data protection with the utmost seriousness. We comply fully with the Ghana Data Protection Act 2012 (Act 843), international Patient Health Information (PHI) privacy guidelines, and global data safety standards.
 
 This Privacy Policy explains how we collect, use, store, encrypt, and safeguard your personal and medical information when you interact with the PharmFindr Application.`,
     },

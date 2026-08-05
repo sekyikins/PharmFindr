@@ -13,7 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import Svg, { Path } from 'react-native-svg';
 import { useThemeContext } from '@/hooks/useThemeContext';
-import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
+import { COLORS,  FONT_SIZE, RADIUS, SPACING  } from '@/styles/theme';
 import { getMedicineByIdOrName, type MedicineItem } from '@/lib/medicineCatalogue';
 import { useSavedMedicinesStore } from '@/store/savedMedicinesStore';
 
@@ -77,7 +77,7 @@ export default function MedicineDetailsScreen() {
               style={({ pressed }) => [styles.iconCircleBtn, pressed && { opacity: 0.6 }]}
               onPress={() => (router.canGoBack() ? router.back() : router.navigate('/(patient)/(tabs)/search'))}
             >
-              <Ionicons name="arrow-back" size={20} color="#ffffff" />
+              <Ionicons name="arrow-back" size={20} color={COLORS.white} />
             </Pressable>
 
             <View style={{ flexDirection: 'row', gap: 10 }}>
@@ -85,7 +85,7 @@ export default function MedicineDetailsScreen() {
                 style={({ pressed }) => [styles.iconCircleBtn, pressed && { opacity: 0.6 }]}
                 onPress={handleToggleSave}
               >
-                <Ionicons name={saved ? 'heart' : 'heart-outline'} size={20} color={saved ? '#ff4d4f' : '#ffffff'} />
+                <Ionicons name={saved ? 'heart' : 'heart-outline'} size={20} color={saved ? '#ff4d4f' : COLORS.white} />
               </Pressable>
             </View>
           </View>
@@ -135,16 +135,16 @@ export default function MedicineDetailsScreen() {
             style={({ pressed }) => [styles.actionCard, { backgroundColor: theme.card, borderColor: theme.patientPrimary }, pressed && { opacity: 0.7 }]}
             onPress={handleFindPharmacies}
           >
-            <Ionicons name="location" size={22} color="#10b981" />
+            <Ionicons name="location" size={22} color={COLORS.pharmacyPrimary} />
             <Text style={[styles.actionCardText, { color: theme.text.primary }]}>Stock</Text>
           </Pressable>
         </View>
 
         {/* ── Key Facts Summary Cards (Dosage, Frequency, Duration) ── */}
         <View style={styles.cardsRow}>
-          <DetailCard icon="medkit-outline" iconColor="#ef4444" label="DOSAGE" value={medicine.dosage} theme={theme} />
-          <DetailCard icon="time-outline" iconColor="#f59e0b" label="FREQUENCY" value={medicine.frequency} theme={theme} />
-          <DetailCard icon="calendar-outline" iconColor="#10b981" label="DURATION" value={medicine.duration} theme={theme} />
+          <DetailCard icon="medkit-outline" iconColor={COLORS.error} label="DOSAGE" value={medicine.dosage} theme={theme} />
+          <DetailCard icon="time-outline" iconColor={COLORS.warning} label="FREQUENCY" value={medicine.frequency} theme={theme} />
+          <DetailCard icon="calendar-outline" iconColor={COLORS.pharmacyPrimary} label="DURATION" value={medicine.duration} theme={theme} />
         </View>
 
         {/* ── Regulatory & Price Info Card ── */}
@@ -199,7 +199,7 @@ export default function MedicineDetailsScreen() {
           style={({ pressed }) => [styles.findBtn, pressed && { opacity: 0.7 }, { backgroundColor: primaryColor }]}
           onPress={handleFindPharmacies}
         >
-          <Ionicons name="search" size={18} color="#ffffff" style={{ marginRight: 8 }} />
+          <Ionicons name="search" size={18} color={COLORS.white} style={{ marginRight: 8 }} />
           <Text style={styles.findBtnText}>Find Pharmacies Carrying This Drug</Text>
         </Pressable>
 
@@ -231,13 +231,15 @@ function InfoPanel({ title, content, icon, theme, primaryColor }: { title: strin
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: {
+    flex: 1
+  },
 
   topNavRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: 16
   },
   iconCircleBtn: {
     width: 38,
@@ -245,31 +247,40 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.pill,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
 
   hero: {
     paddingTop: 12,
     paddingHorizontal: SPACING.xl,
-    paddingBottom: 24,
+    paddingBottom: 24
   },
   heroContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: 16
   },
   pillCircle: {
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: '#ffffff',
+    backgroundColor: COLORS.white,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
-  heroTextCol: { flex: 1 },
-  medName: { fontSize: 24, fontWeight: '700', color: '#ffffff', marginBottom: 2 },
-  medSub: { fontSize: 14, color: 'rgba(255, 255, 255, 0.85)', fontWeight: '600' },
-  genericSub: { fontSize: 12, color: 'rgba(255, 255, 255, 0.75)', marginTop: 2 },
+  heroTextCol: {
+    flex: 1
+  },
+  medName: {
+    fontSize: 24, fontFamily: 'Inter-Bold', color: COLORS.white, marginBottom: 2
+  },
+  medSub: {
+    fontSize: 14, color: 'rgba(255, 255, 255, 0.85)', fontFamily: 'Inter-SemiBold'
+  },
+  genericSub: {
+    fontFamily: 'Inter-Regular',
+     fontSize: 12, color: 'rgba(255, 255, 255, 0.75)', marginTop: 2
+  },
 
   // Action Bar Grid
   actionGrid: {
@@ -277,7 +288,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.xl,
     gap: 12,
     marginTop: 6,
-    marginBottom: 16,
+    marginBottom: 16
   },
   actionCard: {
     flex: 1,
@@ -287,11 +298,11 @@ const styles = StyleSheet.create({
     gap: 8,
     borderRadius: RADIUS.lg,
     paddingVertical: 12,
-    borderWidth: 1,
+    borderWidth: 1
   },
   actionCardText: {
     fontSize: 13,
-    fontWeight: '700',
+    fontFamily: 'Inter-Bold'
   },
 
   // Cards Row
@@ -299,17 +310,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 10,
     paddingHorizontal: SPACING.xl,
-    marginBottom: 16,
+    marginBottom: 16
   },
   detailCard: {
     flex: 1,
     borderRadius: RADIUS.lg,
     padding: 12,
     alignItems: 'center',
-    borderWidth: 1,
+    borderWidth: 1
   },
-  cardLabel: { fontSize: 10, fontWeight: '700', letterSpacing: 0.5, marginBottom: 4 },
-  cardValue: { fontSize: 13, fontWeight: '600', textAlign: 'center' },
+  cardLabel: {
+    fontSize: 10, fontFamily: 'Inter-Bold', letterSpacing: 0.5, marginBottom: 4
+  },
+  cardValue: {
+    fontSize: 13, fontFamily: 'Inter-SemiBold', textAlign: 'center'
+  },
 
   infoBanner: {
     flexDirection: 'row',
@@ -319,48 +334,59 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     padding: 14,
     borderRadius: RADIUS.lg,
-    borderWidth: 1,
+    borderWidth: 1
   },
-  bannerTitle: { fontSize: 13, fontWeight: '700' },
-  bannerSub: { fontSize: 11, marginTop: 2 },
+  bannerTitle: {
+    fontSize: 13, fontFamily: 'Inter-Bold'
+  },
+  bannerSub: {
+    fontFamily: 'Inter-Regular',
+     fontSize: 11, marginTop: 2
+  },
 
   panel: {
     marginHorizontal: SPACING.xl,
     marginBottom: SPACING.md,
     borderRadius: RADIUS.xl,
     padding: SPACING.lg,
-    borderWidth: 1,
+    borderWidth: 1
   },
-  panelTitle: { fontSize: 16, fontWeight: '700' },
-  panelContent: { fontSize: 13, lineHeight: 20 },
+  panelTitle: {
+    fontSize: 16, fontFamily: 'Inter-Bold'
+  },
+  panelContent: {
+    fontFamily: 'Inter-Regular',
+     fontSize: 13, lineHeight: 20
+  },
 
   alternativesRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 8
   },
   alternativeBadge: {
     paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: RADIUS.pill,
+    borderRadius: RADIUS.pill
   },
   alternativeText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontFamily: 'Inter-SemiBold'
   },
 
   findBtn: {
     marginHorizontal: SPACING.xl,
-    marginTop: 10,
+    marginVertical: 10,
     height: 52,
     borderRadius: RADIUS.pill,
     flexDirection: 'row',
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   findBtnText: {
-    color: '#ffffff',
-    fontSize: 15,
-    fontWeight: '700',
+    color: COLORS.white,
+    fontSize: 12,
+    fontFamily: 'Inter-Bold'
   },
+
 });

@@ -16,7 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import FullMapComponent from '@/components/FullMapComponent';
 import { useThemeContext } from '@/hooks/useThemeContext';
-import { RADIUS, SPACING } from '@/styles/theme';
+import { COLORS,  RADIUS, SPACING  } from '@/styles/theme';
 import { getCurrentLocation, DEFAULT_COORDS, type Coords } from '@/lib/location';
 import { searchNearbyPharmacies, type OsmPharmacy } from '@/lib/osm';
 import { usePharmacyStore } from '@/store/pharmacyStore';
@@ -571,8 +571,8 @@ export default function Pharmacies() {
                   ]}
                   onPress={() => handleReservePharmacy(selectedPharmacy)}
                 >
-                  <Ionicons name="cart-outline" size={18} color="#ffffff" />
-                  <Text style={[styles.actionBtnText, { color: '#ffffff' }]}>Reserve</Text>
+                  <Ionicons name="cart-outline" size={18} color={COLORS.white} />
+                  <Text style={[styles.actionBtnText, { color: COLORS.white }]}>Reserve</Text>
                 </Pressable>
               )}
             </View>
@@ -607,7 +607,7 @@ export default function Pharmacies() {
               stopLoading();
             }}
           >
-            <Ionicons name="stop-circle-outline" size={20} color={theme.error ?? '#ef4444'} />
+            <Ionicons name="stop-circle-outline" size={20} color={theme.error ?? COLORS.error} />
             <Text style={[styles.sheetOptionText, { color: theme.text.primary }]}>Stop loading pharmacies</Text>
           </Pressable>
 
@@ -623,7 +623,7 @@ export default function Pharmacies() {
             }}
           >
             <Ionicons name="reload-outline" size={20} color={primaryColor} />
-            <Text style={[styles.sheetOptionText, { color: primaryColor, fontWeight: '700' }]}>Restart loading pharmacies</Text>
+            <Text style={[styles.sheetOptionText, { color: primaryColor, fontFamily: 'Inter-Bold' }]}>Restart loading pharmacies</Text>
           </Pressable>
         </View>
       </AppBottomSheet>
@@ -651,7 +651,7 @@ export default function Pharmacies() {
                   ]}
                   onPress={() => setDraftDistance(dist)}
                 >
-                  <Text style={[styles.radiusChipText, { color: isSelected ? '#ffffff' : theme.text.primary }]}>
+                  <Text style={[styles.radiusChipText, { color: isSelected ? COLORS.white : theme.text.primary }]}>
                     {dist} km
                   </Text>
                 </Pressable>
@@ -705,13 +705,15 @@ export default function Pharmacies() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: {
+    flex: 1
+  },
   navBtn: {
     width: 36,
     height: 36,
     borderRadius: RADIUS.pill,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   contextBanner: {
     flexDirection: 'row',
@@ -719,10 +721,15 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingHorizontal: SPACING.lg,
     paddingVertical: 10,
-    borderBottomWidth: 1,
+    borderBottomWidth: 1
   },
-  contextTitle: { fontSize: 13, fontWeight: '700' },
-  contextSub: { fontSize: 11, marginTop: 2 },
+  contextTitle: {
+    fontSize: 13, fontFamily: 'Inter-Bold'
+  },
+  contextSub: {
+    fontFamily: 'Inter-Regular',
+     fontSize: 11, marginTop: 2
+  },
 
   searchBarContainer: {
     paddingHorizontal: 16,
@@ -730,7 +737,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    zIndex: 10,
+    zIndex: 10
   },
   searchBar: {
     flex: 1,
@@ -739,23 +746,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     height: 42,
     borderRadius: RADIUS.pill,
-    borderWidth: 1,
+    borderWidth: 1
   },
-  searchInput: { flex: 1, fontSize: 14, paddingVertical: 0 },
+  searchInput: {
+    fontFamily: 'Inter-Regular',
+     flex: 1, fontSize: 14, paddingVertical: 0
+  },
   pinCountBadge: {
     fontSize: 12,
-    fontWeight: '600',
+    fontFamily: 'Inter-SemiBold',
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: RADIUS.pill,
-    overflow: 'hidden',
+    overflow: 'hidden'
   },
 
   overlayTop: {
     position: 'absolute',
     top: 0,
     left: 0,
-    right: 0,
+    right: 0
   },
 
   // ── Selected Pharmacy Details Overlay Card ──
@@ -767,37 +777,37 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: RADIUS.xl,
     borderTopRightRadius: RADIUS.xl,
     borderWidth: 1,
-    zIndex: 999,
+    zIndex: 999
   },
   handleContainer: {
     width: '100%',
     paddingVertical: 10,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   handleIndicator: {
     width: 40,
     height: 5,
-    borderRadius: 2.5,
+    borderRadius: 2.5
   },
   sheetContent: {
     paddingHorizontal: 18,
     paddingBottom: 24,
-    gap: 10,
+    gap: 10
   },
   cardHeaderRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    justifyContent: 'space-between',
+    justifyContent: 'space-between'
   },
   pharmTitle: {
     fontSize: 17,
-    fontWeight: '700',
+    fontFamily: 'Inter-Bold'
   },
   badgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 8
   },
   registeredBadge: {
     flexDirection: 'row',
@@ -805,48 +815,52 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: RADIUS.sm,
+    borderRadius: RADIUS.sm
   },
   registeredText: {
     fontSize: 11,
-    fontWeight: '700',
+    fontFamily: 'Inter-Bold'
   },
   hoursBadge: {
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: RADIUS.sm,
+    borderRadius: RADIUS.sm
   },
   hoursText: {
     fontSize: 11,
-    fontWeight: '700',
+    fontFamily: 'Inter-Bold'
   },
   closeBtn: {
     width: 30,
     height: 30,
     borderRadius: 15,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 4
   },
   metaText: {
     fontSize: 13,
-    fontWeight: '500',
+    fontFamily: 'Inter-Medium'
   },
   metaDot: {
-    fontSize: 13,
+    fontFamily: 'Inter-Regular',
+    
+    fontSize: 13
   },
   infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 8
   },
   infoText: {
+    fontFamily: 'Inter-Regular',
+    
     fontSize: 13,
-    flex: 1,
+    flex: 1
   },
   stockCheckBanner: {
     flexDirection: 'row',
@@ -854,17 +868,17 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: RADIUS.md,
+    borderRadius: RADIUS.md
   },
   stockCheckText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontFamily: 'Inter-SemiBold'
   },
 
   actionRow: {
     flexDirection: 'row',
     gap: 10,
-    marginTop: 6,
+    marginTop: 6
   },
   actionBtn: {
     flex: 1,
@@ -873,27 +887,36 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 6,
+    gap: 6
   },
   secondaryActionBtn: {
-    borderWidth: 1.5,
+    borderWidth: 1.5
   },
-  primaryActionBtn: {},
+  primaryActionBtn: {
+    
+  },
   actionBtnText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontFamily: 'Inter-SemiBold'
   },
 
-  sheetBody: { padding: 16 },
-  sheetSub: { fontSize: 13, flex: 1 },
+  sheetBody: {
+    padding: 16
+  },
+  sheetSub: {
+    fontFamily: 'Inter-Regular',
+     fontSize: 13, flex: 1
+  },
   sheetOptionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
     padding: 14,
-    borderRadius: 12,
+    borderRadius: 12
   },
-  sheetOptionText: { fontSize: 14, fontWeight: '600' },
+  sheetOptionText: {
+    fontSize: 14, fontFamily: 'Inter-SemiBold'
+  },
 
   filterRadiusBtn: {
     height: 44,
@@ -903,54 +926,55 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   filterRadiusText: {
     fontSize: 13,
-    fontWeight: '700',
+    fontFamily: 'Inter-Bold'
   },
   chipRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-    marginTop: 8,
+    marginTop: 8
   },
   radiusChip: {
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: RADIUS.pill,
-    borderWidth: 1,
+    borderWidth: 1
   },
   radiusChipText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontFamily: 'Inter-SemiBold'
   },
   sheetSubTitle: {
     fontSize: 11,
-    fontWeight: '700',
+    fontFamily: 'Inter-Bold',
     letterSpacing: 0.5,
-    marginBottom: 4,
+    marginBottom: 4
   },
   toggleFilterRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
     padding: 12,
-    borderRadius: RADIUS.md,
+    borderRadius: RADIUS.md
   },
   toggleFilterText: {
     fontSize: 13,
-    fontWeight: '600',
+    fontFamily: 'Inter-SemiBold'
   },
   applyFilterBtn: {
     height: 46,
     borderRadius: RADIUS.md,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   applyFilterBtnText: {
-    color: '#ffffff',
+    color: COLORS.white,
     fontSize: 14,
-    fontWeight: '700',
+    fontFamily: 'Inter-Bold'
   },
+
 });

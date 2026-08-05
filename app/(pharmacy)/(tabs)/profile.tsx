@@ -18,7 +18,7 @@ import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuthStore } from '@/store/authStore';
 import { useThemeContext } from '@/hooks/useThemeContext';
-import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
+import { COLORS,  FONT_SIZE, RADIUS, SPACING  } from '@/styles/theme';
 import { supabase } from '@/lib/supabase';
 import Skeleton from '@/components/ui/Skeleton';
 import { BottomSheetModal, BottomSheetTextInput } from '@gorhom/bottom-sheet';
@@ -270,9 +270,9 @@ export default function PharmacyProfile() {
               </View>
               <View style={styles.cameraBadge}>
                 {uploadingAvatar ? (
-                  <ActivityIndicator size="small" color="#ffffff" />
+                  <ActivityIndicator size="small" color={COLORS.white} />
                 ) : (
-                  <Ionicons name="camera" size={12} color="#ffffff" />
+                  <Ionicons name="camera" size={12} color={COLORS.white} />
                 )}
               </View>
             </Pressable>
@@ -285,20 +285,20 @@ export default function PharmacyProfile() {
                 style={[
                   styles.statusBadge,
                   isVerified
-                    ? { backgroundColor: '#ecfdf5', borderColor: '#a7f3d0' }
-                    : { backgroundColor: '#fffbeb', borderColor: '#fef3c7' },
+                    ? { backgroundColor: '#ecfdf5', borderColor: COLORS.successBorder }
+                    : { backgroundColor: '#fffbeb', borderColor: COLORS.pendingBg },
                 ]}
                 onPress={!isVerified ? handleVerifyPharmacy : undefined}
               >
                 <Ionicons
                   name={isVerified ? 'shield-checkmark' : 'time-outline'}
                   size={13}
-                  color={isVerified ? '#047857' : '#b45309'}
+                  color={isVerified ? COLORS.pharmacyTextDark : '#b45309'}
                 />
                 <Text
                   style={[
                     styles.statusBadgeText,
-                    { color: isVerified ? '#047857' : '#b45309' },
+                    { color: isVerified ? COLORS.pharmacyTextDark : '#b45309' },
                   ]}
                 >
                   {isVerified ? 'VERIFIED LICENSE' : 'REGISTRATION PENDING — TAP TO VERIFY'}
@@ -314,8 +314,8 @@ export default function PharmacyProfile() {
               style={({ pressed }) => [styles.rowItem, pressed && { opacity: 0.7 }]}
               onPress={() => editSheetRef.current?.present()}
             >
-              <View style={[styles.iconWrap, { backgroundColor: '#eff6ff' }]}>
-                <Ionicons name="create-outline" size={18} color="#2563eb" />
+              <View style={[styles.iconWrap, { backgroundColor: COLORS.patientSecondary }]}>
+                <Ionicons name="create-outline" size={18} color={COLORS.patientPrimary} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.rowTitle, { color: theme.text.primary }]}>Business Information</Text>
@@ -357,8 +357,8 @@ export default function PharmacyProfile() {
               <Switch
                 value={notificationsEnabled}
                 onValueChange={setNotificationsEnabled}
-                trackColor={{ false: '#cbd5e1', true: '#a7f3d0' }}
-                thumbColor={notificationsEnabled ? PHARMACY_GREEN : '#f1f5f9'}
+                trackColor={{ false: COLORS.borderSlate, true: COLORS.successBorder }}
+                thumbColor={notificationsEnabled ? PHARMACY_GREEN : COLORS.surfaceSecondary}
               />
             </View>
 
@@ -386,7 +386,7 @@ export default function PharmacyProfile() {
               style={({ pressed }) => [styles.rowItem, pressed && { opacity: 0.7 }]}
               onPress={() => router.push('/(patient)/help-feedback')}
             >
-              <View style={[styles.iconWrap, { backgroundColor: '#f1f5f9' }]}>
+              <View style={[styles.iconWrap, { backgroundColor: COLORS.surfaceSecondary }]}>
                 <Ionicons name="help-circle-outline" size={18} color="#475569" />
               </View>
               <View style={{ flex: 1 }}>
@@ -401,11 +401,11 @@ export default function PharmacyProfile() {
             style={({ pressed }) => [
               styles.signOutBtn,
               pressed && { opacity: 0.8 },
-              { backgroundColor: '#fef2f2', borderColor: '#fecaca' },
+              { backgroundColor: COLORS.errorBg, borderColor: '#fecaca' },
             ]}
             onPress={handleSignOut}
           >
-            <Ionicons name="log-out-outline" size={18} color="#ef4444" />
+            <Ionicons name="log-out-outline" size={18} color={COLORS.error} />
             <Text style={styles.signOutText}>Sign Out Account</Text>
           </Pressable>
         </ScrollView>
@@ -470,7 +470,7 @@ export default function PharmacyProfile() {
               disabled={savingEdit}
             >
               {savingEdit ? (
-                <ActivityIndicator color="#ffffff" />
+                <ActivityIndicator color={COLORS.white} />
               ) : (
                 <Text style={styles.saveBtnText}>Save Details</Text>
               )}
@@ -516,7 +516,7 @@ export default function PharmacyProfile() {
               disabled={savingPwd}
             >
               {savingPwd ? (
-                <ActivityIndicator color="#ffffff" />
+                <ActivityIndicator color={COLORS.white} />
               ) : (
                 <Text style={styles.saveBtnText}>Update Password</Text>
               )}
@@ -561,19 +561,23 @@ export default function PharmacyProfile() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  scrollContent: { padding: SPACING.xl, gap: 12 },
+  container: {
+    flex: 1
+  },
+  scrollContent: {
+    padding: SPACING.xl, gap: 12
+  },
 
   heroCard: {
     alignItems: 'center',
     padding: SPACING.xl,
     borderRadius: RADIUS.xl,
     borderWidth: 1.5,
-    gap: 6,
+    gap: 6
   },
   avatarWrapper: {
     position: 'relative',
-    marginBottom: 6,
+    marginBottom: 6
   },
   avatarCircle: {
     width: 80,
@@ -582,12 +586,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#ecfdf5',
     justifyContent: 'center',
     alignItems: 'center',
-    overflow: 'hidden',
+    overflow: 'hidden'
   },
   avatarImage: {
     width: 80,
     height: 80,
-    borderRadius: 40,
+    borderRadius: 40
   },
   cameraBadge: {
     position: 'absolute',
@@ -600,18 +604,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#ffffff',
+    borderColor: COLORS.white
   },
 
   pharmacyTitle: {
     fontSize: FONT_SIZE.xxl,
-    fontWeight: '800',
+    fontFamily: 'Inter-Bold'
   },
   pharmacySub: {
-    fontSize: FONT_SIZE.md,
+    fontFamily: 'Inter-Regular',
+    
+    fontSize: FONT_SIZE.md
   },
   statusRow: {
-    marginTop: 4,
+    marginTop: 4
   },
   statusBadge: {
     flexDirection: 'row',
@@ -620,50 +626,52 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: RADIUS.pill,
-    borderWidth: 1,
+    borderWidth: 1
   },
   statusBadgeText: {
     fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.5,
+    fontFamily: 'Inter-Bold',
+    letterSpacing: 0.5
   },
 
   sectionTitle: {
     fontSize: 11,
-    fontWeight: '800',
+    fontFamily: 'Inter-Bold',
     letterSpacing: 0.8,
     marginTop: 10,
-    marginLeft: 4,
+    marginLeft: 4
   },
   cardGroup: {
     borderRadius: RADIUS.xl,
     borderWidth: 1.5,
-    overflow: 'hidden',
+    overflow: 'hidden'
   },
   rowItem: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: SPACING.lg,
-    gap: 12,
+    gap: 12
   },
   iconWrap: {
     width: 36,
     height: 36,
     borderRadius: 18,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   rowTitle: {
     fontSize: FONT_SIZE.lg,
-    fontWeight: '700',
+    fontFamily: 'Inter-Bold'
   },
   rowSub: {
+    fontFamily: 'Inter-Regular',
+    
     fontSize: 12,
-    marginTop: 2,
+    marginTop: 2
   },
   divider: {
     height: 1,
-    width: '100%',
+    width: '100%'
   },
 
   signOutBtn: {
@@ -674,38 +682,40 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     borderWidth: 1,
-    marginTop: 16,
+    marginTop: 16
   },
   signOutText: {
-    color: '#ef4444',
+    color: COLORS.error,
     fontSize: FONT_SIZE.lg,
-    fontWeight: '700',
+    fontFamily: 'Inter-Bold'
   },
 
   sheetContent: {
     padding: SPACING.lg,
-    gap: 14,
+    gap: 14
   },
   modalField: {
-    gap: 4,
+    gap: 4
   },
   modalLabel: {
     fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.5,
+    fontFamily: 'Inter-Bold',
+    letterSpacing: 0.5
   },
   modalInput: {
+    fontFamily: 'Inter-Regular',
+    
     height: 44,
     borderRadius: RADIUS.md,
     borderWidth: 1.2,
     paddingHorizontal: 12,
-    fontSize: FONT_SIZE.lg,
+    fontSize: FONT_SIZE.lg
   },
   modalActions: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    marginTop: 12,
+    marginTop: 12
   },
   cancelBtn: {
     flex: 1,
@@ -713,22 +723,23 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.pill,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1.2,
+    borderWidth: 1.2
   },
   cancelBtnText: {
     fontSize: FONT_SIZE.md,
-    fontWeight: '700',
+    fontFamily: 'Inter-Bold'
   },
   saveBtn: {
     flex: 1.2,
     height: 48,
     borderRadius: RADIUS.pill,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   saveBtnText: {
-    color: '#ffffff',
+    color: COLORS.white,
     fontSize: FONT_SIZE.md,
-    fontWeight: '700',
+    fontFamily: 'Inter-Bold'
   },
+
 });

@@ -1,3 +1,4 @@
+import { COLORS } from '@/styles/theme';
 import { Link, Stack } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 
@@ -22,20 +23,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: 20,
-    backgroundColor: '#ffffff',
+    backgroundColor: COLORS.white
   },
   title: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1e293b',
+    fontFamily: 'Inter-Bold',
+    color: COLORS.textPrimary
   },
   link: {
     marginTop: 15,
-    paddingVertical: 15,
+    paddingVertical: 15
   },
   linkText: {
     fontSize: 14,
-    color: '#2563eb',
-    fontWeight: '600',
+    color: COLORS.patientPrimary,
+    fontFamily: 'Inter-SemiBold'
   },
+
 });

@@ -116,52 +116,57 @@ function renderInlineStyles(text: string, defaultColor: string) {
 
 const styles = StyleSheet.create({
   container: {
-    gap: 4,
+    gap: 4
   },
   header: {
     fontSize: 15,
-    fontWeight: '700',
+    fontFamily: 'Inter-Bold',
     marginTop: 6,
     marginBottom: 4,
-    lineHeight: 22,
+    lineHeight: 22
   },
   bulletRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     marginVertical: 2,
-    paddingLeft: 4,
+    paddingLeft: 4
   },
   bulletDot: {
     fontSize: 16,
     lineHeight: 20,
     marginRight: 6,
-    fontWeight: '700',
+    fontFamily: 'Inter-Bold'
   },
   numDot: {
     fontSize: 13,
     lineHeight: 20,
     marginRight: 6,
-    fontWeight: '700',
+    fontFamily: 'Inter-Bold'
   },
   bulletText: {
+    fontFamily: 'Inter-Regular',
+    
     flex: 1,
     fontSize: 14,
-    lineHeight: 20,
+    lineHeight: 20
   },
   paragraph: {
+    fontFamily: 'Inter-Regular',
+    
     fontSize: 14,
     lineHeight: 20,
-    marginVertical: 2,
+    marginVertical: 2
   },
   boldText: {
-    fontWeight: '700',
+    fontFamily: 'Inter-Bold'
   },
   italicText: {
-    fontStyle: 'italic',
+    fontStyle: 'italic'
   },
   hr: {
     height: 1,
     width: '100%',
-    marginVertical: 8,
+    marginVertical: 8
   },
+
 });

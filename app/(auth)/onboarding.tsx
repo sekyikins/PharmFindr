@@ -14,7 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeContext } from '@/hooks/useThemeContext';
-import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
+import { COLORS,  FONT_SIZE, RADIUS, SPACING  } from '@/styles/theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.25;
@@ -177,7 +177,7 @@ export default function Onboarding() {
           <View style={[styles.ringOuter, { backgroundColor: primaryColor + '18', borderRadius: RADIUS.pill }]}>
             <View style={[styles.ringInner, { backgroundColor: primaryColor + '28' }]}>
               <View style={[styles.iconCircle, { backgroundColor: primaryColor }]}>
-                <Ionicons name={currentSlide.icon} size={36} color="#ffffff" />
+                <Ionicons name={currentSlide.icon} size={36} color={COLORS.white} />
               </View>
             </View>
           </View>
@@ -268,7 +268,7 @@ export default function Onboarding() {
             <Ionicons
               name={currentSlideIndex === slides.length - 1 ? 'arrow-forward' : 'chevron-forward'}
               size={18}
-              color="#ffffff"
+              color={COLORS.white}
               style={{ marginLeft: 6 }}
             />
           </Pressable>
@@ -281,7 +281,7 @@ export default function Onboarding() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'space-between',
+    justifyContent: 'space-between'
   },
 
   // ── Header ──
@@ -290,31 +290,31 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: SPACING.xl,
-    paddingTop: SPACING.md,
+    paddingTop: SPACING.md
   },
   brandRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 8
   },
   brandIcon: {
     width: 48,
     height: 48,
-    borderRadius: 6,
+    borderRadius: 6
   },
   brandName: {
     fontSize: FONT_SIZE.xl,
-    fontWeight: '800',
+    fontFamily: 'Inter-Bold'
   },
   skipBtn: {
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: RADIUS.pill,
-    borderWidth: 1,
+    borderWidth: 1
   },
   skipText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontFamily: 'Inter-SemiBold'
   },
 
   // ── Slide Content ──
@@ -322,7 +322,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: SPACING.xl,
+    paddingHorizontal: SPACING.xl
   },
   graphicCard: {
     width: '100%',
@@ -331,7 +331,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 28,
+    marginBottom: 28
   },
   ringOuter: {
     width: 140,
@@ -339,7 +339,7 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.pill,
     overflow: 'hidden',
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   ringInner: {
     width: 104,
@@ -347,7 +347,7 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.md,
     overflow: 'hidden',
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   iconCircle: {
     width: 68,
@@ -355,40 +355,42 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.pill,
     overflow: 'hidden',
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   badgePill: {
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: RADIUS.pill,
     marginTop: 10,
-    marginBottom: 4,
+    marginBottom: 4
   },
   badgePillText: {
     fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.8,
+    fontFamily: 'Inter-Bold',
+    letterSpacing: 0.8
   },
 
   title: {
     fontSize: FONT_SIZE.hero,
-    fontWeight: '800',
+    fontFamily: 'Inter-Bold',
     textAlign: 'center',
     marginBottom: 10,
-    letterSpacing: -0.4,
+    letterSpacing: -0.4
   },
   description: {
+    fontFamily: 'Inter-Regular',
+    
     fontSize: FONT_SIZE.lg,
     textAlign: 'center',
     lineHeight: 22,
     maxWidth: 320,
-    marginBottom: 18,
+    marginBottom: 18
   },
   tagRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'center',
-    gap: 8,
+    gap: 8
   },
   featureTag: {
     flexDirection: 'row',
@@ -397,35 +399,35 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: RADIUS.pill,
-    borderWidth: 1,
+    borderWidth: 1
   },
   featureTagText: {
     fontSize: 11,
-    fontWeight: '600',
+    fontFamily: 'Inter-SemiBold'
   },
 
   // ── Footer ──
   footer: {
     paddingHorizontal: SPACING.xl,
     paddingBottom: SPACING.lg,
-    alignItems: 'center',
+    alignItems: 'center'
   },
   indicatorContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     marginBottom: 20,
     gap: 6,
-    alignItems: 'center',
+    alignItems: 'center'
   },
   indicator: {
     height: 8,
-    borderRadius: 4,
+    borderRadius: 4
   },
   buttonRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    width: '100%',
+    width: '100%'
   },
   backBtn: {
     width: 48,
@@ -433,11 +435,11 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.pill,
     borderWidth: 1.5,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   backBtnPlaceholder: {
     width: 48,
-    height: 52,
+    height: 52
   },
   button: {
     flex: 1,
@@ -445,12 +447,13 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.pill,
     justifyContent: 'center',
     alignItems: 'center',
-    flexDirection: 'row',
+    flexDirection: 'row'
   },
   buttonText: {
-    color: '#ffffff',
+    color: COLORS.white,
     fontSize: FONT_SIZE.xl,
-    fontWeight: '700',
-    letterSpacing: 0.3,
+    fontFamily: 'Inter-Bold',
+    letterSpacing: 0.3
   },
+
 });

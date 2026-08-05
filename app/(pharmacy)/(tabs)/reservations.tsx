@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useThemeContext } from '@/hooks/useThemeContext';
-import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
+import { COLORS,  FONT_SIZE, RADIUS, SPACING  } from '@/styles/theme';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
 import Skeleton from '@/components/ui/Skeleton';
@@ -180,24 +180,24 @@ export default function Reservations() {
                   pressed && { opacity: 0.6 },
                 ]}
               >
-                <Ionicons name="call-outline" size={13} color="#10b981" />
-                <Text style={{ color: '#10b981', fontSize: 12, fontWeight: '700' }}>{item.patientPhone}</Text>
+                <Ionicons name="call-outline" size={13} color={COLORS.pharmacyPrimary} />
+                <Text style={{ color: COLORS.pharmacyPrimary, fontSize: 12, fontFamily: 'Inter-Bold' }}>{item.patientPhone}</Text>
               </Pressable>
             )}
           </View>
 
           {isPending && (
-            <View style={[styles.badge, { backgroundColor: '#fffbeb', borderColor: '#fef3c7', borderWidth: 1 }]}>
+            <View style={[styles.badge, { backgroundColor: '#fffbeb', borderColor: COLORS.pendingBg, borderWidth: 1 }]}>
               <Text style={[styles.badgeText, { color: '#b45309' }]}>Pending</Text>
             </View>
           )}
           {isAccepted && (
-            <View style={[styles.badge, { backgroundColor: '#ecfdf5', borderColor: '#a7f3d0', borderWidth: 1 }]}>
-              <Text style={[styles.badgeText, { color: '#047857' }]}>Accepted</Text>
+            <View style={[styles.badge, { backgroundColor: '#ecfdf5', borderColor: COLORS.successBorder, borderWidth: 1 }]}>
+              <Text style={[styles.badgeText, { color: COLORS.pharmacyTextDark }]}>Accepted</Text>
             </View>
           )}
           {item.status === 'declined' && (
-            <View style={[styles.badge, { backgroundColor: '#fef2f2', borderColor: '#fecaca', borderWidth: 1 }]}>
+            <View style={[styles.badge, { backgroundColor: COLORS.errorBg, borderColor: '#fecaca', borderWidth: 1 }]}>
               <Text style={[styles.badgeText, { color: '#b91c1c' }]}>Declined</Text>
             </View>
           )}
@@ -207,7 +207,7 @@ export default function Reservations() {
         <View style={styles.chipsRow}>
           {item.medicines.map((med: string, idx: number) => (
             <View key={idx} style={[styles.medChip, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
-              <Ionicons name="medkit-outline" size={12} color="#10b981" />
+              <Ionicons name="medkit-outline" size={12} color={COLORS.pharmacyPrimary} />
               <Text style={[styles.medChipText, { color: theme.text.primary }]}>{med}</Text>
             </View>
           ))}
@@ -220,23 +220,23 @@ export default function Reservations() {
               style={({ pressed }) => [
                 styles.acceptBtn,
                 pressed && { opacity: 0.8 },
-                { backgroundColor: '#10b981' },
+                { backgroundColor: COLORS.pharmacyPrimary },
               ]}
               onPress={() => handleAccept(item.id)}
             >
-              <Ionicons name="checkmark-circle" size={16} color="#fff" />
+              <Ionicons name="checkmark-circle" size={16} color={COLORS.white} />
               <Text style={styles.actionBtnText}>Accept Order</Text>
             </Pressable>
             <Pressable
               style={({ pressed }) => [
                 styles.declineBtn,
                 pressed && { opacity: 0.8 },
-                { backgroundColor: '#fef2f2', borderColor: '#fecaca', borderWidth: 1 },
+                { backgroundColor: COLORS.errorBg, borderColor: '#fecaca', borderWidth: 1 },
               ]}
               onPress={() => handleDecline(item.id)}
             >
-              <Ionicons name="close-circle-outline" size={16} color="#ef4444" />
-              <Text style={[styles.actionBtnText, { color: '#ef4444' }]}>Decline</Text>
+              <Ionicons name="close-circle-outline" size={16} color={COLORS.error} />
+              <Text style={[styles.actionBtnText, { color: COLORS.error }]}>Decline</Text>
             </Pressable>
           </View>
         )}
@@ -257,7 +257,7 @@ export default function Reservations() {
             style={[
               styles.filterTab,
               statusFilter === mode
-                ? { backgroundColor: '#10b981', borderColor: '#10b981' }
+                ? { backgroundColor: COLORS.pharmacyPrimary, borderColor: COLORS.pharmacyPrimary }
                 : { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
             ]}
             onPress={() => setStatusFilter(mode)}
@@ -265,7 +265,7 @@ export default function Reservations() {
             <Text
               style={[
                 styles.filterTabText,
-                { color: statusFilter === mode ? '#ffffff' : theme.text.primary },
+                { color: statusFilter === mode ? COLORS.white : theme.text.primary },
               ]}
             >
               {mode.charAt(0).toUpperCase() + mode.slice(1)}
@@ -300,59 +300,86 @@ export default function Reservations() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: {
+    flex: 1
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: SPACING.xl,
     paddingVertical: SPACING.md,
-    borderBottomWidth: 1,
+    borderBottomWidth: 1
   },
   backBtn: {
     width: 36,
     height: 36,
     borderRadius: RADIUS.pill,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
-  headerTitle: { fontSize: FONT_SIZE.xxl, fontWeight: '700' },
+  headerTitle: {
+    fontSize: FONT_SIZE.xxl, fontFamily: 'Inter-Bold'
+  },
 
   filterRow: {
     flexDirection: 'row',
     paddingHorizontal: SPACING.lg,
     paddingVertical: SPACING.sm,
-    gap: 8,
+    gap: 8
   },
   filterTab: {
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: RADIUS.pill,
-    borderWidth: 1.2,
+    borderWidth: 1.2
   },
   filterTabText: {
     fontSize: 12,
-    fontWeight: '700',
+    fontFamily: 'Inter-Bold'
   },
 
-  listContent: { padding: SPACING.lg, gap: 12, paddingBottom: 100 },
-  emptyText: { textAlign: 'center', marginTop: 40, fontSize: FONT_SIZE.lg },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  listContent: {
+    padding: SPACING.lg, gap: 12
+  },
+  emptyText: {
+    fontFamily: 'Inter-Regular',
+     textAlign: 'center', marginTop: 40, fontSize: FONT_SIZE.lg
+  },
+  centered: {
+    flex: 1, justifyContent: 'center', alignItems: 'center'
+  },
 
   card: {
     borderRadius: RADIUS.xl,
     padding: SPACING.lg,
     borderWidth: 1.5,
-    gap: 12,
+    gap: 12
   },
-  cardHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
-  patientId: { fontSize: FONT_SIZE.xl, fontWeight: '700' },
-  refText: { fontSize: FONT_SIZE.sm, marginTop: 2 },
-  phoneText: { fontSize: FONT_SIZE.sm, marginTop: 2 },
-  badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: RADIUS.pill },
-  badgeText: { fontSize: 11, fontWeight: '700' },
+  cardHeader: {
+    flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between'
+  },
+  patientId: {
+    fontSize: FONT_SIZE.xl, fontFamily: 'Inter-Bold'
+  },
+  refText: {
+    fontFamily: 'Inter-Regular',
+     fontSize: FONT_SIZE.sm, marginTop: 2
+  },
+  phoneText: {
+    fontFamily: 'Inter-Regular',
+     fontSize: FONT_SIZE.sm, marginTop: 2
+  },
+  badge: {
+    paddingHorizontal: 10, paddingVertical: 4, borderRadius: RADIUS.pill
+  },
+  badgeText: {
+    fontSize: 11, fontFamily: 'Inter-Bold'
+  },
 
-  chipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  chipsRow: {
+    flexDirection: 'row', flexWrap: 'wrap', gap: 6
+  },
   medChip: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -360,11 +387,15 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.pill,
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderWidth: 1,
+    borderWidth: 1
   },
-  medChipText: { fontSize: 12, fontWeight: '600' },
+  medChipText: {
+    fontSize: 12, fontFamily: 'Inter-SemiBold'
+  },
 
-  actionRow: { flexDirection: 'row', gap: 10, marginTop: 4 },
+  actionRow: {
+    flexDirection: 'row', gap: 10, marginTop: 4
+  },
   acceptBtn: {
     flex: 1,
     height: 40,
@@ -372,7 +403,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: 6
   },
   declineBtn: {
     flex: 1,
@@ -381,7 +412,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: 6
   },
-  actionBtnText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  actionBtnText: {
+    color: COLORS.white, fontSize: 13, fontFamily: 'Inter-Bold'
+  },
+
 });

@@ -17,7 +17,7 @@ import { parsePrescriptionImage } from '@/lib/gemini';
 import { Ionicons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useThemeContext } from '@/hooks/useThemeContext';
-import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
+import { COLORS,  FONT_SIZE, RADIUS, SPACING  } from '@/styles/theme';
 
 import { logAuditEvent } from '@/lib/auditLogger';
 
@@ -168,7 +168,7 @@ export default function Scan() {
     <View style={styles.container}>
       {processing ? (
         <View style={styles.processingOverlay}>
-          <ActivityIndicator size="large" color="#ffffff" />
+          <ActivityIndicator size="large" color={COLORS.white} />
           <Text style={styles.processingText}>Extracting prescription text...</Text>
           <Text style={styles.processingSub}>Analyzing your prescriptions</Text>
         </View>
@@ -202,11 +202,11 @@ export default function Scan() {
                 }}
                 style={({pressed})=>[styles.circleIconBtn, pressed && { opacity: 0.5 }]}
               >
-                <Ionicons name="arrow-back" size={20} color="#ffffff" />
+                <Ionicons name="arrow-back" size={20} color={COLORS.white} />
               </Pressable>
 
               <Pressable onPress={() => setFlash(!flash)} style={({pressed})=>[styles.circleIconBtn, pressed && { opacity: 0.5 }]}>
-                <Ionicons name={flash ? 'flash' : 'flash-outline'} size={20} color={flash ? '#fbbf24' : '#ffffff'} />
+                <Ionicons name={flash ? 'flash' : 'flash-outline'} size={20} color={flash ? '#fbbf24' : COLORS.white} />
               </Pressable>
             </SafeAreaView>
 
@@ -237,7 +237,7 @@ export default function Scan() {
             {/* Action Footer */}
             <View style={styles.cameraFooter}>
               <Pressable onPress={handlePickImage} style={({pressed})=>[styles.footerIconBtn, pressed && { opacity: 0.5 }]}>
-                <Ionicons name="image-outline" size={24} color="#ffffff" />
+                <Ionicons name="image-outline" size={24} color={COLORS.white} />
                 <Text style={styles.footerIconLabel}>Gallery</Text>
               </Pressable>
 
@@ -246,7 +246,7 @@ export default function Scan() {
               </Pressable>
 
               <Pressable onPress={() => {}} style={({pressed})=>[styles.footerIconBtn, pressed && { opacity: 0.5 }]}>
-                <Ionicons name="bulb-outline" size={24} color="#ffffff" />
+                <Ionicons name="bulb-outline" size={24} color={COLORS.white} />
                 <Text style={styles.footerIconLabel}>Tips</Text>
               </Pressable>
             </View>
@@ -260,19 +260,19 @@ export default function Scan() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: COLORS.black
   },
   loadingCenter: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: COLORS.black,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   permissionContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: SPACING.xxxl,
+    paddingHorizontal: SPACING.xxxl
   },
   permissionIconCircle: {
     width: 90,
@@ -280,41 +280,51 @@ const styles = StyleSheet.create({
     borderRadius: 45,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: SPACING.xxl,
+    marginBottom: SPACING.xxl
   },
   permissionText: {
+    fontFamily: 'Inter-Regular',
+    
     fontSize: FONT_SIZE.xl,
     textAlign: 'center',
     lineHeight: 22,
-    marginBottom: 32,
+    marginBottom: 32
   },
   permissionBtn: {
     paddingVertical: 14,
     paddingHorizontal: 28,
     borderRadius: RADIUS.pill,
     width: '100%',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   permissionBtnText: {
-    color: '#ffffff',
+    color: COLORS.white,
     fontSize: FONT_SIZE.xl,
-    fontWeight: '700',
+    fontFamily: 'Inter-Bold'
   },
   gridOverlay: {
     ...StyleSheet.absoluteFillObject,
-    opacity: 0.1,
+    opacity: 0.1
   },
-  gridLineHorizontal: { position: 'absolute', top: '33%', left: 0, right: 0, height: 1, backgroundColor: '#ffffff' },
-  gridLineHorizontal2: { position: 'absolute', top: '66%', left: 0, right: 0, height: 1, backgroundColor: '#ffffff' },
-  gridLineVertical: { position: 'absolute', left: '33%', top: 0, bottom: 0, width: 1, backgroundColor: '#ffffff' },
-  gridLineVertical2: { position: 'absolute', left: '66%', top: 0, bottom: 0, width: 1, backgroundColor: '#ffffff' },
+  gridLineHorizontal: {
+    position: 'absolute', top: '33%', left: 0, right: 0, height: 1, backgroundColor: COLORS.white
+  },
+  gridLineHorizontal2: {
+    position: 'absolute', top: '66%', left: 0, right: 0, height: 1, backgroundColor: COLORS.white
+  },
+  gridLineVertical: {
+    position: 'absolute', left: '33%', top: 0, bottom: 0, width: 1, backgroundColor: COLORS.white
+  },
+  gridLineVertical2: {
+    position: 'absolute', left: '66%', top: 0, bottom: 0, width: 1, backgroundColor: COLORS.white
+  },
 
   cameraHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: SPACING.xl,
-    paddingTop: SPACING.md,
+    paddingTop: SPACING.md
   },
   circleIconBtn: {
     width: 44,
@@ -322,70 +332,72 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
 
   viewfinderContainer: {
     flex: 1,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   viewfinder: {
     width: width * 0.75,
     height: width * 0.95,
-    position: 'relative',
+    position: 'relative'
   },
   corner: {
     position: 'absolute',
     width: 24,
-    height: 24,
+    height: 24
   },
   topLeft: {
     top: 0,
     left: 0,
     borderTopWidth: 4,
     borderLeftWidth: 4,
-    borderTopLeftRadius: RADIUS.md,
+    borderTopLeftRadius: RADIUS.md
   },
   topRight: {
     top: 0,
     right: 0,
     borderTopWidth: 4,
     borderRightWidth: 4,
-    borderTopRightRadius: RADIUS.md,
+    borderTopRightRadius: RADIUS.md
   },
   bottomLeft: {
     bottom: 0,
     left: 0,
     borderBottomWidth: 4,
     borderLeftWidth: 4,
-    borderBottomLeftRadius: RADIUS.md,
+    borderBottomLeftRadius: RADIUS.md
   },
   bottomRight: {
     bottom: 0,
     right: 0,
     borderBottomWidth: 4,
     borderRightWidth: 4,
-    borderBottomRightRadius: RADIUS.md,
+    borderBottomRightRadius: RADIUS.md
   },
   scanLine: {
     position: 'absolute',
     left: '5%',
     right: '5%',
-    height: 2,
+    height: 2
   },
   viewfinderText: {
-    color: '#ffffff',
+    color: COLORS.white,
     fontSize: FONT_SIZE.lg,
-    fontWeight: '700',
+    fontFamily: 'Inter-Bold',
     marginTop: 20,
-    textAlign: 'center',
+    textAlign: 'center'
   },
   viewfinderSubText: {
+    fontFamily: 'Inter-Regular',
+    
     color: 'rgba(255, 255, 255, 0.6)',
     fontSize: FONT_SIZE.md,
     marginTop: 6,
-    textAlign: 'center',
+    textAlign: 'center'
   },
 
   cameraFooter: {
@@ -393,48 +405,51 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingBottom: 48,
-    paddingHorizontal: 40,
+    paddingHorizontal: 40
   },
   footerIconBtn: {
     alignItems: 'center',
-    width: 60,
+    width: 60
   },
   footerIconLabel: {
-    color: '#ffffff',
+    color: COLORS.white,
     fontSize: FONT_SIZE.sm,
     marginTop: 6,
-    fontWeight: '600',
+    fontFamily: 'Inter-SemiBold'
   },
   captureOuter: {
     width: 76,
     height: 76,
     borderRadius: 38,
     borderWidth: 4,
-    borderColor: '#ffffff',
+    borderColor: COLORS.white,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   captureInner: {
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: '#ffffff',
+    backgroundColor: COLORS.white
   },
 
   processingOverlay: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   processingText: {
-    color: '#ffffff',
+    color: COLORS.white,
     fontSize: FONT_SIZE.xxl,
-    fontWeight: '700',
-    marginTop: 20,
+    fontFamily: 'Inter-Bold',
+    marginTop: 20
   },
   processingSub: {
-    color: '#94a3b8',
+    fontFamily: 'Inter-Regular',
+    
+    color: COLORS.textDim,
     fontSize: FONT_SIZE.lg,
-    marginTop: 8,
+    marginTop: 8
   },
+
 });

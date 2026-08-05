@@ -1,3 +1,4 @@
+import { COLORS } from '@/styles/theme';
 import { Stack } from 'expo-router';
 
 export default function PatientLayout() {
@@ -8,7 +9,7 @@ export default function PatientLayout() {
         animation: 'slide_from_right',
         animationDuration: 220,
         gestureEnabled: true,
-        contentStyle: { backgroundColor: '#ffffff' },
+        contentStyle: { backgroundColor: COLORS.white },
       }}
     >
       <Stack.Screen name="(tabs)" />

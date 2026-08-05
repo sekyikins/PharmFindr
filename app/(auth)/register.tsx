@@ -1,3 +1,4 @@
+import { COLORS } from '@/styles/theme';
 import React, { useState, useRef } from 'react';
 import {
   StyleSheet,
@@ -93,7 +94,7 @@ export default function Register() {
           <View style={{ backgroundColor: activeColor }}>
             <SafeAreaView edges={['top']} style={styles.heroInner}>
               <Pressable onPress={() => router.back()} style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.5 }]}>
-                <Ionicons name="arrow-back" size={20} color="#ffffff" />
+                <Ionicons name="arrow-back" size={20} color={COLORS.white} />
                 <Text style={styles.backText}>Back to Login</Text>
               </Pressable>
               <Text style={styles.heroTitle}>Create Account</Text>
@@ -104,7 +105,7 @@ export default function Register() {
         {/* Wave curve */}
         <View style={{ backgroundColor: activeColor }}>
           <Svg width={width} height={20} viewBox={`0 0 ${width} 20`}>
-            <Path d={`M0,20 Q${width / 2},0 ${width},20 L${width},20 L0,20 Z`} fill="#ffffff" />
+            <Path d={`M0,20 Q${width / 2},0 ${width},20 L${width},20 L0,20 Z`} fill={COLORS.white} />
           </Svg>
         </View>
 
@@ -206,7 +207,7 @@ export default function Register() {
             onPress={handleRegister}
             disabled={loading}
           >
-            {loading ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.primaryBtnText}>Register Account</Text>}
+            {loading ? <ActivityIndicator color={COLORS.white} /> : <Text style={styles.primaryBtnText}>Register Account</Text>}
           </Pressable>
         </View>
       </ScrollView>
@@ -216,9 +217,15 @@ export default function Register() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#ffffff' },
-  scroll: { flexGrow: 1 },
-  heroInner: { paddingHorizontal: 24, paddingVertical: 16 },
+  root: {
+    flex: 1, backgroundColor: COLORS.white
+  },
+  scroll: {
+    flexGrow: 1
+  },
+  heroInner: {
+    paddingHorizontal: 24, paddingVertical: 16
+  },
   backBtn: {
     flexDirection: 'row',
     padding: 10,
@@ -227,19 +234,49 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.22)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 8
   },
-  backText: { fontSize: 14, fontWeight: '600', color: '#fff', marginLeft: 8 },
-  heroTitle: { fontSize: 26, fontWeight: '700', color: '#ffffff', marginBottom: 6 },
-  heroSubtitle: { fontSize: 14, color: 'rgba(255,255,255,0.85)' },
-  form: { padding: 24, backgroundColor: '#ffffff' },
-  errorBox: { backgroundColor: '#fef2f2', borderWidth: 1, borderColor: '#ef4444', borderRadius: 12, padding: 12, marginBottom: 16 },
-  errorText: { color: '#ef4444', fontSize: 13, textAlign: 'center' },
-  label: { fontSize: 10, fontWeight: '700', color: LABEL_COLOR, letterSpacing: 0.5, marginBottom: 8, textTransform: 'uppercase' },
-  labelGap: { marginTop: 16 },
-  inputRow: { backgroundColor: INPUT_BG, borderRadius: 16, height: 52, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 17, borderWidth: 1, borderColor: '#e2e8f0' },
-  inputIcon: { marginRight: 10 },
-  input: { flex: 1, fontSize: 14, color: TEXT_PRIMARY, height: '100%' },
-  primaryBtn: { height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center', marginTop: 32 },
-  primaryBtnText: { color: '#ffffff', fontSize: 15, fontWeight: '700' },
+  backText: {
+    fontSize: 14, fontFamily: 'Inter-SemiBold', color: COLORS.white, marginLeft: 8
+  },
+  heroTitle: {
+    fontSize: 26, fontFamily: 'Inter-Bold', color: COLORS.white, marginBottom: 6
+  },
+  heroSubtitle: {
+    fontFamily: 'Inter-Regular',
+     fontSize: 14, color: 'rgba(255,255,255,0.85)'
+  },
+  form: {
+    padding: 24, backgroundColor: COLORS.white
+  },
+  errorBox: {
+    backgroundColor: COLORS.errorBg, borderWidth: 1, borderColor: COLORS.error, borderRadius: 12, padding: 12, marginBottom: 16
+  },
+  errorText: {
+    fontFamily: 'Inter-Regular',
+     color: COLORS.error, fontSize: 13, textAlign: 'center'
+  },
+  label: {
+    fontSize: 10, fontFamily: 'Inter-Bold', color: LABEL_COLOR, letterSpacing: 0.5, marginBottom: 8, textTransform: 'uppercase'
+  },
+  labelGap: {
+    marginTop: 16
+  },
+  inputRow: {
+    backgroundColor: INPUT_BG, borderRadius: 16, height: 52, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 17, borderWidth: 1, borderColor: COLORS.borderSubtle
+  },
+  inputIcon: {
+    marginRight: 10
+  },
+  input: {
+    fontFamily: 'Inter-Regular',
+     flex: 1, fontSize: 14, color: TEXT_PRIMARY, height: '100%'
+  },
+  primaryBtn: {
+    height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center', marginTop: 32
+  },
+  primaryBtnText: {
+    color: COLORS.white, fontSize: 15, fontFamily: 'Inter-Bold'
+  },
+
 });

@@ -18,9 +18,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '@/store/authStore';
 import { useThemeContext } from '@/hooks/useThemeContext';
-import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
+import { COLORS,  FONT_SIZE, RADIUS, SPACING  } from '@/styles/theme';
 import AppBottomSheet from '@/components/ui/AppBottomSheet';
 import { Header } from '@/components/ui/Header';
+import { toast } from '@/context/ToastContext';
 
 // Master medical suggestion databases for dynamic autocomplete
 const ALLERGIES_DB = [
@@ -255,7 +256,7 @@ export default function HealthProfile() {
         current_medications: hasMedications ? medicationsList : [],
       });
 
-      Alert.alert('Parameters Saved', 'Your health & clinical safety profile has been updated successfully.');
+      toast.success('Health parameters saved', 'Your clinical safety profile has been updated successfully.');
     } catch (e: any) {
       Alert.alert('Error', e.message || 'Failed to update profile.');
     } finally {
@@ -374,7 +375,7 @@ export default function HealthProfile() {
                 <Ionicons name="analytics-outline" size={18} color={bmiData.color} />
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.bmiTitle, { color: theme.text.primary }]}>
-                    Your Body Mass Index (BMI): <Text style={{ color: bmiData.color, fontWeight: '700' }}>{bmiData.value}</Text>
+                    Your Body Mass Index (BMI): <Text style={{ color: bmiData.color, fontFamily: 'Inter-Bold' }}>{bmiData.value}</Text>
                   </Text>
                 </View>
                 <View style={[styles.bmiStatusPill, { backgroundColor: bmiData.color }]}>
@@ -386,7 +387,7 @@ export default function HealthProfile() {
 
           {/* ── SECTION 2: SAFETY & INTERACTION GUARDRAILS ── */}
           <View style={[styles.sectionHeaderRow, { marginTop: 24 }]}>
-            <Ionicons name="shield-checkmark-sharp" size={18} color="#ef4444" />
+            <Ionicons name="shield-checkmark-sharp" size={18} color={COLORS.error} />
             <Text style={[styles.sectionTitleText, { color: theme.text.primary }]}>
               Clinical Safety Guardrails
             </Text>
@@ -408,7 +409,7 @@ export default function HealthProfile() {
               <Ionicons
                 name={hasAllergies ? 'checkbox' : 'square-outline'}
                 size={22}
-                color={hasAllergies ? '#ef4444' : theme.textDim}
+                color={hasAllergies ? COLORS.error : theme.textDim}
               />
               <View style={{ flex: 1 }}>
                 <Text style={[styles.cardTitleText, { color: theme.text.primary }]}>
@@ -448,10 +449,10 @@ export default function HealthProfile() {
                     onSubmitEditing={() => addTag('allergies', customAllergy)}
                   />
                   <Pressable
-                    style={({ pressed }) => [styles.addBtn, { backgroundColor: '#ef4444' }, pressed && { opacity: 0.7 }]}
+                    style={({ pressed }) => [styles.addBtn, { backgroundColor: COLORS.error }, pressed && { opacity: 0.7 }]}
                     onPress={() => addTag('allergies', customAllergy)}
                   >
-                    <Ionicons name="add" size={20} color="#ffffff" />
+                    <Ionicons name="add" size={20} color={COLORS.white} />
                   </Pressable>
                 </View>
 
@@ -469,9 +470,9 @@ export default function HealthProfile() {
                         ]}
                         onPress={() => addTag('allergies', item)}
                       >
-                        <Ionicons name="warning-outline" size={15} color="#ef4444" />
+                        <Ionicons name="warning-outline" size={15} color={COLORS.error} />
                         <Text style={[styles.suggestionText, { color: theme.text.primary }]}>{item}</Text>
-                        <Ionicons name="add-circle-outline" size={18} color="#ef4444" />
+                        <Ionicons name="add-circle-outline" size={18} color={COLORS.error} />
                       </Pressable>
                     ))}
                   </View>
@@ -493,7 +494,7 @@ export default function HealthProfile() {
               <Ionicons
                 name={hasConditions ? 'checkbox' : 'square-outline'}
                 size={22}
-                color={hasConditions ? '#f59e0b' : theme.textDim}
+                color={hasConditions ? COLORS.warning : theme.textDim}
               />
               <View style={{ flex: 1 }}>
                 <Text style={[styles.cardTitleText, { color: theme.text.primary }]}>
@@ -513,7 +514,7 @@ export default function HealthProfile() {
                     {conditionsList.map((item) => (
                       <View key={item} style={[styles.tagPill, { backgroundColor: '#f59e0b15', borderColor: '#f59e0b40' }]}>
                         <Ionicons name="pulse-outline" size={13} color="#d97706" />
-                        <Text style={[styles.tagPillText, { color: '#d97706' }]}>{item}</Text>
+                        <Text style={[styles.tagPillText, { color: COLORS.warningDark }]}>{item}</Text>
                         <Pressable onPress={() => removeTag('conditions', item)} hitSlop={6}>
                           <Ionicons name="close-circle" size={15} color="#d97706" />
                         </Pressable>
@@ -533,10 +534,10 @@ export default function HealthProfile() {
                     onSubmitEditing={() => addTag('conditions', customCondition)}
                   />
                   <Pressable
-                    style={({ pressed }) => [styles.addBtn, { backgroundColor: '#f59e0b' }, pressed && { opacity: 0.7 }]}
+                    style={({ pressed }) => [styles.addBtn, { backgroundColor: COLORS.warning }, pressed && { opacity: 0.7 }]}
                     onPress={() => addTag('conditions', customCondition)}
                   >
-                    <Ionicons name="add" size={20} color="#ffffff" />
+                    <Ionicons name="add" size={20} color={COLORS.white} />
                   </Pressable>
                 </View>
 
@@ -554,9 +555,9 @@ export default function HealthProfile() {
                         ]}
                         onPress={() => addTag('conditions', item)}
                       >
-                        <Ionicons name="pulse-outline" size={15} color="#f59e0b" />
+                        <Ionicons name="pulse-outline" size={15} color={COLORS.warning} />
                         <Text style={[styles.suggestionText, { color: theme.text.primary }]}>{item}</Text>
-                        <Ionicons name="add-circle-outline" size={18} color="#f59e0b" />
+                        <Ionicons name="add-circle-outline" size={18} color={COLORS.warning} />
                       </Pressable>
                     ))}
                   </View>
@@ -578,7 +579,7 @@ export default function HealthProfile() {
               <Ionicons
                 name={hasMedications ? 'checkbox' : 'square-outline'}
                 size={22}
-                color={hasMedications ? '#8b5cf6' : theme.textDim}
+                color={hasMedications ? COLORS.purple : theme.textDim}
               />
               <View style={{ flex: 1 }}>
                 <Text style={[styles.cardTitleText, { color: theme.text.primary }]}>
@@ -618,10 +619,10 @@ export default function HealthProfile() {
                     onSubmitEditing={() => addTag('medications', customMedication)}
                   />
                   <Pressable
-                    style={({ pressed }) => [styles.addBtn, { backgroundColor: '#8b5cf6' }, pressed && { opacity: 0.7 }]}
+                    style={({ pressed }) => [styles.addBtn, { backgroundColor: COLORS.purple }, pressed && { opacity: 0.7 }]}
                     onPress={() => addTag('medications', customMedication)}
                   >
-                    <Ionicons name="add" size={20} color="#ffffff" />
+                    <Ionicons name="add" size={20} color={COLORS.white} />
                   </Pressable>
                 </View>
 
@@ -657,10 +658,10 @@ export default function HealthProfile() {
             disabled={saving}
           >
             {saving ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={COLORS.white} />
             ) : (
               <View style={styles.saveBtnInner}>
-                <Ionicons name="checkmark-circle-outline" size={20} color="#ffffff" />
+                <Ionicons name="checkmark-circle-outline" size={20} color={COLORS.white} />
                 <Text style={styles.saveBtnText}>Save Health Parameters</Text>
               </View>
             )}
@@ -690,7 +691,7 @@ export default function HealthProfile() {
                   styles.genderOptionText,
                   {
                     color: gender === g ? primaryColor : theme.text.primary,
-                    fontWeight: gender === g ? '700' : '400',
+                    fontFamily: gender === g ? 'Inter-Bold' : 'Inter-Regular',
                   },
                 ]}
               >
@@ -710,24 +711,30 @@ export default function HealthProfile() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  scroll: { padding: SPACING.xl, paddingTop: SPACING.sm },
+  container: {
+    flex: 1
+  },
+  scroll: {
+    padding: SPACING.xl, paddingTop: SPACING.sm
+  },
 
   // Section Headers
   sectionHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 8,
+    marginBottom: 8
   },
   sectionTitleText: {
     fontSize: FONT_SIZE.lg,
-    fontWeight: '700',
+    fontFamily: 'Inter-Bold'
   },
   sectionHelperText: {
+    fontFamily: 'Inter-Regular',
+    
     fontSize: 12,
     marginBottom: 14,
-    lineHeight: 16,
+    lineHeight: 16
   },
 
   // Biometrics Card Grid
@@ -736,20 +743,20 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     gap: 12,
-    marginBottom: 10,
+    marginBottom: 10
   },
   gridRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 12
   },
   gridCol: {
-    flex: 1,
+    flex: 1
   },
   inputLabel: {
     fontSize: 10,
-    fontWeight: '700',
+    fontFamily: 'Inter-Bold',
     letterSpacing: 0.6,
-    marginBottom: 6,
+    marginBottom: 6
   },
   inputWithSuffix: {
     height: 44,
@@ -757,17 +764,17 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
+    paddingHorizontal: 12
   },
   numericInput: {
     flex: 1,
     fontSize: FONT_SIZE.md,
-    fontWeight: '600',
-    height: '100%',
+    fontFamily: 'Inter-SemiBold',
+    height: '100%'
   },
   suffixBadge: {
     fontSize: 12,
-    fontWeight: '600',
+    fontFamily: 'Inter-SemiBold'
   },
 
   genderSelector: {
@@ -777,11 +784,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 12,
+    paddingHorizontal: 12
   },
   genderSelectorValue: {
     fontSize: FONT_SIZE.md,
-    fontWeight: '600',
+    fontFamily: 'Inter-SemiBold'
   },
 
   // BMI Bar
@@ -792,20 +799,22 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: RADIUS.lg,
     borderWidth: 1,
-    marginTop: 4,
+    marginTop: 4
   },
   bmiTitle: {
-    fontSize: 12,
+    fontFamily: 'Inter-Regular',
+    
+    fontSize: 12
   },
   bmiStatusPill: {
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: RADIUS.pill,
+    borderRadius: RADIUS.pill
   },
   bmiStatusText: {
-    color: '#ffffff',
+    color: COLORS.white,
     fontSize: 10,
-    fontWeight: '700',
+    fontFamily: 'Inter-Bold'
   },
 
   // Safety Card UI
@@ -813,27 +822,32 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.xl,
     padding: 16,
     borderWidth: 1,
-    marginBottom: 14,
+    marginBottom: 14
   },
   checkboxRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 12
   },
-  cardTitleText: { fontSize: 14, fontWeight: '700' },
-  cardSubText: { fontSize: 11, marginTop: 2, lineHeight: 15 },
+  cardTitleText: {
+    fontSize: 14, fontFamily: 'Inter-Bold'
+  },
+  cardSubText: {
+    fontFamily: 'Inter-Regular',
+     fontSize: 11, marginTop: 2, lineHeight: 15
+  },
 
   cardBody: {
     marginTop: 14,
     paddingTop: 14,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.06)',
+    borderTopColor: 'rgba(0,0,0,0.06)'
   },
   pillsWrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-    marginBottom: 12,
+    marginBottom: 12
   },
   tagPill: {
     flexDirection: 'row',
@@ -842,28 +856,32 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: RADIUS.pill,
-    borderWidth: 1,
+    borderWidth: 1
   },
-  tagPillText: { fontSize: 12, fontWeight: '700' },
+  tagPillText: {
+    fontSize: 12, fontFamily: 'Inter-Bold'
+  },
 
   addInputRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 8
   },
   addInput: {
+    fontFamily: 'Inter-Regular',
+    
     flex: 1,
     height: 42,
     borderRadius: RADIUS.md,
     paddingHorizontal: 14,
     borderWidth: 1,
-    fontSize: 13,
+    fontSize: 13
   },
   addBtn: {
     width: 42,
     height: 42,
     borderRadius: RADIUS.md,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
 
   // Dynamic Autocomplete Dropdown
@@ -871,37 +889,43 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.md,
     borderWidth: 1,
     marginTop: 6,
-    padding: 8,
+    padding: 8
   },
-  suggestionHeader: { fontSize: 10, fontWeight: '700', letterSpacing: 0.5, marginBottom: 6, paddingHorizontal: 6 },
+  suggestionHeader: {
+    fontSize: 10, fontFamily: 'Inter-Bold', letterSpacing: 0.5, marginBottom: 6, paddingHorizontal: 6
+  },
   suggestionRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: 9,
     paddingHorizontal: 8,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth
   },
-  suggestionText: { flex: 1, fontSize: 13, marginLeft: 8, fontWeight: '600' },
+  suggestionText: {
+    flex: 1, fontSize: 13, marginLeft: 8, fontFamily: 'Inter-SemiBold'
+  },
 
   saveBtn: {
     height: 52,
     borderRadius: RADIUS.pill,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 20,
+    marginTop: 20
   },
   saveBtnInner: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 8
   },
-  saveBtnText: { color: '#fff', fontSize: FONT_SIZE.lg, fontWeight: '700' },
+  saveBtnText: {
+    color: COLORS.white, fontSize: FONT_SIZE.lg, fontFamily: 'Inter-Bold'
+  },
 
   // Bottom sheet gender options
   genderOptions: {
     paddingHorizontal: SPACING.xl,
-    marginTop: SPACING.sm,
+    marginTop: SPACING.sm
   },
   genderOption: {
     flexDirection: 'row',
@@ -910,10 +934,13 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.lg,
     paddingHorizontal: SPACING.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderRadius: RADIUS.md,
+    borderRadius: RADIUS.md
   },
   genderOptionText: {
+    fontFamily: 'Inter-Regular',
+    
     fontSize: FONT_SIZE.lg,
-    flex: 1,
+    flex: 1
   },
+
 });

@@ -244,34 +244,47 @@ export default function PrescriptionHistory() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: {
+    flex: 1
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: SPACING.xl,
     paddingVertical: SPACING.md,
-    borderBottomWidth: 1,
+    borderBottomWidth: 1
   },
   backBtn: {
     width: 36,
     height: 36,
     borderRadius: RADIUS.pill,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
-  headerTitle: { fontSize: FONT_SIZE.xxl, fontWeight: '700' },
+  headerTitle: {
+    fontSize: FONT_SIZE.xxl, fontFamily: 'Inter-Bold'
+  },
 
-  listContent: { padding: SPACING.lg, gap: 12 },
-  emptyContainer: { alignItems: 'center', marginTop: 80, gap: 10 },
-  emptyText: { fontSize: FONT_SIZE.lg, textAlign: 'center' },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  listContent: {
+    padding: SPACING.lg, gap: 12
+  },
+  emptyContainer: {
+    alignItems: 'center', marginTop: 80, gap: 10
+  },
+  emptyText: {
+    fontFamily: 'Inter-Regular',
+     fontSize: FONT_SIZE.lg, textAlign: 'center'
+  },
+  centered: {
+    flex: 1, justifyContent: 'center', alignItems: 'center'
+  },
 
   card: {
     flexDirection: 'row',
     borderRadius: RADIUS.xl,
     padding: SPACING.lg,
-    borderWidth: 1,
+    borderWidth: 1
   },
   cardIcon: {
     width: 44,
@@ -279,18 +292,37 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.md,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: SPACING.md,
+    marginRight: SPACING.md
   },
-  cardBody: { flex: 1 },
-  cardTitleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 },
-  cardDate: { fontSize: FONT_SIZE.xl, fontWeight: '700' },
-  countBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: RADIUS.pill },
-  countText: { fontSize: FONT_SIZE.sm, fontWeight: '600' },
-  cardDoctor: { fontSize: FONT_SIZE.sm, marginBottom: 8 },
+  cardBody: {
+    flex: 1
+  },
+  cardTitleRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2
+  },
+  cardDate: {
+    fontSize: FONT_SIZE.xl, fontFamily: 'Inter-Bold'
+  },
+  countBadge: {
+    paddingHorizontal: 8, paddingVertical: 3, borderRadius: RADIUS.pill
+  },
+  countText: {
+    fontSize: FONT_SIZE.sm, fontFamily: 'Inter-SemiBold'
+  },
+  cardDoctor: {
+    fontFamily: 'Inter-Regular',
+     fontSize: FONT_SIZE.sm, marginBottom: 8
+  },
 
-  chipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  chip: { borderRadius: RADIUS.pill, paddingHorizontal: 8, paddingVertical: 3 },
-  chipText: { fontSize: FONT_SIZE.sm, fontWeight: '500' },
+  chipsRow: {
+    flexDirection: 'row', flexWrap: 'wrap', gap: 6
+  },
+  chip: {
+    borderRadius: RADIUS.pill, paddingHorizontal: 8, paddingVertical: 3
+  },
+  chipText: {
+    fontSize: FONT_SIZE.sm, fontFamily: 'Inter-Medium'
+  },
 
   addHeaderBtn: {
     flexDirection: 'row',
@@ -298,10 +330,11 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: RADIUS.pill,
+    borderRadius: RADIUS.pill
   },
   addHeaderBtnText: {
     fontSize: 13,
-    fontWeight: '700',
+    fontFamily: 'Inter-Bold'
   },
+
 });

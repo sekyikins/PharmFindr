@@ -18,6 +18,7 @@ import { useRouter } from 'expo-router';
 import { useThemeContext } from '@/hooks/useThemeContext';
 import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
 import { Header } from '@/components/ui/Header';
+import { toast } from '@/context/ToastContext';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
 
@@ -242,7 +243,7 @@ export default function OperatingHours() {
         console.warn('pharmacies table update warning:', e.message);
       }
 
-      Alert.alert('Success', 'Operating hours saved successfully!');
+      toast.success('Operating Hours Saved', 'Operating hours saved successfully!');
       router.back();
     } catch (e: any) {
       Alert.alert('Error', e.message || 'Failed to save operating hours.');

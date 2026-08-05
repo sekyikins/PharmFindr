@@ -13,7 +13,7 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeContext } from '@/hooks/useThemeContext';
-import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
+import { COLORS,  FONT_SIZE, RADIUS, SPACING  } from '@/styles/theme';
 import Svg, { Path } from 'react-native-svg';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
@@ -164,19 +164,19 @@ export default function Dashboard() {
               pressed && { opacity: 0.8 },
               isVerified
                 ? { backgroundColor: 'rgba(255, 255, 255, 0.25)' }
-                : { backgroundColor: '#fffbeb', borderColor: '#fef3c7' },
+                : { backgroundColor: '#fffbeb', borderColor: COLORS.pendingBg },
             ]}
             onPress={() => router.push('/(pharmacy)/(tabs)/profile')}
           >
             <Ionicons
               name={isVerified ? 'shield-checkmark' : 'alert-circle-outline'}
               size={12}
-              color={isVerified ? '#ffffff' : '#b45309'}
+              color={isVerified ? COLORS.white : '#b45309'}
             />
             <Text
               style={[
                 styles.verifiedText,
-                { color: isVerified ? '#ffffff' : '#b45309' },
+                { color: isVerified ? COLORS.white : '#b45309' },
               ]}
             >
               {isVerified ? 'VERIFIED' : 'NOT VERIFIED — TAP TO VERIFY'}
@@ -217,11 +217,11 @@ export default function Dashboard() {
           <View style={[styles.gridCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
             <View style={styles.gridCardHeader}>
               <Text style={[styles.gridLabel, { color: theme.textMuted }]}>RESERVATIONS</Text>
-              <View style={[styles.gridIconWrap, { backgroundColor: '#eff6ff' }]}>
-                <Ionicons name="calendar" size={16} color="#2563eb" />
+              <View style={[styles.gridIconWrap, { backgroundColor: COLORS.patientSecondary }]}>
+                <Ionicons name="calendar" size={16} color={COLORS.patientPrimary} />
               </View>
             </View>
-            <Text style={[styles.gridValue, { color: '#2563eb' }]}>{stats.totalReservations}</Text>
+            <Text style={[styles.gridValue, { color: COLORS.patientPrimary }]}>{stats.totalReservations}</Text>
             <Text style={[styles.gridSub, { color: theme.textMuted }]}>
               {stats.pending > 0 ? `${stats.pending} pending action` : 'Up to date'}
             </Text>
@@ -232,10 +232,10 @@ export default function Dashboard() {
             <View style={styles.gridCardHeader}>
               <Text style={[styles.gridLabel, { color: theme.textMuted }]}>ACCEPTANCE</Text>
               <View style={[styles.gridIconWrap, { backgroundColor: '#ecfdf5' }]}>
-                <Ionicons name="checkmark-done-circle" size={16} color="#10b981" />
+                <Ionicons name="checkmark-done-circle" size={16} color={COLORS.pharmacyPrimary} />
               </View>
             </View>
-            <Text style={[styles.gridValue, { color: '#10b981' }]}>{stats.acceptanceRate}%</Text>
+            <Text style={[styles.gridValue, { color: COLORS.pharmacyPrimary }]}>{stats.acceptanceRate}%</Text>
             <Text style={[styles.gridSub, { color: theme.textMuted }]}>Request approval rate</Text>
           </View>
 
@@ -247,7 +247,7 @@ export default function Dashboard() {
                 <Ionicons name="cash-outline" size={16} color="#8b5cf6" />
               </View>
             </View>
-            <Text style={[styles.gridValue, { color: '#8b5cf6' }]}>
+            <Text style={[styles.gridValue, { color: COLORS.purple }]}>
               GHS {stats.totalRevenue.toFixed(0)}
             </Text>
             <Text style={[styles.gridSub, { color: theme.textMuted }]}>Accepted reservations</Text>
@@ -279,7 +279,7 @@ export default function Dashboard() {
             ]}
             onPress={() => router.push('/(pharmacy)/add-medicine')}
           >
-            <Ionicons name="add-circle-outline" size={20} color="#ffffff" />
+            <Ionicons name="add-circle-outline" size={20} color={COLORS.white} />
             <Text style={styles.actionCardText}>Add Medicine</Text>
           </Pressable>
 
@@ -287,11 +287,11 @@ export default function Dashboard() {
             style={({ pressed }) => [
               styles.actionCard,
               pressed && { opacity: 0.88 },
-              { backgroundColor: '#0f172a' },
+              { backgroundColor: COLORS.surfaceDark },
             ]}
             onPress={() => router.push('/(pharmacy)/upload-inventory')}
           >
-            <Ionicons name="cloud-upload-outline" size={20} color="#ffffff" />
+            <Ionicons name="cloud-upload-outline" size={20} color={COLORS.white} />
             <Text style={styles.actionCardText}>Upload CSV</Text>
           </Pressable>
 
@@ -301,7 +301,7 @@ export default function Dashboard() {
         <View style={styles.sectionHeaderRow}>
           <Text style={[styles.sectionHeading, { color: theme.text.primary }]}>Recent Reservations</Text>
           <Pressable onPress={() => router.push('/(pharmacy)/(tabs)/reservations')}>
-            <Text style={{ color: PHARMACY_GREEN, fontSize: 13, fontWeight: '700' }}>View All →</Text>
+            <Text style={{ color: PHARMACY_GREEN, fontSize: 13, fontFamily: 'Inter-Bold' }}>View All →</Text>
           </Pressable>
         </View>
 
@@ -338,14 +338,14 @@ export default function Dashboard() {
                     style={[
                       styles.recentStatus,
                       item.status === 'pending'
-                        ? { backgroundColor: '#fffbeb', borderColor: '#fef3c7' }
-                        : { backgroundColor: '#ecfdf5', borderColor: '#a7f3d0' },
+                        ? { backgroundColor: '#fffbeb', borderColor: COLORS.pendingBg }
+                        : { backgroundColor: '#ecfdf5', borderColor: COLORS.successBorder },
                     ]}
                   >
                     <Text
                       style={[
                         styles.recentStatusText,
-                        { color: item.status === 'pending' ? '#b45309' : '#047857' },
+                        { color: item.status === 'pending' ? '#b45309' : COLORS.pharmacyTextDark },
                       ]}
                     >
                       {item.status.toUpperCase()}
@@ -362,38 +362,40 @@ export default function Dashboard() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: {
+    flex: 1
+  },
   heroHeader: {
     paddingHorizontal: SPACING.xl,
     paddingTop: SPACING.lg,
     paddingBottom: 28,
-    position: 'relative',
+    position: 'relative'
   },
   heroRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'space-between'
   },
   brandLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 10
   },
   brandIcon: {
     width: 32,
     height: 32,
-    borderRadius: 8,
+    borderRadius: 8
   },
   welcomeText: {
     fontSize: 10,
-    fontWeight: '800',
+    fontFamily: 'Inter-Bold',
     color: 'rgba(255,255,255,0.75)',
-    letterSpacing: 1,
+    letterSpacing: 1
   },
   pharmacyTitle: {
     fontSize: FONT_SIZE.xl,
-    fontWeight: '800',
-    color: '#ffffff',
+    fontFamily: 'Inter-Bold',
+    color: COLORS.white
   },
   verifiedBadge: {
     flexDirection: 'row',
@@ -402,71 +404,71 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.2)',
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: RADIUS.pill,
+    borderRadius: RADIUS.pill
   },
   verifiedText: {
     fontSize: 10,
-    fontWeight: '800',
-    color: '#ffffff',
-    letterSpacing: 0.5,
+    fontFamily: 'Inter-Bold',
+    color: COLORS.white,
+    letterSpacing: 0.5
   },
 
   scroll: {
     padding: SPACING.xl,
-    gap: SPACING.md,
+    gap: SPACING.md
   },
   sectionHeading: {
     fontSize: FONT_SIZE.lg,
-    fontWeight: '800',
+    fontFamily: 'Inter-Bold'
   },
   sectionHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 8
   },
 
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    gap: 12
   },
   gridCard: {
     width: '48%',
     borderRadius: RADIUS.xl,
     padding: SPACING.md,
     borderWidth: 1.5,
-    gap: 6,
+    gap: 6
   },
   gridCardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   gridLabel: {
     fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.5,
+    fontFamily: 'Inter-Bold',
+    letterSpacing: 0.5
   },
   gridIconWrap: {
     width: 28,
     height: 28,
     borderRadius: 14,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   gridValue: {
     fontSize: FONT_SIZE.xxl,
-    fontWeight: '800',
+    fontFamily: 'Inter-Bold'
   },
   gridSub: {
     fontSize: 11,
-    fontWeight: '600',
+    fontFamily: 'Inter-SemiBold'
   },
 
   actionRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 10
   },
   actionCard: {
     flex: 1,
@@ -475,12 +477,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: 6
   },
   actionCardText: {
-    color: '#ffffff',
+    color: COLORS.white,
     fontSize: 13,
-    fontWeight: '700',
+    fontFamily: 'Inter-Bold'
   },
 
   emptyBox: {
@@ -488,39 +490,42 @@ const styles = StyleSheet.create({
     padding: SPACING.xl,
     borderWidth: 1.5,
     alignItems: 'center',
-    gap: 8,
+    gap: 8
   },
   emptyBoxText: {
     fontSize: FONT_SIZE.md,
-    fontWeight: '600',
+    fontFamily: 'Inter-SemiBold'
   },
 
   recentCard: {
     borderRadius: RADIUS.xl,
     padding: SPACING.md,
-    borderWidth: 1.5,
+    borderWidth: 1.5
   },
   recentHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   patientName: {
     fontSize: FONT_SIZE.lg,
-    fontWeight: '700',
+    fontFamily: 'Inter-Bold'
   },
   recentTime: {
+    fontFamily: 'Inter-Regular',
+    
     fontSize: 11,
-    marginTop: 2,
+    marginTop: 2
   },
   recentStatus: {
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: RADIUS.pill,
-    borderWidth: 1,
+    borderWidth: 1
   },
   recentStatusText: {
     fontSize: 10,
-    fontWeight: '800',
+    fontFamily: 'Inter-Bold'
   },
+
 });

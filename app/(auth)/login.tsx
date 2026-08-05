@@ -1,3 +1,4 @@
+import { COLORS } from '@/styles/theme';
 import React, { useState, useRef } from 'react';
 import {
   StyleSheet,
@@ -235,7 +236,7 @@ export default function Login() {
         <View style={{ backgroundColor: activeColor }}>
           <SafeAreaView edges={['top']} style={styles.heroInner}>
             <View style={styles.brandRow}>
-              <Ionicons name="medical" size={28} color="#ffffff" />
+              <Ionicons name="medical" size={28} color={COLORS.white} />
               <Text style={styles.brandTitle}>PharmFindr</Text>
             </View>
             <Text style={styles.heroSubtitle}>Access medicines, prescriptions &amp; pharmacy stock instantly.</Text>
@@ -250,7 +251,7 @@ export default function Login() {
                   setSuccessMsg(null);
                 }}
               >
-                <Ionicons name="person-outline" size={14} color={!isPharmacy ? BLUE : '#ffffff'} style={{ marginRight: 6 }} />
+                <Ionicons name="person-outline" size={14} color={!isPharmacy ? BLUE : COLORS.white} style={{ marginRight: 6 }} />
                 <Text style={[styles.roleTabText, !isPharmacy && { color: BLUE }]}>Patient</Text>
               </Pressable>
 
@@ -262,7 +263,7 @@ export default function Login() {
                   setSuccessMsg(null);
                 }}
               >
-                <Ionicons name="business-outline" size={14} color={isPharmacy ? GREEN : '#ffffff'} style={{ marginRight: 6 }} />
+                <Ionicons name="business-outline" size={14} color={isPharmacy ? GREEN : COLORS.white} style={{ marginRight: 6 }} />
                 <Text style={[styles.roleTabText, isPharmacy && { color: GREEN }]}>Pharmacy</Text>
               </Pressable>
             </View>
@@ -272,21 +273,21 @@ export default function Login() {
         {/* Wave curve */}
         <View style={{ backgroundColor: activeColor }}>
           <Svg width={width} height={20} viewBox={`0 0 ${width} 20`}>
-            <Path d={`M0,20 Q${width / 2},0 ${width},20 L${width},20 L0,20 Z`} fill="#ffffff" />
+            <Path d={`M0,20 Q${width / 2},0 ${width},20 L${width},20 L0,20 Z`} fill={COLORS.white} />
           </Svg>
         </View>
 
         {/* Form Container */}
         <View style={styles.form}>
           {errorMsg && (
-            <View style={[styles.errorBox, { borderColor: '#ef4444' }]}>
+            <View style={[styles.errorBox, { borderColor: COLORS.error }]}>
               <Text style={styles.errorText}>{errorMsg}</Text>
             </View>
           )}
 
           {successMsg && (
             <View style={styles.successBox}>
-              <Ionicons name="checkmark-circle" size={18} color="#10b981" style={{ marginRight: 8 }} />
+              <Ionicons name="checkmark-circle" size={18} color={COLORS.pharmacyPrimary} style={{ marginRight: 8 }} />
               <Text style={styles.successText}>{successMsg}</Text>
             </View>
           )}
@@ -297,11 +298,11 @@ export default function Login() {
               {/* Email Address */}
               <Text style={styles.label}>EMAIL</Text>
               <View style={styles.inputRow}>
-                <Ionicons name="mail-outline" size={16} color="#94a3b8" style={styles.inputIcon} />
+                <Ionicons name="mail-outline" size={16} color={COLORS.textDim} style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
                   placeholder="your.email@example.com"
-                  placeholderTextColor="#94a3b8"
+                  placeholderTextColor={COLORS.textDim}
                   value={email}
                   onChangeText={setEmail}
                   keyboardType="email-address"
@@ -315,12 +316,12 @@ export default function Login() {
               {/* Password */}
               <Text style={[styles.label, { marginTop: 16 }]}>PASSWORD</Text>
               <View style={styles.inputRow}>
-                <Ionicons name="lock-closed-outline" size={16} color="#94a3b8" style={styles.inputIcon} />
+                <Ionicons name="lock-closed-outline" size={16} color={COLORS.textDim} style={styles.inputIcon} />
                 <TextInput
                   ref={passwordRef}
                   style={styles.input}
                   placeholder="Enter your password"
-                  placeholderTextColor="#94a3b8"
+                  placeholderTextColor={COLORS.textDim}
                   value={password}
                   onChangeText={setPassword}
                   secureTextEntry
@@ -336,7 +337,7 @@ export default function Login() {
                 onPress={handlePatientLogin}
                 disabled={loading}
               >
-                {loading ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.primaryBtnText}>Login</Text>}
+                {loading ? <ActivityIndicator color={COLORS.white} /> : <Text style={styles.primaryBtnText}>Login</Text>}
               </Pressable>
 
               <View style={styles.divider}>
@@ -361,11 +362,11 @@ export default function Login() {
                 <>
                   <Text style={styles.label}>PHARMACY PHONE NUMBER</Text>
                   <View style={styles.inputRow}>
-                    <Ionicons name="call-outline" size={16} color="#94a3b8" style={styles.inputIcon} />
+                    <Ionicons name="call-outline" size={16} color={COLORS.textDim} style={styles.inputIcon} />
                     <TextInput
                       style={styles.input}
                       placeholder="e.g. 0244123456"
-                      placeholderTextColor="#94a3b8"
+                      placeholderTextColor={COLORS.textDim}
                       value={phone}
                       onChangeText={setPhone}
                       keyboardType="phone-pad"
@@ -379,7 +380,7 @@ export default function Login() {
                     onPress={handleSendOtp}
                     disabled={loading}
                   >
-                    {loading ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.primaryBtnText}>Send Verification Code</Text>}
+                    {loading ? <ActivityIndicator color={COLORS.white} /> : <Text style={styles.primaryBtnText}>Send Verification Code</Text>}
                   </Pressable>
 
                   <View style={styles.divider}>
@@ -399,8 +400,8 @@ export default function Login() {
                 <>
                   <View style={{ alignItems: 'center', marginBottom: 12 }}>
                     <Text style={styles.label}>ENTER 6-DIGIT SMS CODE</Text>
-                    <Text style={{ fontSize: 13, color: '#64748b', textAlign: 'center', marginTop: 4 }}>
-                      Sent via SMS to <Text style={{ fontWeight: '700', color: '#0f172a' }}>{phone}</Text>
+                    <Text style={{ fontSize: 13, color: COLORS.textMuted, textAlign: 'center', marginTop: 4 }}>
+                      Sent via SMS to <Text style={{ fontFamily: 'Inter-Bold', color: COLORS.surfaceDark }}>{phone}</Text>
                     </Text>
                   </View>
 
@@ -421,7 +422,7 @@ export default function Login() {
                     disabled={loading}
                   >
                     {loading ? (
-                      <ActivityIndicator color="#ffffff" />
+                      <ActivityIndicator color={COLORS.white} />
                     ) : (
                       <Text style={styles.primaryBtnText}>Verify Code &amp; Login</Text>
                     )}
@@ -443,8 +444,8 @@ export default function Login() {
                       setErrorMsg(null);
                     }}
                   >
-                    <Ionicons name="arrow-back" size={14} color="#64748b" />
-                    <Text style={{ color: '#64748b', fontSize: 13, fontWeight: '600' }}>Change Phone Number</Text>
+                    <Ionicons name="arrow-back" size={14} color={COLORS.textMuted} />
+                    <Text style={{ color: COLORS.textMuted, fontSize: 13, fontFamily: 'Inter-SemiBold' }}>Change Phone Number</Text>
                   </Pressable>
                 </>
               )}
@@ -458,30 +459,88 @@ export default function Login() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#ffffff' },
-  scroll: { flexGrow: 1 },
-  heroInner: { paddingHorizontal: 24, paddingTop: 16, paddingBottom: 16 },
-  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 6 },
-  brandTitle: { fontSize: 28, fontWeight: '800', color: '#ffffff' },
-  heroSubtitle: { fontSize: 13, color: 'rgba(255,255,255,0.85)', marginBottom: 16 },
-  roleContainer: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 24, padding: 4 },
-  roleTab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', height: 38, borderRadius: 20 },
-  roleTabActive: { backgroundColor: '#ffffff' },
-  roleTabText: { fontSize: 13, fontWeight: '700', color: '#ffffff' },
-  form: { padding: 24, backgroundColor: '#ffffff' },
-  errorBox: { backgroundColor: '#fef2f2', borderWidth: 1, borderRadius: 12, padding: 12, marginBottom: 16 },
-  errorText: { color: '#ef4444', fontSize: 13, textAlign: 'center' },
-  successBox: { backgroundColor: '#ecfdf5', borderWidth: 1, borderColor: '#10b981', borderRadius: 12, padding: 12, marginBottom: 16, flexDirection: 'row', alignItems: 'center' },
-  successText: { color: '#065f46', fontSize: 13, flex: 1 },
-  label: { fontSize: 10, fontWeight: '700', color: '#64748b', letterSpacing: 0.5, marginBottom: 8 },
-  inputRow: { backgroundColor: '#f8fafc', borderRadius: 16, height: 52, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, borderWidth: 1, borderColor: '#e2e8f0' },
-  inputIcon: { marginRight: 10 },
-  input: { flex: 1, fontSize: 14, color: '#0f172a', height: '100%' },
-  primaryBtn: { height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center', marginTop: 24 },
-  primaryBtnText: { color: '#ffffff', fontSize: 15, fontWeight: '700' },
-  divider: { flexDirection: 'row', alignItems: 'center', marginVertical: 20 },
-  dividerLine: { flex: 1, height: 1, backgroundColor: '#e2e8f0' },
-  dividerLabel: { marginHorizontal: 12, color: '#94a3b8', fontSize: 12 },
-  secondaryBtn: { height: 50, borderRadius: 25, borderWidth: 1, borderColor: '#cbd5e1', justifyContent: 'center', alignItems: 'center' },
-  secondaryBtnText: { color: '#475569', fontSize: 14, fontWeight: '600' },
+  root: {
+    flex: 1, backgroundColor: COLORS.white
+  },
+  scroll: {
+    flexGrow: 1
+  },
+  heroInner: {
+    paddingHorizontal: 24, paddingTop: 16, paddingBottom: 16
+  },
+  brandRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 6
+  },
+  brandTitle: {
+    fontSize: 28, fontFamily: 'Inter-Bold', color: COLORS.white
+  },
+  heroSubtitle: {
+    fontFamily: 'Inter-Regular',
+     fontSize: 13, color: 'rgba(255,255,255,0.85)', marginBottom: 16
+  },
+  roleContainer: {
+    flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 24, padding: 4
+  },
+  roleTab: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', height: 38, borderRadius: 20
+  },
+  roleTabActive: {
+    backgroundColor: COLORS.white
+  },
+  roleTabText: {
+    fontSize: 13, fontFamily: 'Inter-Bold', color: COLORS.white
+  },
+  form: {
+    padding: 24, backgroundColor: COLORS.white
+  },
+  errorBox: {
+    backgroundColor: COLORS.errorBg, borderWidth: 1, borderRadius: 12, padding: 12, marginBottom: 16
+  },
+  errorText: {
+    fontFamily: 'Inter-Regular',
+     color: COLORS.error, fontSize: 13, textAlign: 'center'
+  },
+  successBox: {
+    backgroundColor: '#ecfdf5', borderWidth: 1, borderColor: COLORS.pharmacyPrimary, borderRadius: 12, padding: 12, marginBottom: 16, flexDirection: 'row', alignItems: 'center'
+  },
+  successText: {
+    fontFamily: 'Inter-Regular',
+     color: COLORS.pharmacyText, fontSize: 13, flex: 1
+  },
+  label: {
+    fontSize: 10, fontFamily: 'Inter-Bold', color: COLORS.textMuted, letterSpacing: 0.5, marginBottom: 8
+  },
+  inputRow: {
+    backgroundColor: COLORS.background, borderRadius: 16, height: 52, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, borderWidth: 1, borderColor: COLORS.borderSubtle
+  },
+  inputIcon: {
+    marginRight: 10
+  },
+  input: {
+    fontFamily: 'Inter-Regular',
+     flex: 1, fontSize: 14, color: COLORS.surfaceDark, height: '100%'
+  },
+  primaryBtn: {
+    height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center', marginTop: 24
+  },
+  primaryBtnText: {
+    color: COLORS.white, fontSize: 15, fontFamily: 'Inter-Bold'
+  },
+  divider: {
+    flexDirection: 'row', alignItems: 'center', marginVertical: 20
+  },
+  dividerLine: {
+    flex: 1, height: 1, backgroundColor: COLORS.borderSubtle
+  },
+  dividerLabel: {
+    fontFamily: 'Inter-Regular',
+     marginHorizontal: 12, color: COLORS.textDim, fontSize: 12
+  },
+  secondaryBtn: {
+    height: 50, borderRadius: 25, borderWidth: 1, borderColor: COLORS.borderSlate, justifyContent: 'center', alignItems: 'center'
+  },
+  secondaryBtnText: {
+    color: COLORS.textSecondary, fontSize: 14, fontFamily: 'Inter-SemiBold'
+  },
+
 });

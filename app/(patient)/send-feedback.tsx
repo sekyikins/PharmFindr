@@ -20,6 +20,7 @@ import * as FileSystem from 'expo-file-system';
 import { useThemeContext } from '@/hooks/useThemeContext';
 import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
 import { Header } from '@/components/ui/Header';
+import { toast } from '@/context/ToastContext';
 import { useAuthStore } from '@/store/authStore';
 import { supabase } from '@/lib/supabase';
 
@@ -168,6 +169,7 @@ export default function SendFeedbackScreen() {
       ]);
 
       setSubmitting(false);
+      toast.success('Feedback Sent', 'Thank you! Your feedback has been received.');
       setSuccessSent(true);
     } catch (e: any) {
       console.warn('Feedback submit error:', e.message);
@@ -360,7 +362,7 @@ export default function SendFeedbackScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  scrollContent: { padding: SPACING.xl, paddingBottom: 160 },
+  scrollContent: { padding: SPACING.xl },
 
   bannerCard: {
     flexDirection: 'row',

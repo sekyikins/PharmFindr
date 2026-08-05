@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeContext } from '@/hooks/useThemeContext';
 import { Header } from '@/components/ui/Header';
+import { toast } from '@/context/ToastContext';
 import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
 import { supabase } from '@/lib/supabase';
 
@@ -81,10 +82,7 @@ export default function PharmacyReservationDetails() {
       const { error } = await supabase.from('reservations').update(updates).eq('id', id);
 
       if (error) throw error;
-      Alert.alert(
-        'Status Updated',
-        `Reservation has been ${status}.`
-      );
+      toast.success('Status Updated', `Reservation has been ${status}.`);
       fetchReservation();
     } catch (e: any) {
       Alert.alert('Error', e.message || 'Failed to update status.');

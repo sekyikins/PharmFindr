@@ -12,7 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import FullMapComponent from '@/components/FullMapComponent';
 import { useThemeContext } from '@/hooks/useThemeContext';
-import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
+import { COLORS,  FONT_SIZE, RADIUS, SPACING  } from '@/styles/theme';
 import { supabase } from '@/lib/supabase';
 
 export default function PharmacyDetail() {
@@ -165,23 +165,55 @@ export default function PharmacyDetail() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  mapSection: { height: 200, position: 'relative' },
+  container: {
+    flex: 1
+  },
+  mapSection: {
+    height: 200, position: 'relative'
+  },
   backBtn: {
     position: 'absolute', top: 12, left: 16, width: 36, height: 36,
-    borderRadius: RADIUS.pill, justifyContent: 'center', alignItems: 'center',
+    borderRadius: RADIUS.pill, justifyContent: 'center', alignItems: 'center'
   },
-  scroll: { padding: SPACING.lg, gap: SPACING.lg },
-  infoCard: { borderRadius: RADIUS.xl, padding: SPACING.lg, borderWidth: 1, gap: 8 },
-  infoTitleRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 4 },
-  pharmName: { fontSize: FONT_SIZE.title, fontWeight: '700', flex: 1, marginRight: 8 },
-  statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: RADIUS.pill, flexShrink: 0 },
-  statusText: { fontSize: FONT_SIZE.md, fontWeight: '600' },
-  detailRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
-  detailText: { fontSize: FONT_SIZE.lg, flex: 1 },
-  primaryBtn: { height: 52, borderRadius: RADIUS.pill, justifyContent: 'center', alignItems: 'center' },
-  primaryBtnText: { color: '#fff', fontSize: FONT_SIZE.xl, fontWeight: '600' },
-  secondaryRow: { flexDirection: 'row', gap: 12 },
-  secondaryBtn: { flex: 1, height: 48, borderRadius: RADIUS.pill, borderWidth: 1.5, justifyContent: 'center', alignItems: 'center' },
-  secondaryBtnText: { fontSize: FONT_SIZE.xl, fontWeight: '600' },
+  scroll: {
+    padding: SPACING.lg, gap: SPACING.lg
+  },
+  infoCard: {
+    borderRadius: RADIUS.xl, padding: SPACING.lg, borderWidth: 1, gap: 8
+  },
+  infoTitleRow: {
+    flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 4
+  },
+  pharmName: {
+    fontSize: FONT_SIZE.title, fontFamily: 'Inter-Bold', flex: 1, marginRight: 8
+  },
+  statusBadge: {
+    paddingHorizontal: 10, paddingVertical: 4, borderRadius: RADIUS.pill, flexShrink: 0
+  },
+  statusText: {
+    fontSize: FONT_SIZE.md, fontFamily: 'Inter-SemiBold'
+  },
+  detailRow: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 8
+  },
+  detailText: {
+    fontFamily: 'Inter-Regular',
+     fontSize: FONT_SIZE.lg, flex: 1
+  },
+  primaryBtn: {
+    height: 52, borderRadius: RADIUS.pill, justifyContent: 'center', alignItems: 'center'
+  },
+  primaryBtnText: {
+    color: COLORS.white, fontSize: FONT_SIZE.xl, fontFamily: 'Inter-SemiBold'
+  },
+  secondaryRow: {
+    flexDirection: 'row', gap: 12
+  },
+  secondaryBtn: {
+    flex: 1, height: 48, borderRadius: RADIUS.pill, borderWidth: 1.5, justifyContent: 'center', alignItems: 'center'
+  },
+  secondaryBtnText: {
+    fontSize: FONT_SIZE.xl, fontFamily: 'Inter-SemiBold'
+  },
+
 });

@@ -1,3 +1,4 @@
+import { COLORS } from '@/styles/theme';
 import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View, Animated, PanResponder } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -144,10 +145,10 @@ export default function OfflineBanner() {
           styles.pill,
           {
             backgroundColor: showRestoredNotice
-              ? '#059669'
+              ? COLORS.pharmacyPrimaryDark
               : !isConnected
-              ? '#1e293b'
-              : '#d97706',
+              ? COLORS.textPrimary
+              : COLORS.warningDark,
           },
         ]}
       >
@@ -160,7 +161,7 @@ export default function OfflineBanner() {
               : 'wifi-outline'
           }
           size={15}
-          color="#ffffff"
+          color={COLORS.white}
         />
         <Text style={styles.pillText} numberOfLines={1}>
           {showRestoredNotice
@@ -184,7 +185,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 9999,
-    alignItems: 'center',
+    alignItems: 'center'
   },
   pill: {
     flexDirection: 'row',
@@ -194,11 +195,12 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderColor: 'rgba(255, 255, 255, 0.3)'
   },
   pillText: {
-    color: '#ffffff',
+    color: COLORS.white,
     fontSize: 12,
-    fontWeight: '600',
+    fontFamily: 'Inter-SemiBold'
   },
+
 });

@@ -10,7 +10,7 @@ import {
   TextStyle,
 } from 'react-native';
 import { useThemeContext } from '@/hooks/useThemeContext';
-import { RADIUS, FONT_SIZE } from '@/styles/theme';
+import { COLORS,  RADIUS, FONT_SIZE  } from '@/styles/theme';
 
 interface ButtonProps extends PressableProps {
   title: string;
@@ -51,7 +51,7 @@ export function Button({
       default: // primary
         return {
           container: [styles.base, { backgroundColor: primaryColor }, style],
-          text:      [styles.text, { color: '#ffffff' }, textStyle],
+          text:      [styles.text, { color: COLORS.white }, textStyle],
         };
     }
   };
@@ -68,7 +68,7 @@ export function Button({
       {...props}
     >
       {loading
-        ? <ActivityIndicator color={variant === 'primary' ? '#ffffff' : primaryColor} size="small" />
+        ? <ActivityIndicator color={variant === 'primary' ? COLORS.white : primaryColor} size="small" />
         : <Text style={s.text}>{title}</Text>
       }
     </Pressable>
@@ -81,13 +81,14 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.pill,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 20
   },
   text: {
     fontSize: FONT_SIZE.xl,
-    fontWeight: '600',
+    fontFamily: 'Inter-SemiBold'
   },
   pressed: {
-    opacity: 0.5,
+    opacity: 0.5
   },
+
 });
