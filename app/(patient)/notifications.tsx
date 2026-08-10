@@ -16,6 +16,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useNotificationStore, type Notification } from '@/store/notificationStore';
 import Skeleton from '@/components/ui/Skeleton';
 import { Header, HeaderIconBtn } from '@/components/ui/Header';
+import { useHardwareBack } from '@/hooks/useHardwareBack';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -83,6 +84,15 @@ export default function Notifications() {
   } = useNotificationStore();
 
   const userId = user?.id;
+
+  useHardwareBack(() => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.navigate('/(patient)/(tabs)/home');
+    }
+    return true;
+  });
 
   // Fetch + subscribe on mount
   useEffect(() => {

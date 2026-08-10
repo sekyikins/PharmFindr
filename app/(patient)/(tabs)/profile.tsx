@@ -454,11 +454,11 @@ const styles = StyleSheet.create({
     gap: 8
   },
   healthQuickTitle: {
-    fontSize: 14, fontFamily: 'Inter-Bold'
+    fontSize: FONT_SIZE.lg, fontFamily: 'Inter-SemiBold'
   },
   healthQuickSub: {
     fontFamily: 'Inter-Regular',
-     fontSize: 11, marginTop: 2
+    fontSize: FONT_SIZE.md, marginTop: 2
   },
 
   // Menu Groups
@@ -492,7 +492,7 @@ const styles = StyleSheet.create({
     marginRight: 14
   },
   menuLabel: {
-    flex: 1, fontSize: FONT_SIZE.md, fontFamily: 'Inter-SemiBold'
+    flex: 1, fontSize: FONT_SIZE.lg, fontFamily: 'Inter-SemiBold'
   },
   itemBadge: {
     paddingHorizontal: 8,
@@ -517,7 +517,7 @@ const styles = StyleSheet.create({
     marginVertical: 8
   },
   signOutText: {
-    fontSize: FONT_SIZE.md, fontFamily: 'Inter-Bold'
+    fontSize: FONT_SIZE.lg, fontFamily: 'Inter-Bold'
   },
 
 });

@@ -38,16 +38,37 @@ export async function isBiometricsEnrolled(): Promise<boolean> {
 }
 
 /**
- * Get human-readable biometric type (e.g. "Face ID", "Touch ID", "Biometrics").
+ * Get human-readable biometric type (e.g. "Fingerprint", "Face ID", "Touch ID", "Biometrics").
  */
 export async function getBiometricType(): Promise<string> {
   if (Platform.OS === 'web' || !LocalAuthentication) return 'Biometrics';
   try {
     const types = await LocalAuthentication.supportedAuthenticationTypesAsync();
-    if (types.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION)) {
+    const hasFace = types.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION);
+    const hasFingerprint = types.includes(LocalAuthentication.AuthenticationType.FINGERPRINT);
+    const hasIris = types.includes(LocalAuthentication.AuthenticationType.IRIS);
+
+    if (Platform.OS === 'android') {
+      if (hasFingerprint && hasFace) {
+        return 'Fingerprint / Face Unlock';
+      }
+      if (hasFingerprint) {
+        return 'Fingerprint';
+      }
+      if (hasFace) {
+        return 'Face Unlock';
+      }
+      if (hasIris) {
+        return 'Iris Scanner';
+      }
+      return 'Biometrics';
+    }
+
+    // iOS Devices
+    if (hasFace) {
       return 'Face ID';
     }
-    if (types.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)) {
+    if (hasFingerprint) {
       return 'Touch ID';
     }
   } catch (e) {

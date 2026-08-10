@@ -25,6 +25,7 @@ import { supabase } from '@/lib/supabase';
 import { COLORS,  RADIUS  } from '@/styles/theme';
 import * as Location from 'expo-location';
 import { searchNearbyPharmacies } from '@/lib/osm';
+import { useHardwareBack } from '@/hooks/useHardwareBack';
 
 const GREEN = '#10b981';
 const INPUT_BG = '#f8fafc';
@@ -47,7 +48,7 @@ function Hero({ step, onBack }: { step: 1 | 2 | 3 | 4; onBack: () => void }) {
         <SafeAreaView edges={['top']} style={hero.safe}>
           <Pressable onPress={onBack} style={({ pressed }) => [hero.backBtn, pressed && { opacity: 0.5 }]}>
             <Ionicons name="arrow-back" size={20} color={COLORS.white} />
-            <Text style={hero.backText}>Back To Login</Text>
+            <Text style={hero.backText}>Back</Text>
           </Pressable>
           <Text style={hero.stepText}>STEP {step} OF 4</Text>
           <Text style={hero.title}>{stepTitles[step - 1]}</Text>
@@ -271,7 +272,7 @@ function Step2Location({
   pharmName: string;
   pharmAddress: string;
   onUpdatePharmDetails?: (name: string, address: string) => void;
-  onDone: (pin: { latitude: number; longitude: number }) => void;
+  onDone: (pin: { latitude: number; longitude: number }, isFromKnownMap: boolean) => void;
   onBack: () => void;
 }) {
   const [pin, setPin] = useState<{ latitude: number; longitude: number } | null>(null);
@@ -385,13 +386,13 @@ function Step2Location({
             {
               text: 'Keep Current Details',
               style: 'cancel',
-              onPress: () => onDone(pin),
+              onPress: () => onDone(pin, !!selectedKnownPharmacy),
             },
             {
               text: 'Override Details',
               onPress: () => {
                 onUpdatePharmDetails?.(newName, newAddr);
-                onDone(pin);
+                onDone(pin, !!selectedKnownPharmacy);
               },
             },
           ],
@@ -401,7 +402,7 @@ function Step2Location({
       }
     }
 
-    onDone(pin);
+    onDone(pin, !!selectedKnownPharmacy);
   };
 
   return (
@@ -634,6 +635,7 @@ function Step4VerifyOTP({
   pharmName,
   pharmAddress,
   pin,
+  isFromKnownMap,
   onDone,
   onBack,
 }: {
@@ -643,7 +645,8 @@ function Step4VerifyOTP({
   pharmName: string;
   pharmAddress: string;
   pin: { latitude: number; longitude: number };
-  onDone: () => void;
+  isFromKnownMap: boolean;
+  onDone: (isVerified: boolean) => void;
   onBack: () => void;
 }) {
   const { signUp } = useAuthStore();
@@ -695,6 +698,10 @@ function Step4VerifyOTP({
       const DAYS_LIST = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
       let targetPharmId = existingPharm?.id;
 
+      // Pharmacies that selected an existing OSM pin are auto-verified;
+      // those that dropped a custom pin require manual admin review.
+      const shouldBeVerified = isFromKnownMap;
+
       if (existingPharm) {
         await supabase
           .from('pharmacies')
@@ -708,7 +715,7 @@ function Step4VerifyOTP({
             longitude: pin.longitude,
             opening_time: '08:00',
             closing_time: '20:00',
-            verified: false,
+            verified: shouldBeVerified,
           })
           .eq('id', existingPharm.id);
       } else {
@@ -724,7 +731,7 @@ function Step4VerifyOTP({
             longitude: pin.longitude,
             opening_time: '08:00',
             closing_time: '20:00',
-            verified: false,
+            verified: shouldBeVerified,
           })
           .select('id')
           .single();
@@ -751,7 +758,7 @@ function Step4VerifyOTP({
         }
       }
 
-      setTimeout(onDone, 600);
+      setTimeout(() => onDone(shouldBeVerified), 600);
     } catch (e: any) {
       setErr(e.message || 'Failed to finalize pharmacy registration.');
     } finally {
@@ -794,12 +801,14 @@ function SuccessScreen({
   email,
   pharmName,
   pharmAddress,
+  isVerified,
   onGoToDashboard,
 }: {
   phone: string;
   email: string;
   pharmName: string;
   pharmAddress: string;
+  isVerified: boolean;
   onGoToDashboard: () => void;
 }) {
   const { width } = useWindowDimensions();
@@ -820,12 +829,20 @@ function SuccessScreen({
 
       <ScrollView contentContainerStyle={[s.form, { alignItems: 'center' }]}>
         <View style={succ.iconCircle}>
-          <Ionicons name="time-outline" size={52} color="#b45309" />
+          <Ionicons
+            name={isVerified ? 'checkmark-circle-outline' : 'time-outline'}
+            size={52}
+            color={isVerified ? '#059669' : '#b45309'}
+          />
         </View>
 
-        <Text style={succ.title}>Registration Submitted!</Text>
+        <Text style={succ.title}>
+          {isVerified ? 'You\'re Live on PharmFindr! 🎉' : 'Registration Submitted!'}
+        </Text>
         <Text style={succ.body}>
-          Your pharmacy account has been registered on PharmFindr. License verification is currently pending review.
+          {isVerified
+            ? 'Your pharmacy has been verified and is now visible to patients. Head to your dashboard to add your inventory.'
+            : 'Your pharmacy account has been created. Since you added a custom location, it will go live after a quick manual review (usually within 24 hours).'}
         </Text>
 
         <View style={succ.summaryBox}>
@@ -848,7 +865,9 @@ function SuccessScreen({
           </View>
           <View style={succ.row}>
             <Text style={succ.rowKey}>Account Status</Text>
-            <Text style={[succ.rowVal, { color: '#b45309', fontFamily: 'Inter-Bold' }]}>PENDING REVIEW</Text>
+            <Text style={[succ.rowVal, { color: isVerified ? '#059669' : '#b45309', fontFamily: 'Inter-Bold' }]}>
+              {isVerified ? 'ACTIVE' : 'PENDING REVIEW'}
+            </Text>
           </View>
         </View>
 
@@ -968,6 +987,8 @@ const s = StyleSheet.create({
 export default function PharmacyRegister() {
   const router = useRouter();
   const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
+  const [isFromKnownMap, setIsFromKnownMap] = useState(false);
+  const [registrationVerified, setRegistrationVerified] = useState(false);
 
   const [pharmName, setPharmName] = useState('');
   const [email, setEmail] = useState('');
@@ -981,7 +1002,10 @@ export default function PharmacyRegister() {
   const goBack = () => {
     if (step === 1) router.back();
     else setStep((prev) => (prev - 1) as 1 | 2 | 3 | 4);
+    return true;
   };
+
+  useHardwareBack(goBack);
 
   if (step === 5) {
     return (
@@ -990,6 +1014,7 @@ export default function PharmacyRegister() {
         email={email}
         pharmName={pharmName}
         pharmAddress={pharmAddress}
+        isVerified={registrationVerified}
         onGoToDashboard={() => router.replace('/(pharmacy)/(tabs)/dashboard')}
       />
     );
@@ -1004,7 +1029,11 @@ export default function PharmacyRegister() {
         pharmName={pharmName}
         pharmAddress={pharmAddress}
         pin={pin!}
-        onDone={() => setStep(5)}
+        isFromKnownMap={isFromKnownMap}
+        onDone={(verified) => {
+          setRegistrationVerified(verified);
+          setStep(5);
+        }}
         onBack={goBack}
       />
     );
@@ -1033,8 +1062,9 @@ export default function PharmacyRegister() {
           setPharmName(n);
           setPharmAddress(a);
         }}
-        onDone={(selectedPin) => {
+        onDone={(selectedPin, fromKnownMap) => {
           setPin(selectedPin);
+          setIsFromKnownMap(fromKnownMap);
           setStep(3);
         }}
         onBack={goBack}

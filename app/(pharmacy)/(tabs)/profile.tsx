@@ -189,10 +189,10 @@ export default function PharmacyProfile() {
         phone: editPhone.trim(),
       });
 
-      Alert.alert('Saved', 'Business details updated successfully!');
+      Alert.alert('Saved', 'Pharmacy details updated successfully!');
       editSheetRef.current?.dismiss();
     } catch (e: any) {
-      Alert.alert('Error', e.message || 'Failed to save business info.');
+      Alert.alert('Error', e.message || 'Failed to save pharmacy info.');
     } finally {
       setSavingEdit(false);
     }
@@ -307,8 +307,8 @@ export default function PharmacyProfile() {
             </View>
           </View>
 
-          {/* ── 2. Business Settings Group ── */}
-          <Text style={[styles.sectionTitle, { color: theme.textMuted }]}>BUSINESS DETAILS</Text>
+          {/* ── 2. Pharmacy Settings Group ── */}
+          <Text style={[styles.sectionTitle, { color: theme.textMuted }]}>PHARMACY INFORMATION</Text>
           <View style={[styles.cardGroup, { backgroundColor: theme.card, borderColor: theme.border }]}>
             <Pressable
               style={({ pressed }) => [styles.rowItem, pressed && { opacity: 0.7 }]}
@@ -318,7 +318,7 @@ export default function PharmacyProfile() {
                 <Ionicons name="create-outline" size={18} color={COLORS.patientPrimary} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={[styles.rowTitle, { color: theme.text.primary }]}>Business Information</Text>
+                <Text style={[styles.rowTitle, { color: theme.text.primary }]}>Pharmacy Details</Text>
                 <Text style={[styles.rowSub, { color: theme.textMuted }]}>Name, phone, and address</Text>
               </View>
               <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
@@ -412,7 +412,7 @@ export default function PharmacyProfile() {
       )}
 
       {/* ── Edit Info BottomSheet ── */}
-      <AppBottomSheet ref={editSheetRef} title="Edit Business Details">
+      <AppBottomSheet ref={editSheetRef} title="Edit Pharmacy Details">
         <View style={styles.sheetContent}>
           <View style={styles.modalField}>
             <Text style={[styles.modalLabel, { color: theme.textMuted }]}>PHARMACY NAME</Text>

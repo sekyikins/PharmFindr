@@ -22,6 +22,7 @@ import { COLORS,  FONT_SIZE, RADIUS, SPACING  } from '@/styles/theme';
 import { supabase } from '@/lib/supabase';
 import { Header } from '@/components/ui/Header';
 import { searchPharmaciesForPrescription } from '@/lib/inventorySearch';
+import { useHardwareBack } from '@/hooks/useHardwareBack';
 import type {
   PrescriptionMedicine,
   PharmacyWithMedicines,
@@ -55,6 +56,15 @@ export default function OcrResult() {
   const { user } = useAuthStore();
   const { sendMessage, createConsultation, selectConsultation } = useChatStore();
   const { theme, primaryColor } = useThemeContext();
+
+  useHardwareBack(() => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.navigate('/(patient)/(tabs)/home');
+    }
+    return true;
+  });
 
   const scrollViewRef = useRef<ScrollView>(null);
   const isSavedRef = useRef<boolean>(!!prescriptionId);
@@ -396,7 +406,7 @@ export default function OcrResult() {
               No Medicines Listed
             </Text>
             <Text style={[styles.emptyText, { color: theme.textMuted }]}>
-              No medicines currently added. Tap "Add" in the top header or retake a prescription photo.
+              No medicines currently added. Tap "Add" in the top header or retake the prescription photo.
             </Text>
             <Pressable
               style={({ pressed }) => [styles.primaryBtn, pressed && { opacity: 0.5 }, { backgroundColor: primaryColor, marginTop: SPACING.lg }]}
@@ -531,16 +541,6 @@ export default function OcrResult() {
                 multiline
               />
             </View>
-
-            {/* Missing Parameters / Demographic Note Row */}
-            {med.missingParametersNote && (
-              <View style={[styles.advisoryNoteBox, { backgroundColor: COLORS.patientSecondary, borderColor: COLORS.borderBlue }]}>
-                <Ionicons name="alert-circle-outline" size={16} color={COLORS.patientPrimary} style={{ marginRight: 6 }} />
-                <Text style={[styles.advisoryNoteText, { color: COLORS.patientText, flex: 1 }]}>
-                  {med.missingParametersNote}
-                </Text>
-              </View>
-            )}
           </View>
         ))}
 

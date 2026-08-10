@@ -5,8 +5,6 @@ import {
   View,
   ScrollView,
   Pressable,
-  Alert,
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
@@ -20,6 +18,7 @@ import { Button } from '@/components/ui/Button';
 import { toast } from '@/context/ToastContext';
 import { supabase } from '@/lib/supabase';
 import { useThemeContext } from '@/hooks/useThemeContext';
+import { useHardwareBack } from '@/hooks/useHardwareBack';
 import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
 import { COMMON_DOSAGE_FORMS, type DosageForm } from '@/types/medicine';
 
@@ -50,6 +49,15 @@ export default function AddMedicine() {
     price?: string;
   }>();
 
+  useHardwareBack(() => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.navigate('/(pharmacy)/(tabs)/inventory');
+    }
+    return true;
+  });
+
   const { user } = useAuthStore();
   const { theme } = useThemeContext();
 
@@ -65,8 +73,6 @@ export default function AddMedicine() {
   const [strength, setStrength] = useState(params.strength || '');
   const [dosageForm, setDosageForm] = useState<DosageForm>('Tablet');
   const [manufacturer, setManufacturer] = useState('');
-  const [batchNumber, setBatchNumber] = useState('');
-  const [expiryDate, setExpiryDate] = useState('');
   const [price, setPrice] = useState(params.price || '');
   const [quantity, setQuantity] = useState(params.quantity || '');
 
@@ -465,5 +471,5 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   formChipText: { fontSize: FONT_SIZE.sm, fontWeight: '600' },
-  rowTwo: { flexDirection: 'row', gap: 12 },
+  rowTwo: { gap: 12 },
 });

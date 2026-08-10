@@ -19,6 +19,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import Svg, { Path } from 'react-native-svg';
 import { useAuthStore } from '@/store/authStore';
 import { useThemeContext } from '@/hooks/useThemeContext';
+import { useHardwareBack } from '@/hooks/useHardwareBack';
 
 const GREEN = '#10b981';
 const INPUT_BG = '#f8fafc';
@@ -32,6 +33,15 @@ export default function Register() {
   const { width } = useWindowDimensions();
   const { signUp } = useAuthStore();
   const { primaryColor } = useThemeContext();
+
+  useHardwareBack(() => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.navigate('/(auth)/login');
+    }
+    return true;
+  });
 
   const BLUE = primaryColor;
 
@@ -95,7 +105,7 @@ export default function Register() {
             <SafeAreaView edges={['top']} style={styles.heroInner}>
               <Pressable onPress={() => router.back()} style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.5 }]}>
                 <Ionicons name="arrow-back" size={20} color={COLORS.white} />
-                <Text style={styles.backText}>Back to Login</Text>
+                <Text style={styles.backText}>Back</Text>
               </Pressable>
               <Text style={styles.heroTitle}>Create Account</Text>
               <Text style={styles.heroSubtitle}>Join thousands managing their health smarter.</Text>

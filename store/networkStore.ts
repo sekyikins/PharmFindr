@@ -53,11 +53,15 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 4000);
 
-      const response = await fetch('https://aawmvtbnoobpndexdfxg.supabase.co/rest/v1/', {
-        method: 'HEAD',
-        signal: controller.signal,
-        cache: 'no-store',
-      });
+      const anonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
+      const response = await fetch(
+        `https://aawmvtbnoobpndexdfxg.supabase.co/auth/v1/health?apikey=${encodeURIComponent(anonKey)}`,
+        {
+          method: 'GET',
+          signal: controller.signal,
+          cache: 'no-store',
+        }
+      );
       clearTimeout(timeoutId);
 
       if (response.ok || response.status === 401 || response.status === 404) {

@@ -1,30 +1,32 @@
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { MedicineItem, MASTER_MEDICINES_CATALOGUE, getMedicineByIdOrName } from '@/lib/medicineCatalogue';
+import { type MedicineItem } from '@/lib/medicineCatalogue';
 
-const STORAGE_KEY = '@PharmFindr_saved_medicines_v1';
+const getStorageKey = (userId?: string) => {
+  return userId ? `@PharmFindr_saved_medicines_user_${userId}` : '@PharmFindr_saved_medicines_guest';
+};
 
 interface SavedMedicinesState {
   savedMedicines: MedicineItem[];
   isLoaded: boolean;
-  loadSavedMedicines: () => Promise<void>;
+  currentUserId?: string;
+  loadSavedMedicines: (userId?: string) => Promise<void>;
   isSaved: (medicineId: string) => boolean;
   toggleSaveMedicine: (medicine: MedicineItem) => Promise<boolean>;
   removeSavedMedicine: (medicineId: string) => Promise<void>;
-  clearAllSaved: () => Promise<void>;
+  clearAllSaved: (userId?: string) => Promise<void>;
 }
 
 export const useSavedMedicinesStore = create<SavedMedicinesState>((set, get) => ({
-  savedMedicines: [
-    // Pre-populate with essential default saved items if empty
-    MASTER_MEDICINES_CATALOGUE[0], // Paracetamol
-    MASTER_MEDICINES_CATALOGUE[1], // Amoxicillin
-  ],
+  savedMedicines: [],
   isLoaded: false,
+  currentUserId: undefined,
 
-  loadSavedMedicines: async () => {
+  loadSavedMedicines: async (userId?: string) => {
+    set({ currentUserId: userId });
     try {
-      const stored = await AsyncStorage.getItem(STORAGE_KEY);
+      const key = getStorageKey(userId);
+      const stored = await AsyncStorage.getItem(key);
       if (stored) {
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed)) {
@@ -32,10 +34,10 @@ export const useSavedMedicinesStore = create<SavedMedicinesState>((set, get) => 
           return;
         }
       }
-      set({ isLoaded: true });
+      set({ savedMedicines: [], isLoaded: true });
     } catch (e) {
       console.warn('Error loading saved medicines:', e);
-      set({ isLoaded: true });
+      set({ savedMedicines: [], isLoaded: true });
     }
   },
 
@@ -48,6 +50,9 @@ export const useSavedMedicinesStore = create<SavedMedicinesState>((set, get) => 
 
   toggleSaveMedicine: async (medicine: MedicineItem) => {
     const list = get().savedMedicines;
+    const userId = get().currentUserId;
+    const key = getStorageKey(userId);
+
     const exists = list.some(
       (m) => m.id === medicine.id || m.name.toLowerCase() === medicine.name.toLowerCase()
     );
@@ -67,7 +72,7 @@ export const useSavedMedicinesStore = create<SavedMedicinesState>((set, get) => 
 
     set({ savedMedicines: updatedList });
     try {
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updatedList));
+      await AsyncStorage.setItem(key, JSON.stringify(updatedList));
     } catch (e) {
       console.warn('Error saving medicines:', e);
     }
@@ -76,21 +81,25 @@ export const useSavedMedicinesStore = create<SavedMedicinesState>((set, get) => 
 
   removeSavedMedicine: async (medicineId: string) => {
     const list = get().savedMedicines;
+    const userId = get().currentUserId;
+    const key = getStorageKey(userId);
+
     const updatedList = list.filter(
       (m) => m.id !== medicineId && m.name.toLowerCase() !== medicineId.toLowerCase()
     );
     set({ savedMedicines: updatedList });
     try {
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updatedList));
+      await AsyncStorage.setItem(key, JSON.stringify(updatedList));
     } catch (e) {
       console.warn('Error removing saved medicine:', e);
     }
   },
 
-  clearAllSaved: async () => {
+  clearAllSaved: async (userId?: string) => {
+    const key = getStorageKey(userId || get().currentUserId);
     set({ savedMedicines: [] });
     try {
-      await AsyncStorage.removeItem(STORAGE_KEY);
+      await AsyncStorage.removeItem(key);
     } catch (e) {
       console.warn('Error clearing saved medicines:', e);
     }

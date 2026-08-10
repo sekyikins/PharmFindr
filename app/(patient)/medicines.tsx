@@ -13,10 +13,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useThemeContext } from '@/hooks/useThemeContext';
-import { COLORS,  FONT_SIZE, RADIUS, SPACING  } from '@/styles/theme';
+import { COLORS, FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
 import { Header } from '@/components/ui/Header';
 import { useSavedMedicinesStore } from '@/store/savedMedicinesStore';
 import { type MedicineItem } from '@/lib/medicineCatalogue';
+import { useHardwareBack } from '@/hooks/useHardwareBack';
 
 export default function SavedMedicinesScreen() {
   const router = useRouter();
@@ -45,6 +46,8 @@ export default function SavedMedicinesScreen() {
       router.navigate('/(patient)/(tabs)/profile');
     }
   };
+
+  useHardwareBack(handleGoBack);
 
   const filteredMedicines = savedMedicines.filter((m) => {
     const q = filterQuery.trim().toLowerCase();
@@ -223,11 +226,11 @@ export default function SavedMedicinesScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1
+    flex: 1,
   },
-
   topSection: {
-    paddingHorizontal: SPACING.xl, paddingTop: SPACING.md
+    paddingHorizontal: SPACING.xl,
+    paddingTop: SPACING.md,
   },
   searchBar: {
     flexDirection: 'row',
@@ -235,39 +238,40 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.xl,
     height: 46,
     paddingHorizontal: SPACING.lg,
-    borderWidth: 1
+    borderWidth: 1,
   },
   searchInput: {
     fontFamily: 'Inter-Regular',
-     flex: 1, fontSize: FONT_SIZE.md
+    flex: 1,
+    fontSize: FONT_SIZE.md,
   },
-
   countRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 10
+    marginTop: 10,
   },
   countText: {
-    fontSize: 12, fontFamily: 'Inter-SemiBold'
+    fontSize: 12,
+    fontFamily: 'Inter-SemiBold',
   },
   removeText: {
-    fontSize: 12, fontFamily: 'Inter-SemiBold'
+    fontSize: 12,
+    fontFamily: 'Inter-SemiBold',
   },
-
   listContent: {
-    padding: SPACING.md, gap: 14
+    padding: SPACING.md,
+    gap: 14,
   },
-
   card: {
     borderRadius: RADIUS.xl,
     borderWidth: 1,
-    overflow: 'hidden'
+    overflow: 'hidden',
   },
   cardTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 14
+    padding: 14,
   },
   medIcon: {
     width: 44,
@@ -275,58 +279,60 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.md,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12
+    marginRight: 12,
   },
   medBody: {
-    flex: 1
+    flex: 1,
   },
   medName: {
-    fontSize: FONT_SIZE.md, fontFamily: 'Inter-Bold'
+    fontSize: FONT_SIZE.md,
+    fontFamily: 'Inter-Bold',
   },
   medSub: {
     fontFamily: 'Inter-Regular',
-     fontSize: 12, marginTop: 2
+    fontSize: 12,
+    marginTop: 2,
   },
   priceSub: {
-    fontSize: 11, fontFamily: 'Inter-Bold', marginTop: 2
+    fontSize: 11,
+    fontFamily: 'Inter-Bold',
+    marginTop: 2,
   },
-
   badgePill: {
     paddingHorizontal: 7,
     paddingVertical: 2,
-    borderRadius: RADIUS.pill
+    borderRadius: RADIUS.pill,
   },
   badgePillText: {
-    fontSize: 10, fontFamily: 'Inter-Bold'
+    fontSize: 10,
+    fontFamily: 'Inter-Bold',
   },
-
   cardActionRow: {
     flexDirection: 'row',
     alignItems: 'center',
     borderTopWidth: 1,
-    paddingVertical: 10
+    paddingVertical: 10,
   },
   actionBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6
+    gap: 6,
   },
   actionBtnText: {
     fontSize: 12,
-    fontFamily: 'Inter-SemiBold'
+    fontFamily: 'Inter-SemiBold',
   },
   divider: {
     width: 1,
-    height: 18
+    height: 18,
   },
-
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 60,
-    paddingHorizontal: SPACING.xl
+    paddingHorizontal: SPACING.xl,
   },
   emptyIconCircle: {
     width: 72,
@@ -334,27 +340,30 @@ const styles = StyleSheet.create({
     borderRadius: 36,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16
+    marginBottom: 16,
   },
   emptyTitle: {
-    fontSize: 18, fontFamily: 'Inter-Bold', marginBottom: 6
+    fontSize: 18,
+    fontFamily: 'Inter-Bold',
+    marginBottom: 6,
   },
   emptySub: {
     fontFamily: 'Inter-Regular',
-     fontSize: 13, textAlign: 'center', lineHeight: 18, marginBottom: 20
+    fontSize: 13,
+    textAlign: 'center',
+    lineHeight: 18,
+    marginBottom: 20,
   },
-
   exploreBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
     height: 46,
-    borderRadius: RADIUS.pill
+    borderRadius: RADIUS.pill,
   },
   exploreBtnText: {
     color: COLORS.white,
     fontSize: 14,
-    fontFamily: 'Inter-Bold'
+    fontFamily: 'Inter-Bold',
   },
-
 });

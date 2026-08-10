@@ -179,7 +179,7 @@ export default function Dashboard() {
                 { color: isVerified ? COLORS.white : '#b45309' },
               ]}
             >
-              {isVerified ? 'VERIFIED' : 'NOT VERIFIED — TAP TO VERIFY'}
+              {isVerified ? 'VERIFIED' : 'NOT VERIFIED'}
             </Text>
           </Pressable>
         </View>

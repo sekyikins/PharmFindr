@@ -302,6 +302,14 @@ export const useAuthStore = create<AuthState>((set, get) => {
         throw error;
       }
       set({ session: null, user: null, profile: null, appUser: null, loading: false });
+      try {
+        const { useRecentSearchesStore } = await import('@/store/recentSearchesStore');
+        useRecentSearchesStore.getState().resetStore();
+      } catch (_) {}
+      try {
+        const { useSavedMedicinesStore } = await import('@/store/savedMedicinesStore');
+        useSavedMedicinesStore.getState().clearAllSaved();
+      } catch (_) {}
     },
 
     // ── Initialize (cold start with 7-day inactivity check) ────────────────

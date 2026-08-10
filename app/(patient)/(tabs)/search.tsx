@@ -8,6 +8,7 @@ import {
   Pressable,
   ScrollView,
   Alert,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,9 +17,10 @@ import { useThemeContext } from '@/hooks/useThemeContext';
 import { COLORS,  FONT_SIZE, RADIUS, SPACING  } from '@/styles/theme';
 import Skeleton from '@/components/ui/Skeleton';
 import { Header } from '@/components/ui/Header';
-import { searchMasterMedicines, type MedicineItem } from '@/lib/medicineCatalogue';
+import { searchMasterMedicines, fetchPopularMedicines, type MedicineItem, type PopularMedicine } from '@/lib/medicineCatalogue';
 import { useRecentSearchesStore } from '@/store/recentSearchesStore';
 import { useNetworkStore } from '@/store/networkStore';
+import { useAuthStore } from '@/store/authStore';
 
 const CATEGORIES = [
   'All',
@@ -31,20 +33,10 @@ const CATEGORIES = [
   'Antimalarial',
 ];
 
-const POPULAR_MEDICINES = [
-  { name: 'Paracetamol', category: 'Pain Relief', strength: '500mg' },
-  { name: 'Amoxicillin', category: 'Antibiotic', strength: '500mg' },
-  { name: 'Metformin', category: 'Diabetes', strength: '850mg' },
-  { name: 'Ibuprofen', category: 'Pain Relief', strength: '400mg' },
-  { name: 'Coartem', category: 'Antimalarial', strength: '80/480mg' },
-  { name: 'Omeprazole', category: 'Gastro', strength: '20mg' },
-  { name: 'Lisinopril', category: 'Heart & BP', strength: '10mg' },
-  { name: 'Cetirizine', category: 'Allergy', strength: '10mg' },
-];
-
 export default function SearchMedicines() {
   const router = useRouter();
   const { theme, primaryColor } = useThemeContext();
+  const { user } = useAuthStore();
 
   const {
     recentSearches,
@@ -57,14 +49,33 @@ export default function SearchMedicines() {
   const [query, setQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [results, setResults] = useState<MedicineItem[]>([]);
+  const [popularMedicines, setPopularMedicines] = useState<PopularMedicine[]>([]);
   const [loading, setLoading] = useState(false);
+  const [popularLoading, setPopularLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [searched, setSearched] = useState(false);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
-    loadRecentSearches();
+  const loadRandomPopular = useCallback(async () => {
+    const meds = await fetchPopularMedicines(6);
+    setPopularMedicines(meds);
+    setPopularLoading(false);
   }, []);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await Promise.all([
+      loadRecentSearches(user?.id),
+      loadRandomPopular(),
+    ]);
+    setRefreshing(false);
+  };
+
+  useEffect(() => {
+    loadRecentSearches(user?.id);
+    loadRandomPopular();
+  }, [user?.id, loadRecentSearches, loadRandomPopular]);
 
   const runSearch = useCallback(
     async (term: string, cat?: string) => {
@@ -84,10 +95,6 @@ export default function SearchMedicines() {
       setLoading(true);
       setSearched(true);
 
-      if (trimmed) {
-        addRecentSearch(trimmed);
-      }
-
       try {
         const matches = await searchMasterMedicines(trimmed, activeCat);
         setResults(matches);
@@ -97,7 +104,7 @@ export default function SearchMedicines() {
         setLoading(false);
       }
     },
-    [selectedCategory, addRecentSearch]
+    [selectedCategory]
   );
 
   const handleQueryChange = (text: string) => {
@@ -127,14 +134,28 @@ export default function SearchMedicines() {
 
   const handleChipSelect = (term: string) => {
     setQuery(term);
+    if (term.trim()) {
+      addRecentSearch(term.trim(), user?.id);
+    }
     runSearch(term);
   };
 
   const handleSelectMedicine = (med: MedicineItem) => {
+    if (med.name) {
+      addRecentSearch(med.name, user?.id);
+    }
     router.push({
       pathname: '/(patient)/medicine/[id]',
       params: { id: med.id },
     });
+  };
+
+  const handleSearchSubmit = () => {
+    const trimmed = query.trim();
+    if (trimmed) {
+      addRecentSearch(trimmed, user?.id);
+    }
+    runSearch(query);
   };
 
   return (
@@ -156,7 +177,7 @@ export default function SearchMedicines() {
             placeholderTextColor={theme.textMuted}
             value={query}
             onChangeText={handleQueryChange}
-            onSubmitEditing={() => runSearch(query)}
+            onSubmitEditing={handleSearchSubmit}
             returnKeyType="search"
           />
           {query.length > 0 && (
@@ -233,6 +254,7 @@ export default function SearchMedicines() {
           data={results}
           keyExtractor={(item) => item.id}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
           contentContainerStyle={styles.listContent}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
@@ -257,7 +279,7 @@ export default function SearchMedicines() {
               </View>
 
               <View style={styles.medBody}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginBottom: 2 }}>
                   <Text style={[styles.medName, { color: theme.text.primary }]}>{item.name}</Text>
                   <View style={[styles.badgePill, { backgroundColor: theme.patientSecondary }]}>
                     <Text style={[styles.badgePillText, { color: primaryColor }]}>{item.strength}</Text>
@@ -285,7 +307,13 @@ export default function SearchMedicines() {
 
       {/* ── Default View: Recent Searches + Popular Medicines ── */}
       {!loading && !searched && (
-        <ScrollView showsVerticalScrollIndicator={false}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={primaryColor} colors={[primaryColor]} />
+          }
+        >
           {/* Recent Searches */}
           {recentSearches.length > 0 && (
             <View style={styles.section}>
@@ -294,7 +322,7 @@ export default function SearchMedicines() {
                 <Pressable
                   onPress={() => {
                     Alert.alert('Clear History', 'Are you sure you want to clear your recent search history?', [
-                      { text: 'Clear All', style: 'destructive', onPress: clearAllRecentSearches },
+                      { text: 'Clear All', style: 'destructive', onPress: () => clearAllRecentSearches(user?.id) },
                       { text: 'Cancel', style: 'cancel' },
                     ]);
                   }}
@@ -319,7 +347,7 @@ export default function SearchMedicines() {
                       <Ionicons name="time-outline" size={18} color={theme.textMuted} style={{ marginRight: 12 }} />
                       <Text style={[styles.recentText, { color: theme.text.primary }]}>{term}</Text>
                     </Pressable>
-                    <Pressable onPress={() => removeRecentSearch(term)} style={{ padding: 6 }}>
+                    <Pressable onPress={() => removeRecentSearch(term, user?.id)} style={{ padding: 6 }}>
                       <Ionicons name="close" size={16} color={theme.textDim} />
                     </Pressable>
                   </View>
@@ -332,30 +360,47 @@ export default function SearchMedicines() {
           <View style={[styles.section, { paddingTop: 0 }]}>
             <Text style={[styles.sectionLabel, { color: theme.textDim }]}>POPULAR MEDICINES & GENERICS</Text>
 
-            <View style={styles.popularGrid}>
-              {POPULAR_MEDICINES.map((item) => (
-                <Pressable
-                  key={item.name}
-                  style={({ pressed }) => [
-                    styles.popularCard,
-                    { backgroundColor: theme.card, borderColor: theme.border },
-                    pressed && { opacity: 0.7, backgroundColor: theme.surfaceSecondary },
-                  ]}
-                  onPress={() => handleChipSelect(item.name)}
-                >
-                  <View style={[styles.popularIconCircle, { backgroundColor: theme.patientSecondary }]}>
-                    <Ionicons name="medkit-outline" size={18} color={primaryColor} />
+            {popularLoading ? (
+              <View style={styles.popularGrid}>
+                {[1, 2, 3, 4, 5, 6].map((i) => (
+                  <View
+                    key={i}
+                    style={[styles.popularCard, { backgroundColor: theme.card, borderColor: theme.border }]}
+                  >
+                    <Skeleton width={36} height={36} borderRadius={18} style={{ marginRight: 10 }} />
+                    <View style={{ flex: 1, gap: 6 }}>
+                      <Skeleton width="60%" height={14} />
+                      <Skeleton width="40%" height={12} />
+                    </View>
                   </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.popularName, { color: theme.text.primary }]}>{item.name}</Text>
-                    <Text style={[styles.popularSub, { color: theme.textMuted }]}>
-                      {item.strength} · {item.category}
-                    </Text>
-                  </View>
-                  <Ionicons name="arrow-forward" size={16} color={theme.textDim} />
-                </Pressable>
-              ))}
-            </View>
+                ))}
+              </View>
+            ) : (
+              <View style={styles.popularGrid}>
+                {popularMedicines.map((item) => (
+                  <Pressable
+                    key={item.id}
+                    style={({ pressed }) => [
+                      styles.popularCard,
+                      { backgroundColor: theme.card, borderColor: theme.border },
+                      pressed && { opacity: 0.7, backgroundColor: theme.surfaceSecondary },
+                    ]}
+                    onPress={() => handleChipSelect(item.name)}
+                  >
+                    <View style={[styles.popularIconCircle, { backgroundColor: theme.patientSecondary }]}>
+                      <Ionicons name="medkit-outline" size={18} color={primaryColor} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.popularName, { color: theme.text.primary }]}>{item.name}</Text>
+                      <Text style={[styles.popularSub, { color: theme.textMuted }]}>
+                        {item.strength} · {item.category}
+                      </Text>
+                    </View>
+                    <Ionicons name="arrow-forward" size={16} color={theme.textDim} />
+                  </Pressable>
+                ))}
+              </View>
+            )}
           </View>
         </ScrollView>
       )}

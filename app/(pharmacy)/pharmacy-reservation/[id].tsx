@@ -18,6 +18,7 @@ import { Header } from '@/components/ui/Header';
 import { toast } from '@/context/ToastContext';
 import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
 import { supabase } from '@/lib/supabase';
+import { useHardwareBack } from '@/hooks/useHardwareBack';
 
 const PHARMACY_GREEN = '#10b981';
 
@@ -25,6 +26,15 @@ export default function PharmacyReservationDetails() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { theme } = useThemeContext();
+
+  useHardwareBack(() => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.navigate('/(pharmacy)/(tabs)/reservations');
+    }
+    return true;
+  });
 
   const [reservation, setReservation] = useState<any>(null);
   const [patient, setPatient] = useState<any>(null);

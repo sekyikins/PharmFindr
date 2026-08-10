@@ -44,4 +44,6 @@ export interface PharmacyWithMedicines {
   totalPrescribed: number;
   latitude?: number;
   longitude?: number;
+  isOpen?: boolean;
+  hours?: string;
 }

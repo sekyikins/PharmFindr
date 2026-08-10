@@ -170,9 +170,6 @@ export default function OfflineBanner() {
             ? 'No Internet · Saved items remain accessible'
             : 'Weak Connection · Live searches may be slow'}
         </Text>
-        {!showRestoredNotice && (
-          <Ionicons name="close-outline" size={14} color="rgba(255,255,255,0.7)" style={{ marginLeft: 2 }} />
-        )}
       </View>
     </Animated.View>
   );

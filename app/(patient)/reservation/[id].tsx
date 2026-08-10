@@ -20,6 +20,7 @@ import { Header } from '@/components/ui/Header';
 import { toast } from '@/context/ToastContext';
 import Skeleton from '@/components/ui/Skeleton';
 import { logAuditEvent } from '@/lib/auditLogger';
+import { useHardwareBack } from '@/hooks/useHardwareBack';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -74,6 +75,15 @@ export default function ReservationScreen() {
 
   const { user } = useAuthStore();
   const { theme, primaryColor } = useThemeContext();
+
+  useHardwareBack(() => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.navigate('/(patient)/reservations-history');
+    }
+    return true;
+  });
 
   const id = params.id ?? '';
   const isNewReservation = !!(params.name || params.medicinesJson);

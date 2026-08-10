@@ -21,6 +21,7 @@ import { Header } from '@/components/ui/Header';
 import { toast } from '@/context/ToastContext';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
+import { useHardwareBack } from '@/hooks/useHardwareBack';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const PHARMACY_GREEN = '#10b981';
@@ -36,6 +37,15 @@ export default function OperatingHours() {
   const router = useRouter();
   const { theme } = useThemeContext();
   const { user } = useAuthStore();
+
+  useHardwareBack(() => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.navigate('/(pharmacy)/(tabs)/profile');
+    }
+    return true;
+  });
 
   const [pharmId, setPharmId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -61,7 +71,7 @@ export default function OperatingHours() {
       // 1. Fetch pharmacy record (primary owner_id lookup)
       let { data: pharm } = await supabase
         .from('pharmacies')
-        .select('id, opening_time, closing_time, operating_hours')
+        .select('id, opening_time, closing_time')
         .eq('owner_id', user.id)
         .maybeSingle();
 
@@ -70,7 +80,7 @@ export default function OperatingHours() {
         if (user.phone) {
           const { data: pByPhone } = await supabase
             .from('pharmacies')
-            .select('id, opening_time, closing_time, operating_hours')
+            .select('id, opening_time, closing_time')
             .eq('phone', user.phone)
             .maybeSingle();
           if (pByPhone) pharm = pByPhone;
@@ -78,7 +88,7 @@ export default function OperatingHours() {
         if (!pharm && user.email) {
           const { data: pByEmail } = await supabase
             .from('pharmacies')
-            .select('id, opening_time, closing_time, operating_hours')
+            .select('id, opening_time, closing_time')
             .eq('email', user.email)
             .maybeSingle();
           if (pByEmail) pharm = pByEmail;
@@ -136,10 +146,8 @@ export default function OperatingHours() {
           console.warn('pharmacy_operating_hours notice:', e.message);
         }
 
-        // 3. Fallback to operating_hours JSON or default opening_time/closing_time
-        if (pharm.operating_hours && Array.isArray(pharm.operating_hours) && pharm.operating_hours.length > 0) {
-          setSchedule(pharm.operating_hours);
-        } else if (pharm.opening_time || pharm.closing_time) {
+        // 3. Fallback to default opening_time/closing_time
+        if (pharm.opening_time || pharm.closing_time) {
           const opens = pharm.opening_time || '08:00';
           const closes = pharm.closing_time || '20:00';
           setSchedule(
@@ -229,14 +237,13 @@ export default function OperatingHours() {
         console.warn('pharmacy_operating_hours update warning:', e.message);
       }
 
-      // 2. Sync to pharmacies table
+      // 2. Sync default opening and closing times to pharmacies table
       try {
         await supabase
           .from('pharmacies')
           .update({
             opening_time,
             closing_time,
-            operating_hours: schedule as any,
           })
           .eq('id', activePharmId);
       } catch (e: any) {
@@ -265,12 +272,6 @@ export default function OperatingHours() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.introBox}>
-            <Ionicons name="time-outline" size={20} color={PHARMACY_GREEN} />
-            <Text style={[styles.introText, { color: theme.textMuted }]}>
-              Set your pharmacy's weekly opening and closing schedule for patient reservations.
-            </Text>
-          </View>
 
           {loading ? (
             <ActivityIndicator size="large" color={PHARMACY_GREEN} style={{ marginTop: 40 }} />
@@ -369,21 +370,6 @@ export default function OperatingHours() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   scroll: { padding: SPACING.xl, gap: SPACING.md },
-  introBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    padding: SPACING.md,
-    backgroundColor: '#ecfdf5',
-    borderRadius: RADIUS.lg,
-    borderWidth: 1,
-    borderColor: '#a7f3d0',
-  },
-  introText: {
-    flex: 1,
-    fontSize: FONT_SIZE.md,
-    lineHeight: 18,
-  },
   dayList: { gap: 12 },
   dayCard: {
     borderRadius: RADIUS.xl,
@@ -398,7 +384,7 @@ const styles = StyleSheet.create({
   },
   dayTitle: {
     fontSize: FONT_SIZE.xl,
-    fontWeight: '700',
+    fontFamily: 'Inter-Bold'
   },
   switchRow: {
     flexDirection: 'row',
@@ -407,7 +393,7 @@ const styles = StyleSheet.create({
   },
   switchStatus: {
     fontSize: FONT_SIZE.md,
-    fontWeight: '700',
+    fontFamily: 'Inter-Bold',
   },
   timeRow: {
     flexDirection: 'row',
@@ -420,7 +406,7 @@ const styles = StyleSheet.create({
   },
   timeLabel: {
     fontSize: 10,
-    fontWeight: '700',
+    fontFamily: 'Inter-Bold',
     letterSpacing: 0.5,
   },
   timeInput: {
@@ -429,11 +415,11 @@ const styles = StyleSheet.create({
     borderWidth: 1.2,
     paddingHorizontal: 12,
     fontSize: FONT_SIZE.lg,
-    fontWeight: '600',
+    fontFamily: 'Inter-Bold',
   },
   timeDash: {
     fontSize: 20,
-    fontWeight: '700',
+    fontFamily: 'Inter-Bold',
     marginTop: 14,
   },
   saveBtn: {
@@ -446,6 +432,6 @@ const styles = StyleSheet.create({
   saveBtnText: {
     color: '#ffffff',
     fontSize: FONT_SIZE.lg,
-    fontWeight: '700',
+    fontFamily: 'Inter-Bold',
   },
 });

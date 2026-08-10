@@ -28,6 +28,8 @@ interface FullMapComponentProps {
   routeCoords?: { latitude: number; longitude: number }[];
   mapPadding?: { top: number; right: number; bottom: number; left: number };
   showLegend?: boolean;
+  refreshKey?: number;
+  onPressLocate?: () => void;
 }
 
 export function getPinColor(m: MarkerData, isSelected: boolean): string {
@@ -43,6 +45,8 @@ export default function FullMapComponent({
   selectedId,
   onSelectMarker,
   showLegend = true,
+  refreshKey,
+  onPressLocate,
 }: FullMapComponentProps) {
   // Translate latitude/longitude offsets into CSS percentage positions relative to Accra area
   const getPositionStyles = (lat: number, lng: number) => {
@@ -74,11 +78,12 @@ export default function FullMapComponent({
 
         {/* User Location Marker */}
         {userCoords && (
-          <View style={[styles.markerContainer, getPositionStyles(userCoords.latitude, userCoords.longitude), { zIndex: 100 }]}>
-            <View style={styles.userPinBubble}>
-              <Ionicons name="person" size={16} color={COLORS.white} />
+          <View style={[styles.markerContainer, getPositionStyles(userCoords.latitude, userCoords.longitude)]}>
+            <View style={styles.userPulse} />
+            <View style={styles.userPin}>
+              <Ionicons name="navigate" size={14} color={COLORS.white} />
             </View>
-            <Text style={[styles.markerLabel, styles.userLabel]}>You Are Here</Text>
+            <Text style={styles.userLabel}>You</Text>
           </View>
         )}
 
@@ -89,55 +94,70 @@ export default function FullMapComponent({
           return (
             <Pressable
               key={m.id}
-              style={[styles.markerContainer, getPositionStyles(m.latitude, m.longitude), { zIndex: isSelected ? 50 : 10 }]}
+              style={[
+                styles.markerContainer,
+                getPositionStyles(m.latitude, m.longitude),
+                isSelected && { zIndex: 10 },
+              ]}
               onPress={() => onSelectMarker(m.id)}
             >
-              <Ionicons
-                name={m.isOpen === false ? 'time-outline' : m.isRegistered ? 'checkmark-circle' : 'location'}
-                size={isSelected ? 30 : 25}
-                color={pinColor}
-              />
-              <View style={styles.tooltip}>
-                <Text style={[styles.markerLabel, { color: pinColor, borderColor: pinColor }]}>
-                  {m.name}
-                </Text>
-
-                <View style={styles.badgeRow}>
-                  {m.isRegistered && (
-                    <Text style={styles.verifiedTag}>Verified Partner</Text>
-                  )}
-                  {m.isOpen === false && (
-                    <Text style={styles.closedTag}>Closed</Text>
-                  )}
-                </View>
+              <View
+                style={[
+                  styles.pharmacyPin,
+                  { backgroundColor: pinColor },
+                  isSelected && styles.pharmacyPinSelected,
+                ]}
+              >
+                <Ionicons
+                  name={m.isRegistered ? 'medkit' : 'location'}
+                  size={isSelected ? 16 : 13}
+                  color={COLORS.white}
+                />
               </View>
+              <Text
+                style={[
+                  styles.pharmacyLabel,
+                  isSelected && styles.pharmacyLabelSelected,
+                  { color: isSelected ? '#b45309' : '#1e293b' },
+                ]}
+                numberOfLines={1}
+              >
+                {m.name}
+              </Text>
             </Pressable>
           );
         })}
       </View>
 
-      {/* Interactive Map Legend Bar */}
+      {/* Floating GPS My Location FAB Button */}
+      {onPressLocate && (
+        <Pressable
+          style={({ pressed }) => [
+            styles.locateFab,
+            pressed && { opacity: 0.8, transform: [{ scale: 0.94 }] },
+            { bottom: showLegend ? 64 : 20 },
+          ]}
+          onPress={onPressLocate}
+          accessibilityLabel="Center map on my location"
+        >
+          <Ionicons name="locate" size={22} color={COLORS.patientPrimary} />
+        </Pressable>
+      )}
+
+      {/* Map Legend */}
       {showLegend && (
         <View style={styles.legendContainer}>
           <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: COLORS.patientPrimary }]} />
-            <Text style={styles.legendText}>You</Text>
-          </View>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: COLORS.pharmacyPrimary }]} />
-            <Text style={styles.legendText}>Verified</Text>
+            <View style={[styles.legendDot, { backgroundColor: '#10b981' }]} />
+            <Text style={styles.legendText}>Partner (Open)</Text>
           </View>
           <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: '#0284c7' }]} />
-            <Text style={styles.legendText}>Public</Text>
+            <Text style={styles.legendText}>Public (Open)</Text>
           </View>
           <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: COLORS.textMuted }]} />
+            <View style={[styles.legendDot, { backgroundColor: '#64748b' }]} />
             <Text style={styles.legendText}>Closed</Text>
-          </View>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: COLORS.warning }]} />
-            <Text style={styles.legendText}>Selected</Text>
           </View>
         </View>
       )}
@@ -147,123 +167,150 @@ export default function FullMapComponent({
 
 const styles = StyleSheet.create({
   container: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#e8ecef',
+    overflow: 'hidden',
+  },
+  locateFab: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: COLORS.surfaceSecondary,
-    overflow: 'hidden'
+    right: 16,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#ffffff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 5,
+    elevation: 6,
+    borderWidth: 1.5,
+    borderColor: '#e2e8f0',
+    zIndex: 15,
   },
   mapGrid: {
-    flex: 1,
-    position: 'relative',
-    backgroundColor: COLORS.surfaceSecondary
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#f1f5f9',
   },
   river: {
     position: 'absolute',
+    left: '45%',
+    top: 0,
     bottom: 0,
-    left: 0,
-    right: 0,
-    height: 60,
-    backgroundColor: COLORS.borderBlue
+    width: 48,
+    backgroundColor: '#bae6fd',
+    transform: [{ rotate: '-25deg' }],
   },
   street: {
     position: 'absolute',
-    backgroundColor: COLORS.white,
-    borderColor: COLORS.borderSubtle,
-    borderWidth: 1
+    backgroundColor: '#ffffff',
   },
   markerContainer: {
     position: 'absolute',
     alignItems: 'center',
-    marginLeft: -13,
-    marginTop: -26,
-    zIndex: 5
+    justifyContent: 'center',
+    transform: [{ translateX: -16 }, { translateY: -16 }],
   },
-  markerLabel: {
-    fontSize: 9,
+  userPulse: {
+    position: 'absolute',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(2, 132, 199, 0.25)',
+  },
+  userPin: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#0284c7',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#ffffff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+  },
+  userLabel: {
+    fontSize: 10,
     fontFamily: 'Inter-Bold',
-    color: COLORS.pharmacyText,
-    backgroundColor: COLORS.successBg,
+    color: '#0369a1',
+    marginTop: 2,
+    backgroundColor: 'rgba(255,255,255,0.85)',
+    paddingHorizontal: 4,
+    borderRadius: 4,
+  },
+  pharmacyPin: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#ffffff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+  },
+  pharmacyPinSelected: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 3,
+    borderColor: '#ffffff',
+    shadowOpacity: 0.4,
+    shadowRadius: 5,
+  },
+  pharmacyLabel: {
+    fontSize: 9,
+    fontFamily: 'Inter-SemiBold',
+    marginTop: 2,
+    maxWidth: 90,
+    backgroundColor: 'rgba(255,255,255,0.9)',
     paddingHorizontal: 4,
     paddingVertical: 1,
     borderRadius: 4,
-    marginTop: -2
+    textAlign: 'center',
   },
-  userLabel: {
-    fontFamily: 'Inter-Regular',
-    
-    color: COLORS.patientTextDark,
-    backgroundColor: COLORS.infoBg
-  },
-  userPinBubble: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: COLORS.patientPrimary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: COLORS.white
-  },
-  tooltip: {
-    alignItems: 'center'
-  },
-  badgeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 2
-  },
-  verifiedTag: {
-    fontSize: 7,
+  pharmacyLabelSelected: {
+    fontSize: 10,
     fontFamily: 'Inter-Bold',
-    color: COLORS.pharmacyTextDark,
-    backgroundColor: COLORS.successBg,
-    paddingHorizontal: 4,
-    paddingVertical: 1,
-    borderRadius: 3
-  },
-  closedTag: {
-    fontSize: 7,
-    fontFamily: 'Inter-Bold',
-    color: COLORS.textSecondary,
-    backgroundColor: COLORS.surfaceSecondary,
-    paddingHorizontal: 4,
-    paddingVertical: 1,
-    borderRadius: 3
+    backgroundColor: '#fef3c7',
+    borderColor: '#f59e0b',
+    borderWidth: 1,
   },
   legendContainer: {
     position: 'absolute',
-    bottom: 12,
-    left: 12,
-    right: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.96)',
+    bottom: 24,
+    left: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
     borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: COLORS.borderSlate,
-    paddingVertical: 8,
     paddingHorizontal: 12,
+    paddingVertical: 8,
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
-    zIndex: 20
+    gap: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5
+    gap: 5,
   },
   legendDot: {
-    width: 9,
-    height: 9,
-    borderRadius: 4.5
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
   legendText: {
-    fontSize: 10,
-    fontFamily: 'Inter-SemiBold',
-    color: '#334155'
+    fontSize: 11,
+    fontFamily: 'Inter-Medium',
+    color: '#334155',
   },
-
 });

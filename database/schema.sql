@@ -550,3 +550,120 @@ CREATE POLICY "prescriptions_public_select" ON storage.objects FOR SELECT USING 
 
 DROP POLICY IF EXISTS "prescriptions_public_insert" ON storage.objects;
 CREATE POLICY "prescriptions_public_insert" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'prescriptions');
+
+-- ------------------------------------------------------------
+-- 13. PHARMACY OPERATING HOURS (7-Day Weekly Schedule)
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.pharmacy_operating_hours (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  pharmacy_id UUID NOT NULL REFERENCES public.pharmacies(id) ON DELETE CASCADE,
+  day_of_week TEXT NOT NULL,
+  is_open BOOLEAN DEFAULT true,
+  opening_time TIME DEFAULT '08:00:00'::TIME,
+  closing_time TIME DEFAULT '20:00:00'::TIME,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  CONSTRAINT unique_pharmacy_day UNIQUE (pharmacy_id, day_of_week)
+);
+
+CREATE INDEX IF NOT EXISTS idx_pharmacy_operating_hours_pharmacy ON public.pharmacy_operating_hours(pharmacy_id);
+
+ALTER TABLE public.pharmacy_operating_hours ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "pharmacy_operating_hours_public_read" ON public.pharmacy_operating_hours;
+CREATE POLICY "pharmacy_operating_hours_public_read"
+  ON public.pharmacy_operating_hours
+  FOR SELECT
+  USING (true);
+
+DROP POLICY IF EXISTS "pharmacy_operating_hours_owner_all" ON public.pharmacy_operating_hours;
+CREATE POLICY "pharmacy_operating_hours_owner_all"
+  ON public.pharmacy_operating_hours
+  FOR ALL
+  USING (
+    pharmacy_id IN (
+      SELECT id FROM public.pharmacies WHERE owner_id = auth.uid()
+    )
+  );
+
+-- Trigger: Automatically seed default 7-day schedule when a new pharmacy is created
+CREATE OR REPLACE FUNCTION public.handle_new_pharmacy_operating_hours()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public.pharmacy_operating_hours (pharmacy_id, day_of_week, is_open, opening_time, closing_time)
+  VALUES
+    (NEW.id, 'Monday', true, COALESCE(NEW.opening_time, '08:00:00'::time), COALESCE(NEW.closing_time, '20:00:00'::time)),
+    (NEW.id, 'Tuesday', true, COALESCE(NEW.opening_time, '08:00:00'::time), COALESCE(NEW.closing_time, '20:00:00'::time)),
+    (NEW.id, 'Wednesday', true, COALESCE(NEW.opening_time, '08:00:00'::time), COALESCE(NEW.closing_time, '20:00:00'::time)),
+    (NEW.id, 'Thursday', true, COALESCE(NEW.opening_time, '08:00:00'::time), COALESCE(NEW.closing_time, '20:00:00'::time)),
+    (NEW.id, 'Friday', true, COALESCE(NEW.opening_time, '08:00:00'::time), COALESCE(NEW.closing_time, '20:00:00'::time)),
+    (NEW.id, 'Saturday', true, COALESCE(NEW.opening_time, '08:00:00'::time), COALESCE(NEW.closing_time, '20:00:00'::time)),
+    (NEW.id, 'Sunday', false, COALESCE(NEW.opening_time, '08:00:00'::time), COALESCE(NEW.closing_time, '20:00:00'::time))
+  ON CONFLICT (pharmacy_id, day_of_week) DO NOTHING;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS trg_seed_pharmacy_operating_hours ON public.pharmacies;
+CREATE TRIGGER trg_seed_pharmacy_operating_hours
+  AFTER INSERT ON public.pharmacies
+  FOR EACH ROW
+  EXECUTE FUNCTION public.handle_new_pharmacy_operating_hours();
+
+-- ------------------------------------------------------------
+-- 12. GENERIC MEDICINES (Active Molecules & Clinical Entities)
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.generic_medicines (
+  id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  generic_name       TEXT NOT NULL,
+  description        TEXT,
+  category           TEXT,
+  how_to_take        TEXT,
+  side_effects       TEXT,
+  warnings           TEXT,
+  storage_conditions TEXT,
+  contraindications  TEXT,
+  dosage_forms       TEXT[],
+  created_at         TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE public.generic_medicines ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "generic_medicines_public_read" ON public.generic_medicines;
+CREATE POLICY "generic_medicines_public_read" ON public.generic_medicines
+  FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "generic_medicines_auth_insert" ON public.generic_medicines;
+CREATE POLICY "generic_medicines_auth_insert" ON public.generic_medicines
+  FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+
+CREATE INDEX IF NOT EXISTS idx_generic_medicines_name ON public.generic_medicines(generic_name);
+CREATE INDEX IF NOT EXISTS idx_generic_medicines_category ON public.generic_medicines(category);
+
+-- ------------------------------------------------------------
+-- 13. MEDICINE PRODUCTS (Commercial Brand Preparations)
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.medicine_products (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  generic_id   UUID REFERENCES public.generic_medicines(id) ON DELETE SET NULL,
+  brand_name   TEXT NOT NULL,
+  strength     TEXT NOT NULL,
+  dosage_form  TEXT NOT NULL,
+  pack_size    TEXT,
+  manufacturer TEXT,
+  created_at   TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE public.medicine_products ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "medicine_products_public_read" ON public.medicine_products;
+CREATE POLICY "medicine_products_public_read" ON public.medicine_products
+  FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "medicine_products_auth_insert" ON public.medicine_products;
+CREATE POLICY "medicine_products_auth_insert" ON public.medicine_products
+  FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+
+CREATE INDEX IF NOT EXISTS idx_medicine_products_brand ON public.medicine_products(brand_name);
+CREATE INDEX IF NOT EXISTS idx_medicine_products_generic_id ON public.medicine_products(generic_id);
+
+

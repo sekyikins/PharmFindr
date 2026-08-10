@@ -23,6 +23,7 @@ import { Header } from '@/components/ui/Header';
 import { toast } from '@/context/ToastContext';
 import { useAuthStore } from '@/store/authStore';
 import { supabase } from '@/lib/supabase';
+import { useHardwareBack } from '@/hooks/useHardwareBack';
 
 type FeedbackType = 'General' | 'Bug Report' | 'Feature Request' | 'Pharmacy Data';
 
@@ -37,6 +38,15 @@ export default function SendFeedbackScreen() {
   const router = useRouter();
   const { theme, primaryColor } = useThemeContext();
   const { user, profile } = useAuthStore();
+
+  useHardwareBack(() => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.navigate('/(patient)/help-feedback');
+    }
+    return true;
+  });
 
   const [category, setCategory] = useState<FeedbackType>('General');
   const [rating, setRating] = useState<number>(5);

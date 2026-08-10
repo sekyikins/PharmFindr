@@ -30,12 +30,14 @@ import AppBottomSheet from '@/components/ui/AppBottomSheet';
 import AvatarPickerSheet from '@/components/ui/AvatarPickerSheet';
 import { toast } from '@/context/ToastContext';
 import { Header } from '@/components/ui/Header';
+import { useHardwareBack } from '@/hooks/useHardwareBack';
 import {
   getBiometricsPreference,
   setBiometricsPreference,
   getBiometricType,
   isBiometricsSupported,
   isBiometricsEnrolled,
+  authenticateBiometrics,
 } from '@/lib/biometrics';
 
 export default function EditAccount() {
@@ -107,19 +109,16 @@ export default function EditAccount() {
     } else {
       router.navigate('/(patient)/(tabs)/profile');
     }
+    return true;
   };
 
-  useEffect(() => {
-    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (avatarModalVisible) {
-        setAvatarModalVisible(false);
-        return true;
-      }
-      handleGoBack();
+  useHardwareBack(() => {
+    if (avatarModalVisible) {
+      setAvatarModalVisible(false);
       return true;
-    });
-    return () => sub.remove();
-  }, [avatarModalVisible]);
+    }
+    return handleGoBack();
+  });
 
   useEffect(() => {
     const initBio = async () => {
@@ -141,15 +140,28 @@ export default function EditAccount() {
         await setBiometricsPreference(false);
         Alert.alert(
           'Biometrics Not Set Up',
-          `Your device does not have ${biometricType} set up. Please enable Face ID, Touch ID, or fingerprint security in your device system settings first.`,
+          `Your device does not have ${biometricType} set up. Please enable ${biometricType} in your device system settings first.`,
           [{ text: 'OK', style: 'default' }]
         );
+        return;
+      }
+
+      // Prompt biometric authentication confirmation before enabling
+      const confirmed = await authenticateBiometrics(`Confirm your ${biometricType} to enable biometric lock`);
+      if (!confirmed) {
+        setBiometricsEnabled(false);
+        await setBiometricsPreference(false);
         return;
       }
     }
 
     setBiometricsEnabled(val);
     await setBiometricsPreference(val);
+    if (val) {
+      toast.success('Biometric Lock Enabled', `PharmFindr is now secured with ${biometricType}.`);
+    } else {
+      toast.info('Biometric Lock Disabled', 'Biometric security lock has been turned off.');
+    }
   };
 
   useEffect(() => {
@@ -425,7 +437,7 @@ export default function EditAccount() {
               <Ionicons name="finger-print-outline" size={20} color={primaryColor} />
             </View>
             <View style={{ flex: 1, paddingHorizontal: 12 }}>
-              <Text style={[styles.securityTitle, { color: theme.text.primary }]}>{biometricType} Lock</Text>
+              <Text style={[styles.securityTitle, { color: theme.text.primary }]}>Use Biometrics</Text>
               <Text style={[styles.securitySub, { color: theme.textMuted }]}>Require {biometricType} on app launch</Text>
             </View>
             <Switch
@@ -611,7 +623,7 @@ export default function EditAccount() {
               onPress={handleChangePasswordSubmit}
               disabled={changingPassword}
             >
-              {changingPassword ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.confirmPasswordText}>Update Password</Text>}
+              {changingPassword ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.confirmPasswordText}>Update</Text>}
             </Pressable>
           </View>
         </View>

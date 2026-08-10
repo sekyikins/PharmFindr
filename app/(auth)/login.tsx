@@ -399,10 +399,7 @@ export default function Login() {
               ) : (
                 <>
                   <View style={{ alignItems: 'center', marginBottom: 12 }}>
-                    <Text style={styles.label}>ENTER 6-DIGIT SMS CODE</Text>
-                    <Text style={{ fontSize: 13, color: COLORS.textMuted, textAlign: 'center', marginTop: 4 }}>
-                      Sent via SMS to <Text style={{ fontFamily: 'Inter-Bold', color: COLORS.surfaceDark }}>{phone}</Text>
-                    </Text>
+                    <Text style={styles.label}>ENTER THE 6-DIGIT SMS CODE</Text>
                   </View>
 
                   <OtpInput

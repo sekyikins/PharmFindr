@@ -46,3 +46,6 @@ yarn-error.*
 
 # Test data
 *.mjs
+
+# Scripts
+scripts/

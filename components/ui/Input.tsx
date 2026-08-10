@@ -47,7 +47,7 @@ const styles = StyleSheet.create({
     marginVertical: SPACING.sm
   },
   label: {
-    fontSize: FONT_SIZE.xs,
+    fontSize: FONT_SIZE.sm,
     fontFamily: 'Inter-Bold',
     textTransform: 'uppercase',
     letterSpacing: 0.5,

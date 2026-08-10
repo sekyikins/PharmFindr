@@ -1,5 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import type { PrescriptionMedicine } from '@/types/prescription';
+import { supabase } from '@/lib/supabase';
 
 const GEMINI_API_KEY = (process.env.EXPO_PUBLIC_GEMINI_API_KEY || '').trim();
 
@@ -57,6 +58,78 @@ export async function askGemini(
   return 'I am currently unable to process your request. Please check your Gemini API key configuration in .env.';
 }
 
+/**
+ * Cross-references raw OCR extractions against official Supabase medicine_products
+ * and generic_medicines tables to verify and canonicalize medical entities.
+ */
+async function validateAndEnrichPrescriptionMedicines(
+  rawList: PrescriptionMedicine[]
+): Promise<PrescriptionMedicine[]> {
+  if (!rawList || rawList.length === 0) return [];
+
+  const verifiedList: PrescriptionMedicine[] = [];
+
+  for (const item of rawList) {
+    const medName = item.name?.trim();
+    const genericName = item.genericName?.trim() || medName;
+
+    if (!medName && !genericName) continue;
+
+    try {
+      const [{ data: prodMatches }, { data: genMatches }] = await Promise.all([
+        supabase
+          .from('medicine_products')
+          .select(`
+            id,
+            brand_name,
+            strength,
+            dosage_form,
+            generic_medicines (
+              id,
+              generic_name
+            )
+          `)
+          .or(`brand_name.ilike.%${medName}%,brand_name.ilike.%${genericName}%`)
+          .limit(1),
+        supabase
+          .from('generic_medicines')
+          .select('id, generic_name, dosage_forms')
+          .or(`generic_name.ilike.%${genericName}%,generic_name.ilike.%${medName}%`)
+          .limit(1),
+      ]);
+
+      if (prodMatches && prodMatches.length > 0) {
+        const prod = prodMatches[0];
+        const gen = Array.isArray(prod.generic_medicines) ? prod.generic_medicines[0] : prod.generic_medicines;
+        verifiedList.push({
+          ...item,
+          name: prod.brand_name || item.name,
+          genericName: gen?.generic_name || item.genericName || prod.brand_name,
+          strength: item.strength || prod.strength || 'Standard Dosage',
+          confidence: Math.max(item.confidence || 85, 95),
+        });
+      } else if (genMatches && genMatches.length > 0) {
+        const gen = genMatches[0];
+        verifiedList.push({
+          ...item,
+          genericName: gen.generic_name,
+          confidence: Math.max(item.confidence || 80, 90),
+        });
+      } else {
+        // Retain candidate if confidence is acceptable
+        if ((item.confidence ?? 70) >= 40) {
+          verifiedList.push(item);
+        }
+      }
+    } catch (dbErr: any) {
+      console.warn('Post-OCR database validation warning:', dbErr.message);
+      verifiedList.push(item);
+    }
+  }
+
+  return verifiedList;
+}
+
 export async function parsePrescriptionImage(
   base64Image: string,
   mimeType: string = 'image/jpeg'
@@ -67,40 +140,31 @@ export async function parsePrescriptionImage(
   }
 
   const prompt = `
-You are an expert pharmacist and medical prescription interpreter.
+You are an expert pharmacist and medical prescription OCR interpreter.
 
-Analyze the attached handwritten or printed prescription.
+Analyze the attached handwritten or printed prescription image.
 
-Extract every prescribed medicine.
+Extract every verified prescribed medicine.
 
 For each medicine return:
-
-- name (the brand or printed name on paper, e.g. 'Panadol', 'Augmentin')
-- genericName (the canonical active ingredient, e.g. 'Paracetamol', 'Amoxicillin / Clavulanic Acid')
+- name (the standard, correctly spelled brand or printed medicine name, e.g. 'Panadol', 'Augmentin')
+- genericName (the canonical active pharmaceutical ingredient, e.g. 'Paracetamol', 'Amoxicillin / Clavulanic Acid')
 - strength (e.g. '500 mg')
-- dosage
-- frequency
-- duration
-- route
-- instructions
+- dosage (e.g. '1 tablet', '5 mL')
+- frequency (e.g. 'Twice daily', 'Every 8 hours')
+- duration (e.g. '5 days')
+- route (e.g. 'Oral')
+- instructions (e.g. 'Take after meals')
 - targetDemographic (optional: e.g. "Infant / Pediatric", "Adult", "Geriatric", "Neonatal")
-- missingParametersNote (optional: e.g. "Infant/Pediatric formulation detected — body weight and exact age required for precise dosing")
-- confidence
+- confidence (integer from 0 to 100)
 
-Rules:
-
-- Return ONLY JSON.
-- Never invent medicines.
-- Identify the underlying active ingredient (genericName) for both brand names and generic names.
-- Identify if the drug formulation is specifically for infants, children, adults, or elderly (set targetDemographic).
-- If a drug (e.g., infant drops, pediatric syrups, weight-based antibiotics) requires age, weight, or allergy checks for safe dosing, provide a helpful note in missingParametersNote advising the user to fill out their Health Profile parameters.
-- Expand medical abbreviations. (e.g., 'tab' → 'tablet', 'bid' → 'twice daily', 'PCD' → 'Paracetamol', etc.)
-- Correct obvious spelling mistakes.
-- If unreadable, return null.
-- Confidence is an integer from 0 to 100.
+CRITICAL RULES:
+1. ALWAYS output a standard, correctly spelled, real drug name in 'name' and 'genericName', even if the doctor or prescription spelt it incorrectly or abbreviated it.
+2. IF AN ITEM IS AN UNKNOWN DRUG, illegible scribble, non-medication, or cannot be identified with high confidence as a real pharmaceutical medicine, DO NOT output anything for that specific item. Completely omit unknown or unverified items from the output array.
+3. Return ONLY a valid JSON array of objects. Do not include markdown code blocks or explanatory text.
+4. Expand standard medical abbreviations (e.g., 'tab' → 'Tablet', 'bid' / 'bd' → 'Twice daily', 'tid' / 'tds' → 'Three times daily', 'qid' / 'qds' → 'Four times daily', 'po' → 'Oral', 'prn' → 'As needed', 'PCD' → 'Paracetamol').
 
 Example:
-
 [
   {
     "name": "Augmentin Drops",
@@ -112,8 +176,7 @@ Example:
     "route": "Oral",
     "instructions": "Administer 0.5 mL 8-hourly after feeding",
     "targetDemographic": "Infant / Pediatric",
-    "missingParametersNote": "Infant formulation detected — please ensure infant weight and exact age are recorded in your Health Profile for safe dosing verification.",
-    "confidence": 94
+    "confidence": 95
   }
 ]
 `;
@@ -151,10 +214,12 @@ Example:
       return [];
     }
 
+    let parsed: PrescriptionMedicine[] = [];
+
     // Try direct parse first (responseMimeType should give clean JSON)
     try {
-      const parsed = JSON.parse(rawText);
-      return Array.isArray(parsed) ? parsed : [];
+      const jsonRes = JSON.parse(rawText);
+      parsed = Array.isArray(jsonRes) ? jsonRes : [];
     } catch {
       // Fallback: strip markdown fences in case responseMimeType was ignored
       const cleaned = rawText
@@ -163,16 +228,20 @@ Example:
         .trim();
 
       try {
-        const parsed = JSON.parse(cleaned);
-        return Array.isArray(parsed) ? parsed : [];
+        const jsonRes = JSON.parse(cleaned);
+        parsed = Array.isArray(jsonRes) ? jsonRes : [];
       } catch (parseErr: any) {
         console.warn('Could not parse Gemini response as JSON:', parseErr.message);
         console.warn('Raw response (first 500 chars):', rawText.substring(0, 500));
         return [];
       }
     }
+
+    // Post-OCR database verification & normalization against generic_medicines & medicine_products
+    return await validateAndEnrichPrescriptionMedicines(parsed);
   } catch (error: any) {
     console.warn(`Gemini prescription analysis failed:`, error?.message || error);
     return [];
   }
 }
+

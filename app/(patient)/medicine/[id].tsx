@@ -14,8 +14,9 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import Svg, { Path } from 'react-native-svg';
 import { useThemeContext } from '@/hooks/useThemeContext';
 import { COLORS,  FONT_SIZE, RADIUS, SPACING  } from '@/styles/theme';
-import { getMedicineByIdOrName, type MedicineItem } from '@/lib/medicineCatalogue';
+import { getMedicineByIdOrName, fetchMedicineDetails, type MedicineItem } from '@/lib/medicineCatalogue';
 import { useSavedMedicinesStore } from '@/store/savedMedicinesStore';
+import { useHardwareBack } from '@/hooks/useHardwareBack';
 
 const { width } = Dimensions.get('window');
 
@@ -30,11 +31,36 @@ export default function MedicineDetailsScreen() {
   const [medicine, setMedicine] = useState<MedicineItem>(getMedicineByIdOrName(lookupKey));
   const [saved, setSaved] = useState(false);
 
+  // Wire hardware back button
+  useHardwareBack(() => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.navigate('/(patient)/(tabs)/search');
+    }
+    return true;
+  });
+
   useEffect(() => {
     loadSavedMedicines();
-    const item = getMedicineByIdOrName(lookupKey);
-    setMedicine(item);
-    setSaved(isSaved(item.id));
+    let cancelled = false;
+
+    // 1. Initial instant load from synchronous lookup
+    const initialItem = getMedicineByIdOrName(lookupKey);
+    setMedicine(initialItem);
+    setSaved(isSaved(initialItem.id));
+
+    // 2. Fetch live enriched details from Supabase database
+    fetchMedicineDetails(lookupKey).then((fullItem) => {
+      if (!cancelled && fullItem) {
+        setMedicine(fullItem);
+        setSaved(isSaved(fullItem.id));
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, [lookupKey]);
 
   const handleToggleSave = async () => {
@@ -163,6 +189,9 @@ export default function MedicineDetailsScreen() {
         <InfoPanel title="How to Take" content={medicine.howToTake} icon="checkmark-circle-outline" theme={theme} primaryColor={primaryColor} />
         <InfoPanel title="Common Side Effects" content={medicine.sideEffects} icon="warning-outline" theme={theme} primaryColor={primaryColor} />
         <InfoPanel title="Warnings & Precautions" content={medicine.warnings} icon="alert-circle-outline" theme={theme} primaryColor={primaryColor} />
+        {medicine.contraindications ? (
+          <InfoPanel title="Contraindications" content={medicine.contraindications} icon="close-circle-outline" theme={theme} primaryColor={COLORS.error} />
+        ) : null}
         {medicine.storage ? (
           <InfoPanel title="Storage Conditions" content={medicine.storage} icon="thermometer-outline" theme={theme} primaryColor={primaryColor} />
         ) : null}
@@ -320,10 +349,10 @@ const styles = StyleSheet.create({
     borderWidth: 1
   },
   cardLabel: {
-    fontSize: 10, fontFamily: 'Inter-Bold', letterSpacing: 0.5, marginBottom: 4
+    fontSize: 9, fontFamily: 'Inter-Bold', letterSpacing: 0.5, marginBottom: 4
   },
   cardValue: {
-    fontSize: 13, fontFamily: 'Inter-SemiBold', textAlign: 'center'
+    fontSize: 12, fontFamily: 'Inter-SemiBold', textAlign: 'center'
   },
 
   infoBanner: {

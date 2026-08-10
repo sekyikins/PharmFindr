@@ -19,7 +19,8 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as XLSX from 'xlsx';
 import { supabase } from '@/lib/supabase';
-import { COLORS,  FONT_SIZE, RADIUS, SPACING  } from '@/styles/theme';
+import { COLORS, FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
+import { useHardwareBack } from '@/hooks/useHardwareBack';
 
 const PHARMACY_GREEN = '#10b981';
 
@@ -27,6 +28,15 @@ export default function UploadInventory() {
   const router = useRouter();
   const { user } = useAuthStore();
   const { theme } = useThemeContext();
+
+  useHardwareBack(() => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.navigate('/(pharmacy)/(tabs)/inventory');
+    }
+    return true;
+  });
 
   const [loading, setLoading] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);

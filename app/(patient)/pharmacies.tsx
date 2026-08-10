@@ -23,6 +23,7 @@ import { usePharmacyStore } from '@/store/pharmacyStore';
 import AppBottomSheet from '@/components/ui/AppBottomSheet';
 import { Header } from '@/components/ui/Header';
 import { supabase } from '@/lib/supabase';
+import { useHardwareBack } from '@/hooks/useHardwareBack';
 
 export default function Pharmacies() {
   const router = useRouter();
@@ -33,6 +34,19 @@ export default function Pharmacies() {
 
   const { theme, primaryColor } = useThemeContext();
   const [searchQuery, setSearchQuery] = useState('');
+
+  useHardwareBack(() => {
+    if (selectedPharmacy) {
+      dismissCard();
+      return true;
+    }
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.navigate('/(patient)/(tabs)/home');
+    }
+    return true;
+  });
 
   // Seed from shared store (must come before userCoords state so we can use it as initial value)
   const {
@@ -54,6 +68,7 @@ export default function Pharmacies() {
   const [selectedPharmacy, setSelectedPharmacy] = useState<OsmPharmacy | null>(null);
 
   const [loading, setLoading] = useState(storePharmacies.length === 0);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const stopLoadingSheetRef = useRef<any>(null);
   const filterSheetRef = useRef<any>(null);
@@ -263,6 +278,7 @@ export default function Pharmacies() {
         stopLoadingSheetRef.current?.expand?.();
       }
     } else {
+      setRefreshKey((prev) => prev + 1);
       loadPharmacies();
     }
   };
@@ -321,6 +337,17 @@ export default function Pharmacies() {
     });
   };
 
+  const handleLocateMe = useCallback(async () => {
+    try {
+      const fresh = await getCurrentLocation();
+      setUserCoords(fresh);
+      storeSetCoords(fresh);
+      setRefreshKey((prev) => prev + 1);
+    } catch (err) {
+      console.warn('Could not retrieve current location:', err);
+    }
+  }, [storeSetCoords]);
+
   const hasPhone = !!selectedPharmacy?.phone && selectedPharmacy.phone !== 'N/A';
   const hasDrugQuery = !!routeQuery.trim();
 
@@ -333,6 +360,8 @@ export default function Pharmacies() {
         userCoords={userCoords}
         markers={filtered}
         selectedId={selectedPharmacy?.id}
+        refreshKey={refreshKey}
+        onPressLocate={handleLocateMe}
         onSelectMarker={(id) => {
           const found = filtered.find((p) => p.id === id);
           if (found) setSelectedPharmacy(found);
@@ -520,12 +549,21 @@ export default function Pharmacies() {
 
             {/* Drug Stock status check */}
             {hasDrugQuery ? (
-              <View style={[styles.stockCheckBanner, { backgroundColor: theme.successBg }]}>
-                <Ionicons name="checkmark-circle" size={16} color={theme.success} />
-                <Text style={[styles.stockCheckText, { color: theme.successText }]}>
-                  Carries "{routeQuery}" or equivalent dosage
-                </Text>
-              </View>
+              selectedPharmacy.isRegistered ? (
+                <View style={[styles.stockCheckBanner, { backgroundColor: theme.successBg }]}>
+                  <Ionicons name="checkmark-circle" size={16} color={theme.success} />
+                  <Text style={[styles.stockCheckText, { color: theme.successText }]}>
+                    Carries "{routeQuery}" or equivalent dosage
+                  </Text>
+                </View>
+              ) : (
+                <View style={[styles.stockCheckBanner, { backgroundColor: '#fef3c7', borderColor: '#fde68a', borderWidth: 1 }]}>
+                  <Ionicons name="information-circle-outline" size={16} color="#b45309" />
+                  <Text style={[styles.stockCheckText, { color: '#92400e' }]}>
+                    Availability unknown — pharmacy not registered on PharmFindr
+                  </Text>
+                </View>
+              )
             ) : null}
 
             {/* Action Buttons Row */}

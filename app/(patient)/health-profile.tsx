@@ -22,6 +22,8 @@ import { COLORS,  FONT_SIZE, RADIUS, SPACING  } from '@/styles/theme';
 import AppBottomSheet from '@/components/ui/AppBottomSheet';
 import { Header } from '@/components/ui/Header';
 import { toast } from '@/context/ToastContext';
+import { useHardwareBack } from '@/hooks/useHardwareBack';
+import { supabase } from '@/lib/supabase';
 
 // Master medical suggestion databases for dynamic autocomplete
 const ALLERGIES_DB = [
@@ -59,24 +61,6 @@ const CONDITIONS_DB = [
   'Peptic Ulcer',
 ];
 
-const MEDICATIONS_DB = [
-  'Metformin',
-  'Omeprazole',
-  'Lisinopril',
-  'Amlodipine',
-  'Atorvastatin',
-  'Coartem (Artemether/Lumefantrine)',
-  'Losartan',
-  'Amoxicillin',
-  'Paracetamol',
-  'Hydrochlorothiazide',
-  'Simvastatin',
-  'Levothyroxine',
-  'Ibuprofen',
-  'Ciprofloxacin',
-  'Augmentin',
-];
-
 export default function HealthProfile() {
   const router = useRouter();
   const { theme, primaryColor } = useThemeContext();
@@ -88,15 +72,10 @@ export default function HealthProfile() {
     } else {
       router.navigate('/(patient)/(tabs)/profile');
     }
+    return true;
   };
 
-  useEffect(() => {
-    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      handleGoBack();
-      return true;
-    });
-    return () => sub.remove();
-  }, []);
+  useHardwareBack(handleGoBack);
 
   // Biometrics
   const [age, setAge] = useState('');
@@ -235,13 +214,56 @@ export default function HealthProfile() {
       )
     : [];
 
-  const medicationSuggestions = customMedication.trim()
-    ? MEDICATIONS_DB.filter(
-        (item) =>
-          item.toLowerCase().includes(customMedication.trim().toLowerCase()) &&
-          !medicationsList.includes(item)
-      )
-    : [];
+  const [medicationSuggestions, setMedicationSuggestions] = useState<string[]>([]);
+
+  useEffect(() => {
+    const trimmed = customMedication.trim();
+    if (!trimmed) {
+      setMedicationSuggestions([]);
+      return;
+    }
+
+    let isCancelled = false;
+    const searchTimer = setTimeout(async () => {
+      try {
+        const [{ data: genData }, { data: prodData }] = await Promise.all([
+          supabase
+            .from('generic_medicines')
+            .select('generic_name')
+            .ilike('generic_name', `%${trimmed}%`)
+            .limit(6),
+          supabase
+            .from('medicine_products')
+            .select('brand_name')
+            .ilike('brand_name', `%${trimmed}%`)
+            .limit(6),
+        ]);
+
+        if (isCancelled) return;
+
+        const names = new Set<string>();
+        (genData || []).forEach((g: any) => {
+          if (g.generic_name && !medicationsList.includes(g.generic_name)) {
+            names.add(g.generic_name);
+          }
+        });
+        (prodData || []).forEach((p: any) => {
+          if (p.brand_name && !medicationsList.includes(p.brand_name)) {
+            names.add(p.brand_name);
+          }
+        });
+
+        setMedicationSuggestions(Array.from(names).slice(0, 8));
+      } catch (err) {
+        console.warn('Error fetching dynamic medication suggestions:', err);
+      }
+    }, 250);
+
+    return () => {
+      isCancelled = true;
+      clearTimeout(searchTimer);
+    };
+  }, [customMedication, medicationsList]);
 
   const handleSave = async () => {
     setSaving(true);

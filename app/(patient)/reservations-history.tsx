@@ -11,16 +11,26 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useThemeContext } from '@/hooks/useThemeContext';
-import { COLORS,  FONT_SIZE, RADIUS, SPACING  } from '@/styles/theme';
+import { COLORS, FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
 import Skeleton from '@/components/ui/Skeleton';
 import { Header } from '@/components/ui/Header';
+import { useHardwareBack } from '@/hooks/useHardwareBack';
 
 export default function PatientReservationsHistory() {
   const router = useRouter();
   const { theme, primaryColor } = useThemeContext();
   const { user } = useAuthStore();
+
+  useHardwareBack(() => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.navigate('/(patient)/(tabs)/profile');
+    }
+    return true;
+  });
 
   const [reservations, setReservations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -96,7 +106,7 @@ export default function PatientReservationsHistory() {
 
     return (
       <Pressable
-        style={({pressed})=>[styles.card, pressed && { opacity: 0.5 }, { backgroundColor: theme.card, borderColor: theme.border }]}
+        style={({ pressed }) => [styles.card, pressed && { opacity: 0.5 }, { backgroundColor: theme.card, borderColor: theme.border }]}
         onPress={() => router.push(`/(patient)/reservation/${item.id}`)}
       >
         <View style={styles.cardHeader}>
@@ -116,7 +126,7 @@ export default function PatientReservationsHistory() {
 
         <View style={styles.cardFooter}>
           <Text style={[styles.priceText, { color: primaryColor }]}>
-            {item.total_cost > 0 ? `$${Number(item.total_cost).toFixed(2)}` : 'Est. Price Available'}
+            {item.total_cost > 0 ? `GH₵ ${Number(item.total_cost).toFixed(2)}` : 'Est. Price Available'}
           </Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
             <Text style={{ fontSize: FONT_SIZE.sm, color: primaryColor, fontFamily: 'Inter-SemiBold' }}>View Details</Text>
@@ -143,14 +153,18 @@ export default function PatientReservationsHistory() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
       {/* Header */}
-      <Header title="My Reservations" showBack onBack={() => router.canGoBack() ? router.back() : router.navigate('/(patient)/(tabs)/profile')} />
+      <Header
+        title="My Reservations"
+        showBack
+        onBack={() => (router.canGoBack() ? router.back() : router.navigate('/(patient)/(tabs)/profile'))}
+      />
 
       {/* Filter Chips */}
       <View style={[styles.filterRow, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
         {(['all', 'pending', 'accepted', 'collected'] as const).map((filter) => (
           <Pressable
             key={filter}
-            style={({pressed})=>[
+            style={({ pressed }) => [
               styles.filterChip,
               pressed && { opacity: 0.5 },
               { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
@@ -202,7 +216,7 @@ export default function PatientReservationsHistory() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1
+    flex: 1,
   },
   header: {
     flexDirection: 'row',
@@ -210,81 +224,107 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: SPACING.xl,
     paddingVertical: SPACING.md,
-    borderBottomWidth: 1
+    borderBottomWidth: 1,
   },
   navBtn: {
     width: 36,
     height: 36,
     borderRadius: RADIUS.pill,
     justifyContent: 'center',
-    alignItems: 'center'
+    alignItems: 'center',
   },
   headerTitle: {
-    fontSize: FONT_SIZE.xxl, fontFamily: 'Inter-Bold'
+    fontSize: FONT_SIZE.xxl,
+    fontFamily: 'Inter-Bold',
   },
   filterRow: {
     flexDirection: 'row',
     paddingHorizontal: SPACING.lg,
     paddingVertical: SPACING.sm,
     gap: 8,
-    borderBottomWidth: 1
+    borderBottomWidth: 1,
   },
   filterChip: {
     flex: 1,
     alignItems: 'center',
     paddingVertical: 6,
     borderRadius: RADIUS.pill,
-    borderWidth: 1
+    borderWidth: 1,
   },
   filterText: {
-    fontSize: FONT_SIZE.sm, fontFamily: 'Inter-SemiBold'
+    fontSize: FONT_SIZE.sm,
+    fontFamily: 'Inter-SemiBold',
   },
   list: {
-    padding: SPACING.lg, gap: SPACING.md
+    padding: SPACING.lg,
+    gap: SPACING.md,
   },
   skeletonContainer: {
-    padding: SPACING.lg, gap: SPACING.md
+    padding: SPACING.lg,
+    gap: SPACING.md,
   },
   card: {
     borderRadius: RADIUS.xl,
     padding: SPACING.lg,
-    borderWidth: 1
+    borderWidth: 1,
   },
   cardHeader: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 6,
   },
   pharmacyName: {
-    fontSize: FONT_SIZE.xl, fontFamily: 'Inter-Bold'
+    fontSize: FONT_SIZE.xl,
+    fontFamily: 'Inter-Bold',
   },
   dateText: {
     fontFamily: 'Inter-Regular',
-     fontSize: FONT_SIZE.sm, marginTop: 2
+    fontSize: FONT_SIZE.sm,
+    marginTop: 2,
   },
   badge: {
-    flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 3, borderRadius: RADIUS.pill
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: RADIUS.pill,
   },
   badgeText: {
-    fontSize: FONT_SIZE.sm, fontFamily: 'Inter-SemiBold'
+    fontSize: FONT_SIZE.sm,
+    fontFamily: 'Inter-SemiBold',
   },
   medsText: {
     fontFamily: 'Inter-Regular',
-     fontSize: FONT_SIZE.lg, marginBottom: 12
+    fontSize: FONT_SIZE.lg,
+    marginBottom: 12,
   },
   cardFooter: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: COLORS.borderSubtle
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: COLORS.borderSubtle,
   },
   priceText: {
-    fontSize: FONT_SIZE.lg, fontFamily: 'Inter-Bold'
+    fontSize: FONT_SIZE.lg,
+    fontFamily: 'Inter-Bold',
   },
   emptyContainer: {
-    alignItems: 'center', justifyContent: 'center', paddingVertical: 60, gap: 8
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+    gap: 8,
   },
   emptyTitle: {
-    fontSize: FONT_SIZE.xl, fontFamily: 'Inter-Bold'
+    fontSize: FONT_SIZE.xl,
+    fontFamily: 'Inter-Bold',
   },
   emptySub: {
     fontFamily: 'Inter-Regular',
-     fontSize: FONT_SIZE.lg, textAlign: 'center', paddingHorizontal: 32
+    fontSize: FONT_SIZE.lg,
+    textAlign: 'center',
+    paddingHorizontal: 32,
   },
-
 });

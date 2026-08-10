@@ -19,6 +19,7 @@ import { COLORS,  FONT_SIZE, RADIUS, SPACING  } from '@/styles/theme';
 import { Header, HeaderIconBtn } from '@/components/ui/Header';
 import { TERMS_OF_SERVICE } from '@/constants/termsOfService';
 import { PRIVACY_POLICY } from '@/constants/privacyPolicy';
+import { useHardwareBack } from '@/hooks/useHardwareBack';
 
 interface FaqItem {
   id: string;
@@ -71,6 +72,15 @@ const FAQ_CATEGORIES = ['All', 'Reservations', 'Prescriptions', 'Pharmacies', 'A
 export default function HelpAndFeedback() {
   const router = useRouter();
   const { theme, primaryColor } = useThemeContext();
+
+  useHardwareBack(() => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.navigate('/(patient)/(tabs)/profile');
+    }
+    return true;
+  });
 
   const [faqSearchQuery, setFaqSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');

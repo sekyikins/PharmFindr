@@ -17,9 +17,9 @@ import { parsePrescriptionImage } from '@/lib/gemini';
 import { Ionicons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useThemeContext } from '@/hooks/useThemeContext';
-import { COLORS,  FONT_SIZE, RADIUS, SPACING  } from '@/styles/theme';
-
+import { COLORS, FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
 import { logAuditEvent } from '@/lib/auditLogger';
+import { useHardwareBack } from '@/hooks/useHardwareBack';
 
 const { width } = Dimensions.get('window');
 
@@ -30,6 +30,15 @@ export default function Scan() {
   const [flash, setFlash] = useState<boolean>(false);
   const { theme, primaryColor } = useThemeContext();
   const scanAnimation = useRef(new Animated.Value(0)).current;
+
+  useHardwareBack(() => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.navigate('/(patient)/(tabs)/home');
+    }
+    return true;
+  });
   
   const cameraRef = useRef<any>(null);
 

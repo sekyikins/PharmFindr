@@ -330,12 +330,7 @@ export default function Inventory() {
         title="Inventory"
         right={
           <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
-            <Pressable
-              style={({ pressed }) => [styles.fabSmall, pressed && { opacity: 0.8 }, { backgroundColor: COLORS.pharmacyPrimary }]}
-              onPress={() => router.push('/(pharmacy)/add-medicine')}
-            >
-              <Ionicons name="add" size={22} color={COLORS.white} />
-            </Pressable>
+            
             <Pressable
               style={({ pressed }) => [styles.uploadBtn, pressed && { opacity: 0.5 }, { borderColor: theme.border }]}
               onPress={() => router.push('/(pharmacy)/upload-inventory')}
@@ -343,6 +338,14 @@ export default function Inventory() {
               <Ionicons name="cloud-upload-outline" size={18} color={theme.textMuted} />
             </Pressable>
           </View>
+        }
+        left={
+          <Pressable
+            style={({ pressed }) => [styles.fabSmall, pressed && { opacity: 0.8 }, { backgroundColor: COLORS.pharmacyPrimary }]}
+            onPress={() => router.push('/(pharmacy)/add-medicine')}
+          >
+            <Ionicons name="add" size={22} color={COLORS.white} />
+          </Pressable>
         }
       />
       {/* Search Bar & Filter Chips */}

@@ -1,8 +1,9 @@
 import { COLORS } from '@/styles/theme';
 import React, { useEffect, useRef, useCallback } from 'react';
-import { StyleSheet, View, Text } from 'react-native';
+import { StyleSheet, View, Text, Pressable } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE, EdgePadding } from 'react-native-maps';
 import type { MapMarker } from 'react-native-maps';
+import { Ionicons } from '@expo/vector-icons';
 
 export interface MarkerData {
   id: string;
@@ -29,6 +30,8 @@ interface FullMapComponentProps {
   routeCoords?: { latitude: number; longitude: number }[];
   mapPadding?: EdgePadding;
   showLegend?: boolean;
+  refreshKey?: number;
+  onPressLocate?: () => void;
 }
 
 export function getPinColor(m: MarkerData, isSelected: boolean): string {
@@ -47,6 +50,8 @@ export default function FullMapComponent({
   routeCoords,
   mapPadding = { top: 90, right: 16, bottom: 140, left: 16 },
   showLegend = true,
+  refreshKey,
+  onPressLocate,
 }: FullMapComponentProps) {
   const mapRef = useRef<MapView>(null);
   const markerRefs = useRef<Record<string, MapMarker | null>>({});
@@ -84,15 +89,37 @@ export default function FullMapComponent({
         );
       }
       setTimeout(() => markerRefs.current[selId!]?.showCallout?.(), 700);
-    } else if (coords && !hasCenteredRef.current) {
+    } else if (coords) {
       // No selection — center on user
       hasCenteredRef.current = true;
       mapRef.current.animateToRegion(
-        { latitude: coords.latitude, longitude: coords.longitude, latitudeDelta: 0.05, longitudeDelta: 0.05 },
-        400
+        { latitude: coords.latitude, longitude: coords.longitude, latitudeDelta: 0.035, longitudeDelta: 0.035 },
+        500
       );
     }
   }, []);
+
+  // Center camera directly on device GPS location when user taps the Locate button
+  const handleCenterOnUser = useCallback(() => {
+    userMovedMapRef.current = false;
+    hasCenteredRef.current = true;
+
+    if (userCoords && mapRef.current) {
+      mapRef.current.animateToRegion(
+        {
+          latitude: userCoords.latitude,
+          longitude: userCoords.longitude,
+          latitudeDelta: 0.025,
+          longitudeDelta: 0.025,
+        },
+        500
+      );
+    }
+
+    if (onPressLocate) {
+      onPressLocate();
+    }
+  }, [userCoords, onPressLocate]);
 
   // Detect user-initiated pan/zoom — suppress further auto-centering until next selection
   const handleRegionChangeComplete = useCallback((_region: any, details?: { isGesture?: boolean }) => {
@@ -120,6 +147,15 @@ export default function FullMapComponent({
     }
   }, [selectedId, markers]);
 
+  // Force re-centering when refreshKey changes (user manually tapped refresh)
+  useEffect(() => {
+    if (refreshKey !== undefined && refreshKey > 0) {
+      userMovedMapRef.current = false;
+      hasCenteredRef.current = false;
+      applyCamera(userCoords, selectedId, markers, true);
+    }
+  }, [refreshKey]);
+
   return (
     <View style={styles.container}>
       <MapView
@@ -130,7 +166,7 @@ export default function FullMapComponent({
         onMapReady={handleMapReady}
         onRegionChangeComplete={handleRegionChangeComplete}
         showsUserLocation
-        showsMyLocationButton
+        showsMyLocationButton={false}
         showsCompass
         mapPadding={mapPadding}
       >
@@ -174,6 +210,19 @@ export default function FullMapComponent({
         )}
       </MapView>
 
+      {/* Floating GPS My Location FAB Button */}
+      <Pressable
+        style={({ pressed }) => [
+          styles.locateFab,
+          pressed && { opacity: 0.8, transform: [{ scale: 0.94 }] },
+          { bottom: showLegend ? 64 : 20 },
+        ]}
+        onPress={handleCenterOnUser}
+        accessibilityLabel="Center map on my location"
+      >
+        <Ionicons name="locate" size={22} color={COLORS.patientPrimary} />
+      </Pressable>
+
       {/* Floating Map Legend Bar */}
       {showLegend && (
         <View style={styles.legendBar} pointerEvents="box-none">
@@ -209,14 +258,33 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    bottom: 0
+    bottom: 0,
   },
   map: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    bottom: 0
+    bottom: 0,
+  },
+  locateFab: {
+    position: 'absolute',
+    right: 16,
+    top: 150,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#ffffff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 5,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    zIndex: 15,
   },
   legendBar: {
     position: 'absolute',
@@ -232,22 +300,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
-    zIndex: 10
+    zIndex: 10,
   },
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4
+    gap: 4,
   },
   legendDot: {
     width: 8,
     height: 8,
-    borderRadius: 4
+    borderRadius: 4,
   },
   legendText: {
     fontSize: 10,
     fontFamily: 'Inter-SemiBold',
-    color: '#334155'
+    color: '#334155',
   },
-
 });

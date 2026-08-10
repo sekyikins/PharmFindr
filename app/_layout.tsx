@@ -3,8 +3,8 @@ import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect, useState } from 'react';
-import { Alert, StatusBar, View, Text as RNText, TextInput as RNTextInput, StyleSheet, Text, Pressable } from 'react-native';
+import { useEffect, useState, useRef } from 'react';
+import { Alert, StatusBar, View, TextInput as RNTextInput, StyleSheet, Text, Pressable, AppState, type AppStateStatus } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
@@ -20,51 +20,6 @@ import {
   authenticateBiometrics,
   getBiometricsPreference,
 } from '@/lib/biometrics';
-
-// Global font interceptor: Automatically applies Inter font family to all StyleSheet objects & Text/TextInput
-try {
-  (RNText as any).defaultProps = (RNText as any).defaultProps || {};
-  const existingTextStyle = (RNText as any).defaultProps.style;
-  (RNText as any).defaultProps.style = existingTextStyle
-    ? [{ fontFamily: 'Inter-Regular' }, existingTextStyle]
-    : { fontFamily: 'Inter-Regular' };
-} catch {}
-
-try {
-  (RNTextInput as any).defaultProps = (RNTextInput as any).defaultProps || {};
-  const existingInputStyle = (RNTextInput as any).defaultProps.style;
-  (RNTextInput as any).defaultProps.style = existingInputStyle
-    ? [{ fontFamily: 'Inter-Regular' }, existingInputStyle]
-    : { fontFamily: 'Inter-Regular' };
-} catch {}
-
-const originalStyleSheetCreate = StyleSheet.create;
-(StyleSheet as any).create = function (styles: any) {
-  if (!styles) return originalStyleSheetCreate(styles);
-  const patched: any = {};
-  for (const key of Object.keys(styles)) {
-    const styleObj = styles[key];
-    if (styleObj && typeof styleObj === 'object') {
-      const { fontWeight, fontFamily: existingFontFamily, ...restStyle } = styleObj;
-      let fontFamily = existingFontFamily;
-      if (!fontFamily) {
-        if (fontWeight === '700' || fontWeight === 'bold' || fontWeight === '800' || fontWeight === '900') {
-          fontFamily = 'Inter-Bold';
-        } else if (fontWeight === '600') {
-          fontFamily = 'Inter-SemiBold';
-        } else if (fontWeight === '500') {
-          fontFamily = 'Inter-Medium';
-        } else {
-          fontFamily = 'Inter-Regular';
-        }
-      }
-      patched[key] = { fontFamily, ...restStyle };
-    } else {
-      patched[key] = styleObj;
-    }
-  }
-  return originalStyleSheetCreate(patched);
-};
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -115,6 +70,7 @@ function RootLayoutNav() {
   const { user, securityNotice, clearSecurityNotice } = useAuthStore();
   const [isLocked, setIsLocked] = useState(false);
   const [biometricType, setBiometricType] = useState('Biometrics');
+  const lastBackgroundTimestamp = useRef<number | null>(null);
 
   useEffect(() => {
     if (user?.id) {
@@ -123,6 +79,35 @@ function RootLayoutNav() {
     } else {
       setIsLocked(false);
     }
+  }, [user?.id]);
+
+  // Handle auto-lock when app goes to background / screen turns off for >= 5 minutes (300,000 ms)
+  useEffect(() => {
+    const handleAppStateChange = async (nextState: AppStateStatus) => {
+      if (nextState === 'background' || nextState === 'inactive') {
+        lastBackgroundTimestamp.current = Date.now();
+      } else if (nextState === 'active') {
+        if (lastBackgroundTimestamp.current && user?.id) {
+          const elapsed = Date.now() - lastBackgroundTimestamp.current;
+          const FIVE_MINUTES_MS = 5 * 60 * 1000;
+          if (elapsed >= FIVE_MINUTES_MS) {
+            const enabled = await getBiometricsPreference();
+            if (enabled) {
+              const label = await getBiometricType();
+              setBiometricType(label);
+              setIsLocked(true);
+              triggerUnlock(label);
+            }
+          }
+        }
+        lastBackgroundTimestamp.current = null;
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    return () => {
+      subscription.remove();
+    };
   }, [user?.id]);
 
   const checkBiometricLock = async () => {
@@ -160,7 +145,7 @@ function RootLayoutNav() {
           <View style={{ flex: 1, backgroundColor: COLORS.surfaceDark, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
             <Ionicons name="lock-closed" size={64} color={COLORS.pharmacyPrimary} style={{ marginBottom: 16 }} />
             <Text style={{ color: COLORS.white, fontSize: 22, fontFamily: 'Inter-Bold', marginBottom: 8 }}>PharmFindr Locked</Text>
-            <Text style={{ color: COLORS.textDim, fontSize: 14, textAlign: 'center', marginBottom: 32 }}>
+            <Text style={{ color: COLORS.textDim, fontSize: 14, fontFamily: 'Inter-Bold', textAlign: 'center', marginBottom: 32 }}>
               Biometric authentication is required to access your medical records and active reservations.
             </Text>
             <Pressable

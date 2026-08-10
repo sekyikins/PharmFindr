@@ -352,7 +352,7 @@ export default function AIChat() {
             ]}
           >
             {/* Sidebar Header */}
-            <View style={[styles.sidebarHeader, { paddingTop: Math.max(insets.top, 16) + 8, borderBottomColor: theme.border }]}>
+            <View style={[styles.sidebarHeader, { paddingTop: Math.max(insets.top, 16), borderBottomColor: theme.border }]}>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.sidebarTitle, { color: theme.text.primary }]}>Consultations</Text>
                 <Text style={[styles.sidebarSub, { color: theme.textDim }]}>Clinical AI Chat Threads</Text>
@@ -619,7 +619,7 @@ export default function AIChat() {
                     <View style={[styles.aiBadgeCircle, { backgroundColor: primaryColor + '18' }]}>
                       <Ionicons name="sparkles" size={13} color={primaryColor} />
                     </View>
-                    <Text style={[styles.aiBadgeName, { color: theme.textMuted }]}>PharmFindr Clinical AI</Text>
+                    <Text style={[styles.aiBadgeName, { color: theme.textMuted }]}>PharmFindr AI</Text>
                   </View>
 
                   <View style={[styles.bubbleAIContainer, { backgroundColor: theme.card, borderColor: theme.border }]}>
@@ -791,8 +791,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 12,
+    paddingBottom: 8,
     borderBottomWidth: 1
   },
   sidebarTitle: {
@@ -801,7 +800,7 @@ const styles = StyleSheet.create({
   sidebarSub: {
     fontFamily: 'Inter-Regular',
      fontSize: 11
-  },
+  }, 
   sidebarBody: {
     flex: 1, padding: 16, paddingBottom: 8
   },

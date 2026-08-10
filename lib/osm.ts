@@ -42,15 +42,17 @@ export function checkIsOpen(
     const currentDayName = dayNames[now.getDay()];
     const currentMin = now.getHours() * 60 + now.getMinutes();
 
-    // 1. Check detailed weekly schedule array
+    // 1. Check detailed weekly schedule array (from table or JSON)
     if (operatingHours && Array.isArray(operatingHours) && operatingHours.length > 0) {
       const todaySchedule = operatingHours.find(
-        (item: any) => item.day?.toLowerCase() === currentDayName.toLowerCase()
+        (item: any) =>
+          (item.day || item.day_of_week)?.toLowerCase() === currentDayName.toLowerCase()
       );
       if (todaySchedule) {
-        if (!todaySchedule.isOpen) return false;
-        const openMin = parseTimeMinutes(todaySchedule.opens);
-        const closeMin = parseTimeMinutes(todaySchedule.closes);
+        const isOpenFlag = todaySchedule.isOpen !== undefined ? todaySchedule.isOpen : todaySchedule.is_open;
+        if (isOpenFlag === false) return false;
+        const openMin = parseTimeMinutes(todaySchedule.opens || todaySchedule.opening_time);
+        const closeMin = parseTimeMinutes(todaySchedule.closes || todaySchedule.closing_time);
         if (openMin !== null && closeMin !== null) {
           return isTimeWithin(openMin, closeMin, currentMin);
         }
@@ -111,14 +113,18 @@ function buildAddress(tags: Record<string, string>): string {
 }
 
 /**
- * Fetch registered pharmacies from Supabase database.
+ * Fetch registered pharmacies from Supabase database including weekly operating hours.
  */
 export async function getRegisteredPharmacies(userCoords?: Coords | null): Promise<OsmPharmacy[]> {
   const coordsBase = userCoords || DEFAULT_COORDS;
+  const now = new Date();
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const currentDayName = dayNames[now.getDay()];
+
   try {
     const { data, error } = await supabase
       .from('pharmacies')
-      .select('id, name, address, phone, latitude, longitude, opening_time, closing_time, operating_hours');
+      .select('id, name, address, phone, latitude, longitude, opening_time, closing_time, operating_hours, pharmacy_operating_hours(day_of_week, is_open, opening_time, closing_time)');
 
     if (error || !data) return [];
 
@@ -127,7 +133,27 @@ export async function getRegisteredPharmacies(userCoords?: Coords | null): Promi
       .map((p: any) => {
         const coords: Coords = { latitude: p.latitude, longitude: p.longitude };
         const dist = haversineKm(coordsBase, coords);
-        const open = checkIsOpen(p.opening_time, p.closing_time, null, p.operating_hours);
+        const weeklyHours = (p.pharmacy_operating_hours && p.pharmacy_operating_hours.length > 0)
+          ? p.pharmacy_operating_hours
+          : (Array.isArray(p.operating_hours) ? p.operating_hours : null);
+
+        const open = checkIsOpen(p.opening_time, p.closing_time, null, weeklyHours);
+
+        let todayHoursStr = p.opening_time && p.closing_time ? `${p.opening_time} - ${p.closing_time}` : undefined;
+        if (weeklyHours) {
+          const todayRow = weeklyHours.find((h: any) => (h.day || h.day_of_week)?.toLowerCase() === currentDayName.toLowerCase());
+          if (todayRow) {
+            const isOpenToday = todayRow.isOpen !== undefined ? todayRow.isOpen : todayRow.is_open;
+            if (isOpenToday === false) {
+              todayHoursStr = 'Closed today';
+            } else {
+              const o = todayRow.opens || todayRow.opening_time || p.opening_time || '08:00';
+              const c = todayRow.closes || todayRow.closing_time || p.closing_time || '20:00';
+              todayHoursStr = `${o} - ${c}`;
+            }
+          }
+        }
+
         return {
           id: p.id,
           name: p.name,
@@ -135,7 +161,7 @@ export async function getRegisteredPharmacies(userCoords?: Coords | null): Promi
           latitude: p.latitude,
           longitude: p.longitude,
           phone: p.phone || undefined,
-          hours: p.opening_time && p.closing_time ? `${p.opening_time} - ${p.closing_time}` : undefined,
+          hours: todayHoursStr,
           distanceKm: Math.round(dist * 10) / 10,
           walkMinutes: Math.round((dist / 5) * 60),
           isRegistered: true,

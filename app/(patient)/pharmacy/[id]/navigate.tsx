@@ -14,9 +14,10 @@ import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import FullMapComponent from '@/components/FullMapComponent';
 import { useThemeContext } from '@/hooks/useThemeContext';
-import { COLORS,  FONT_SIZE, RADIUS, SPACING  } from '@/styles/theme';
+import { COLORS, FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
 import { getCurrentLocation, type Coords } from '@/lib/location';
 import { getRoute, formatDistance, formatDuration, type RouteResult } from '@/lib/ors';
+import { useHardwareBack } from '@/hooks/useHardwareBack';
 
 export default function Navigate() {
   const router = useRouter();
@@ -31,6 +32,15 @@ export default function Navigate() {
   }>();
   const { theme, primaryColor } = useThemeContext();
 
+  useHardwareBack(() => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.navigate('/(patient)/pharmacies');
+    }
+    return true;
+  });
+
   const pharmName = params.name ?? 'Pharmacy';
   const pharmLat = parseFloat(params.lat ?? '5.6037');
   const pharmLon = parseFloat(params.lon ?? '-0.187');
@@ -44,8 +54,7 @@ export default function Navigate() {
 
   const sheetRef = useRef<BottomSheet>(null);
 
-  // Exact fixed snap points (100px = header only, 190px = header + button)
-  // Hard caps the sheet height so user cannot pull beyond actual height
+  // Exact fixed snap points (100px = header only, 160px = header + button)
   const snapPoints = useMemo(() => [100, 160], []);
 
   useEffect(() => {
@@ -67,22 +76,24 @@ export default function Navigate() {
       }
     }
     fetchRoute();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  const centerLat = userCoords
-    ? (userCoords.latitude + pharmLat) / 2
-    : pharmLat;
-  const centerLon = userCoords
-    ? (userCoords.longitude + pharmLon) / 2
-    : pharmLon;
+  const centerLat = userCoords ? (userCoords.latitude + pharmLat) / 2 : pharmLat;
+  const centerLon = userCoords ? (userCoords.longitude + pharmLon) / 2 : pharmLon;
 
   const distanceLabel = route
     ? formatDistance(route.distanceMeters)
-    : (params.distanceKm ? params.distanceKm + ' km' : '—');
+    : params.distanceKm
+    ? params.distanceKm + ' km'
+    : '—';
   const durationLabel = route
     ? formatDuration(route.durationSeconds)
-    : (params.walkMinutes ? params.walkMinutes + ' min walk' : '—');
+    : params.walkMinutes
+    ? params.walkMinutes + ' min walk'
+    : '—';
 
   function openExternalNav() {
     const destination = `${pharmLat},${pharmLon}`;
@@ -119,7 +130,14 @@ export default function Navigate() {
 
         {/* Floating header */}
         <View style={[styles.floatingHeader, { paddingTop: insets.top }]}>
-          <Pressable style={({pressed})=>[styles.backBtn, pressed && {opacity: 0.5}, { backgroundColor: theme.card, borderColor: theme.border }]} onPress={() => router.back()}>
+          <Pressable
+            style={({ pressed }) => [
+              styles.backBtn,
+              pressed && { opacity: 0.5 },
+              { backgroundColor: theme.card, borderColor: theme.border },
+            ]}
+            onPress={() => (router.canGoBack() ? router.back() : router.navigate('/(patient)/pharmacies'))}
+          >
             <Ionicons name="arrow-back" size={18} color={theme.text.primary} />
           </Pressable>
 
@@ -171,7 +189,11 @@ export default function Navigate() {
 
               {/* Expand / Collapse Chevron Toggle */}
               <Pressable
-                style={({ pressed }) => [styles.expandToggle, pressed && { opacity: 0.5 }, { backgroundColor: theme.surfaceSecondary }]}
+                style={({ pressed }) => [
+                  styles.expandToggle,
+                  pressed && { opacity: 0.5 },
+                  { backgroundColor: theme.surfaceSecondary },
+                ]}
                 onPress={() => {
                   if (sheetIndex > 0) {
                     sheetRef.current?.snapToIndex(0);
@@ -180,15 +202,11 @@ export default function Navigate() {
                   }
                 }}
               >
-                <Ionicons
-                  name={sheetIndex > 0 ? 'chevron-down' : 'chevron-up'}
-                  size={20}
-                  color={primaryColor}
-                />
+                <Ionicons name={sheetIndex > 0 ? 'chevron-down' : 'chevron-up'} size={20} color={primaryColor} />
               </Pressable>
             </View>
 
-            {/* Open in Google Maps Button (Always in DOM; smoothly revealed as sheet expands to 190px) */}
+            {/* Open in Google Maps Button */}
             <Pressable
               style={({ pressed }) => [
                 styles.startBtn,
@@ -209,57 +227,78 @@ export default function Navigate() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1
+    flex: 1,
   },
   floatingHeader: {
-    position: 'absolute', top: 0, left: 0, right: 0,
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: SPACING.lg, paddingTop: SPACING.md, gap: 12,
-    zIndex: 10
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.md,
+    gap: 12,
+    zIndex: 10,
   },
   backBtn: {
-    width: 44, height: 44, borderRadius: 22,
-    justifyContent: 'center', alignItems: 'center',
-    borderWidth: 1
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
   },
   directionsCard: {
-    flex: 1, flexDirection: 'row', alignItems: 'center',
-    borderRadius: RADIUS.xl, paddingVertical: 10, paddingHorizontal: 14, gap: 12,
-    borderWidth: 1.5
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: RADIUS.xl,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    gap: 12,
+    borderWidth: 1.5,
   },
   directionsIconCircle: {
-    width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center'
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   directionsTitle: {
-    fontSize: FONT_SIZE.lg, fontFamily: 'Inter-Bold'
+    fontSize: FONT_SIZE.lg,
+    fontFamily: 'Inter-Bold',
   },
   directionsSub: {
     fontFamily: 'Inter-Regular',
-     fontSize: FONT_SIZE.sm
+    fontSize: FONT_SIZE.sm,
   },
-
   sheetBodyContainer: {
     paddingHorizontal: SPACING.xl,
     paddingTop: 4,
     paddingBottom: 16,
-    gap: 16
+    gap: 16,
   },
   sheetHeader: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   pharmName: {
-    fontSize: FONT_SIZE.title, fontFamily: 'Inter-Bold'
+    fontSize: FONT_SIZE.title,
+    fontFamily: 'Inter-Bold',
   },
   pharmMeta: {
     fontFamily: 'Inter-Regular',
-     fontSize: FONT_SIZE.lg
+    fontSize: FONT_SIZE.lg,
   },
   expandToggle: {
     width: 32,
     height: 32,
     borderRadius: 16,
     justifyContent: 'center',
-    alignItems: 'center'
+    alignItems: 'center',
   },
   startBtn: {
     height: 48,
@@ -267,10 +306,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 4
+    marginTop: 4,
   },
   startBtnText: {
-    color: COLORS.white, fontSize: FONT_SIZE.lg, fontFamily: 'Inter-SemiBold'
+    color: COLORS.white,
+    fontSize: FONT_SIZE.lg,
+    fontFamily: 'Inter-SemiBold',
   },
-
 });

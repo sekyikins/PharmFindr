@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useRouter } from 'expo-router';
+import { Redirect } from 'expo-router';
 import { useAuthStore } from '@/store/authStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -7,7 +7,6 @@ const ONBOARDING_KEY = 'PharmFindr_onboarding_seen';
 
 export default function Index() {
   const { session, profile, loading, initialize } = useAuthStore();
-  const router = useRouter();
   const [onboardingChecked, setOnboardingChecked] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
 
@@ -19,27 +18,22 @@ export default function Index() {
     });
   }, []);
 
-  useEffect(() => {
-    if (loading || !onboardingChecked) return;
+  if (loading || !onboardingChecked) {
+    // Splash screen stays visible while initializing auth & onboarding state
+    return null;
+  }
 
-    if (showOnboarding) {
-      // First launch — show onboarding before anything else
-      router.replace('/(auth)/onboarding');
-      return;
-    }
+  if (showOnboarding) {
+    return <Redirect href="/(auth)/onboarding" />;
+  }
 
-    if (!session) {
-      router.replace('/(auth)/login');
-    } else if (profile) {
-      if (profile.role === 'pharmacy') {
-        router.replace('/(pharmacy)/(tabs)/dashboard');
-      } else {
-        router.replace('/(patient)/(tabs)/home');
-      }
-    }
-  }, [session, profile, loading, onboardingChecked, showOnboarding]);
+  if (!session) {
+    return <Redirect href="/(auth)/login" />;
+  }
 
-  // Blank screen — routing happens in the effect above.
-  // The native splash screen stays visible until the redirect fires.
-  return null;
+  if (profile?.role === 'pharmacy') {
+    return <Redirect href="/(pharmacy)/(tabs)/dashboard" />;
+  }
+
+  return <Redirect href="/(patient)/(tabs)/home" />;
 }

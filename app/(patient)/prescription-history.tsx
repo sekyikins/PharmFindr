@@ -17,11 +17,21 @@ import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
 import Skeleton from '@/components/ui/Skeleton';
 import { Header } from '@/components/ui/Header';
+import { useHardwareBack } from '@/hooks/useHardwareBack';
 
 export default function PrescriptionHistory() {
   const router = useRouter();
   const { theme, primaryColor } = useThemeContext();
   const { user } = useAuthStore();
+
+  useHardwareBack(() => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.navigate('/(patient)/(tabs)/profile');
+    }
+    return true;
+  });
 
   const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
