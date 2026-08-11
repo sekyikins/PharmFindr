@@ -14,6 +14,12 @@ module.exports = ({ config }) => {
     ios: {
       ...config.ios,
       supportsTablet: true,
+      bundleIdentifier: 'com.mrsekyi.PharmFindr',
+      infoPlist: {
+        NSFaceIDUsageDescription:
+          'Allow PharmFindr to use Face ID for secure authentication.',
+        ITSAppUsesNonExemptEncryption: false,
+      },
       config: {
         googleMapsApiKey: googleMapsApiKey,
       },
@@ -36,6 +42,8 @@ module.exports = ({ config }) => {
       permissions: [
         'android.permission.ACCESS_COARSE_LOCATION',
         'android.permission.ACCESS_FINE_LOCATION',
+        'android.permission.USE_BIOMETRIC',
+        'android.permission.USE_FINGERPRINT',
       ],
       package: 'com.mrsekyi.PharmFindr',
     },
@@ -70,7 +78,13 @@ module.exports = ({ config }) => {
             'PharmFindr needs camera access to scan prescription documents.',
         },
       ],
-      'expo-local-authentication',
+      [
+        'expo-local-authentication',
+        {
+          faceIDPermission:
+            'Allow PharmFindr to use Face ID for secure authentication.',
+        },
+      ],
       'expo-notifications',
       'expo-image-picker',
     ],

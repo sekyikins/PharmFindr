@@ -35,6 +35,7 @@ import {
   getBiometricsPreference,
   setBiometricsPreference,
   getBiometricType,
+  getBiometricIcon,
   isBiometricsSupported,
   isBiometricsEnrolled,
   authenticateBiometrics,
@@ -68,6 +69,7 @@ export default function EditAccount() {
 
   const [biometricsEnabled, setBiometricsEnabled] = useState(false);
   const [biometricType, setBiometricType] = useState('Biometrics');
+  const [biometricIcon, setBiometricIcon] = useState('finger-print-outline');
 
   // Swipe-to-dismiss gesture handling for avatar image preview
   const translateY = useRef(new Animated.Value(0)).current;
@@ -125,29 +127,17 @@ export default function EditAccount() {
       const pref = await getBiometricsPreference();
       setBiometricsEnabled(pref);
       const label = await getBiometricType();
+      const icon = await getBiometricIcon();
       setBiometricType(label);
+      setBiometricIcon(icon);
     };
     initBio();
   }, []);
 
   const handleToggleBiometrics = async (val: boolean) => {
     if (val) {
-      const supported = await isBiometricsSupported();
-      const enrolled = await isBiometricsEnrolled();
-
-      if (!supported || !enrolled) {
-        setBiometricsEnabled(false);
-        await setBiometricsPreference(false);
-        Alert.alert(
-          'Biometrics Not Set Up',
-          `Your device does not have ${biometricType} set up. Please enable ${biometricType} in your device system settings first.`,
-          [{ text: 'OK', style: 'default' }]
-        );
-        return;
-      }
-
-      // Prompt biometric authentication confirmation before enabling
-      const confirmed = await authenticateBiometrics(`Confirm your ${biometricType} to enable biometric lock`);
+      // Prompt biometric authentication confirmation directly to verify whatever method is active
+      const confirmed = await authenticateBiometrics('Confirm your biometrics to enable biometric lock');
       if (!confirmed) {
         setBiometricsEnabled(false);
         await setBiometricsPreference(false);
@@ -158,7 +148,7 @@ export default function EditAccount() {
     setBiometricsEnabled(val);
     await setBiometricsPreference(val);
     if (val) {
-      toast.success('Biometric Lock Enabled', `PharmFindr is now secured with ${biometricType}.`);
+      toast.success('Biometric Lock Enabled', 'PharmFindr is now secured with biometrics.');
     } else {
       toast.info('Biometric Lock Disabled', 'Biometric security lock has been turned off.');
     }
@@ -434,10 +424,10 @@ export default function EditAccount() {
 
           <View style={[styles.securityRow, { backgroundColor: theme.surfaceSecondary }]}>
             <View style={[styles.securityIconCircle, { backgroundColor: primaryColor + '20' }]}>
-              <Ionicons name="finger-print-outline" size={20} color={primaryColor} />
+              <Ionicons name={biometricIcon as any} size={20} color={primaryColor} />
             </View>
             <View style={{ flex: 1, paddingHorizontal: 12 }}>
-              <Text style={[styles.securityTitle, { color: theme.text.primary }]}>Use Biometrics</Text>
+              <Text style={[styles.securityTitle, { color: theme.text.primary }]}>Use {biometricType}</Text>
               <Text style={[styles.securitySub, { color: theme.textMuted }]}>Require {biometricType} on app launch</Text>
             </View>
             <Switch

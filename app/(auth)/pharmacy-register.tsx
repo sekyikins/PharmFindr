@@ -25,6 +25,7 @@ import { supabase } from '@/lib/supabase';
 import { COLORS,  RADIUS  } from '@/styles/theme';
 import * as Location from 'expo-location';
 import { searchNearbyPharmacies } from '@/lib/osm';
+import { fetchAddressForCoords } from '@/lib/googlePlaces';
 import { useHardwareBack } from '@/hooks/useHardwareBack';
 
 const GREEN = '#10b981';
@@ -170,38 +171,34 @@ const btn = StyleSheet.create({
 
 });
 
-// ══ STEP 1: Details (Name + Email + Physical Address) ═══════════
+// ══ STEP 1: Details (Name + Email) ══════════════════════════════════════
 function Step1Details({
   email,
   pharmName,
-  pharmAddress,
   onNext,
   onBack,
 }: {
   email: string;
   pharmName: string;
-  pharmAddress: string;
-  onNext: (e: string, n: string, a: string) => void;
+  onNext: (e: string, n: string) => void;
   onBack: () => void;
 }) {
   const [valEmail, setValEmail] = useState(email);
   const [valName, setValName] = useState(pharmName);
-  const [valAddress, setValAddress] = useState(pharmAddress);
   const [err, setErr] = useState<string | null>(null);
 
   const pharmNameRef = useRef<TextInput>(null);
-  const pharmAddrRef = useRef<TextInput>(null);
 
   const handleContinue = () => {
-    if (!valEmail.trim() || !valName.trim() || !valAddress.trim()) {
-      setErr('Please fill in your pharmacy email, registered name, and physical address.');
+    if (!valEmail.trim() || !valName.trim()) {
+      setErr('Please fill in your pharmacy email and registered business name.');
       return;
     }
     if (!valEmail.includes('@')) {
       setErr('Please enter a valid email address.');
       return;
     }
-    onNext(valEmail.trim(), valName.trim(), valAddress.trim());
+    onNext(valEmail.trim(), valName.trim());
   };
 
   return (
@@ -209,7 +206,7 @@ function Step1Details({
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <Hero step={1} onBack={onBack} />
         <View style={s.form}>
-          <Text style={s.secSub}>Enter your pharmacy email, registered name, and physical address.</Text>
+          <Text style={s.secSub}>Enter your pharmacy email and registered pharmacy name.</Text>
 
           {err && (
             <View style={s.errBox}>
@@ -237,31 +234,18 @@ function Step1Details({
             placeholder="e.g. City Care Pharmacy"
             value={valName}
             onChange={setValName}
-            returnKeyType="next"
-            onSubmitEditing={() => pharmAddrRef.current?.focus()}
-          />
-
-          <View style={{ marginBottom: 16 }} />
-
-          <FieldLabel>PHARMACY PHYSICAL ADDRESS</FieldLabel>
-          <InputRow
-            inputRef={pharmAddrRef}
-            icon="navigate-outline"
-            placeholder="e.g. Ring Road Central, Accra"
-            value={valAddress}
-            onChange={setValAddress}
             returnKeyType="done"
             onSubmitEditing={handleContinue}
           />
 
-          <PrimaryBtn label="Continue to Map Location" onPress={handleContinue} />
+          <PrimaryBtn label="Continue to Select Location" onPress={handleContinue} />
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
-// ══ STEP 2: Location Map Selection ════════════════════════════════════════
+// ══ STEP 2: Location Map Selection & Physical Address ═════════════════════
 function Step2Location({
   pharmName,
   pharmAddress,
@@ -272,10 +256,12 @@ function Step2Location({
   pharmName: string;
   pharmAddress: string;
   onUpdatePharmDetails?: (name: string, address: string) => void;
-  onDone: (pin: { latitude: number; longitude: number }, isFromKnownMap: boolean) => void;
+  onDone: (pin: { latitude: number; longitude: number }, address: string, isFromKnownMap: boolean) => void;
   onBack: () => void;
 }) {
   const [pin, setPin] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [valAddress, setValAddress] = useState(pharmAddress);
+  const [isAddressFetching, setIsAddressFetching] = useState(false);
   const [selectedKnownPharmacy, setSelectedKnownPharmacy] = useState<KnownPharmacy | null>(null);
   const [knownPharmacies, setKnownPharmacies] = useState<KnownPharmacy[]>([]);
   const [registeredPharmacies, setRegisteredPharmacies] = useState<KnownPharmacy[]>([]);
@@ -284,6 +270,31 @@ function Step2Location({
   const [mapDataLoading, setMapDataLoading] = useState(true);
 
   const [isMapExpanded, setIsMapExpanded] = useState(false);
+
+  const updateAddressForPin = async (coords: { latitude: number; longitude: number }, knownAddr?: string) => {
+    if (knownAddr && knownAddr !== 'Public Map Address' && knownAddr !== 'Address registered in database') {
+      setValAddress(knownAddr);
+      return;
+    }
+    setIsAddressFetching(true);
+    try {
+      const fetched = await fetchAddressForCoords(coords);
+      if (fetched) {
+        setValAddress(fetched);
+      } else {
+        const [geo] = await Location.reverseGeocodeAsync(coords);
+        if (geo) {
+          const parts = [geo.street || geo.name, geo.district || geo.subregion, geo.city, geo.region].filter(Boolean);
+          const uniqueParts = parts.filter((item, idx) => parts.indexOf(item) === idx);
+          if (uniqueParts.length > 0) setValAddress(uniqueParts.join(', '));
+        }
+      }
+    } catch (e: any) {
+      console.warn('Address reverse lookup notice:', e.message);
+    } finally {
+      setIsAddressFetching(false);
+    }
+  };
 
   useEffect(() => {
     async function loadLocationAndMapData() {
@@ -302,6 +313,9 @@ function Step2Location({
             const devicePin = { latitude: currentLat, longitude: currentLon };
             setInitialCoords(devicePin);
             setPin(devicePin);
+            if (!valAddress) {
+              updateAddressForPin(devicePin);
+            }
           }
         }
 
@@ -344,6 +358,7 @@ function Step2Location({
           setPin(coords);
           setInitialCoords(coords);
           setSelectedKnownPharmacy(null);
+          updateAddressForPin(coords);
         }
       }
     } catch (e: any) {
@@ -353,7 +368,9 @@ function Step2Location({
 
   const handleSelectKnownPharmacy = (pharm: KnownPharmacy) => {
     setSelectedKnownPharmacy(pharm);
-    setPin({ latitude: pharm.latitude, longitude: pharm.longitude });
+    const coords = { latitude: pharm.latitude, longitude: pharm.longitude };
+    setPin(coords);
+    updateAddressForPin(coords, pharm.address);
   };
 
   const handleConfirm = () => {
@@ -361,38 +378,30 @@ function Step2Location({
       setErr('Please select your pharmacy location on the map.');
       return;
     }
+    if (!valAddress.trim()) {
+      setErr('Please verify or enter the physical address for your pharmacy.');
+      return;
+    }
 
     if (selectedKnownPharmacy) {
       const selectedName = selectedKnownPharmacy.name;
-      const selectedAddr = selectedKnownPharmacy.address;
+      const hasNameDiff = selectedName && selectedName !== pharmName && selectedName !== 'Public Pharmacy';
 
-      const hasNameDiff = selectedName && selectedName !== pharmName;
-      const hasAddrDiff = selectedAddr && selectedAddr !== pharmAddress && selectedAddr !== 'Public Map Address';
-
-      if (hasNameDiff || hasAddrDiff) {
-        const newName = selectedName || pharmName;
-        const newAddr = (selectedAddr && selectedAddr !== 'Public Map Address') ? selectedAddr : pharmAddress;
-
-        let msg = `Your current details:\n• Name: ${pharmName}\n• Address: ${pharmAddress}\n\nSelected map details:\n• Name: ${selectedName}`;
-        if (selectedAddr && selectedAddr !== 'Public Map Address') {
-          msg += `\n• Address: ${selectedAddr}`;
-        }
-        msg += `\n\nDo you want to update your pharmacy details with the map information?`;
-
+      if (hasNameDiff) {
         Alert.alert(
-          'Use Selected Pharmacy Details?',
-          msg,
+          'Use Selected Pharmacy Name?',
+          `Do you want to use the business name "${selectedName}" from Google Maps?`,
           [
             {
-              text: 'Keep Current Details',
+              text: 'Keep My Name',
               style: 'cancel',
-              onPress: () => onDone(pin, !!selectedKnownPharmacy),
+              onPress: () => onDone(pin, valAddress.trim(), !!selectedKnownPharmacy),
             },
             {
-              text: 'Override Details',
+              text: 'Use Map Name',
               onPress: () => {
-                onUpdatePharmDetails?.(newName, newAddr);
-                onDone(pin, !!selectedKnownPharmacy);
+                onUpdatePharmDetails?.(selectedName, valAddress.trim());
+                onDone(pin, valAddress.trim(), !!selectedKnownPharmacy);
               },
             },
           ],
@@ -402,7 +411,7 @@ function Step2Location({
       }
     }
 
-    onDone(pin, !!selectedKnownPharmacy);
+    onDone(pin, valAddress.trim(), !!selectedKnownPharmacy);
   };
 
   return (
@@ -415,7 +424,7 @@ function Step2Location({
         <Hero step={2} onBack={onBack} />
         <View style={s.form}>
           <Text style={s.secSub}>
-            Tap an existing green pharmacy pin or tap anywhere on the Google Map to drop a custom location marker.
+            Tap an existing pharmacy pin or tap anywhere on the map to set your location. The physical address will be auto-detected below.
           </Text>
 
           {err && (
@@ -442,7 +451,7 @@ function Step2Location({
                   onPress={handleLocateMe}
                 >
                   <Ionicons name="locate-outline" size={14} color={GREEN} />
-                  <Text style={locStyles.expandBtnText}>Use Current Location</Text>
+                  <Text style={locStyles.expandBtnText}>Current Location</Text>
                 </Pressable>
 
                 <Pressable
@@ -461,6 +470,7 @@ function Step2Location({
                 onPressMap={(coords) => {
                   setPin(coords);
                   setSelectedKnownPharmacy(null);
+                  updateAddressForPin(coords);
                 }}
                 onSelectKnownPharmacy={handleSelectKnownPharmacy}
                 initialCoords={initialCoords}
@@ -469,6 +479,29 @@ function Step2Location({
                 onExpand={() => setIsMapExpanded(true)}
               />
             </View>
+          </View>
+
+          {/* Editable Physical Address (Auto-fetched from Google Places / Map) */}
+          <View style={{ marginTop: 18, marginBottom: 4 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+              <FieldLabel>PHARMACY PHYSICAL ADDRESS</FieldLabel>
+              {isAddressFetching && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <ActivityIndicator size="small" color={GREEN} />
+                </View>
+              )}
+            </View>
+            <InputRow
+              icon="navigate-outline"
+              placeholder="e.g. Ring Road Central, Accra"
+              value={valAddress}
+              onChange={setValAddress}
+              returnKeyType="done"
+              onSubmitEditing={handleConfirm}
+            />
+            <Text style={{ fontSize: 11, fontFamily: 'Inter-Regular', color: LABEL_COLOR, marginTop: 6, marginLeft: 2 }}>
+              You can edit or refine the address.
+            </Text>
           </View>
 
           <PrimaryBtn label="Confirm Location & Continue" onPress={handleConfirm} />
@@ -486,7 +519,7 @@ function Step2Location({
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <Pressable style={[locStyles.modalDoneBtn, { flexDirection: 'row', justifyContent: 'center', alignItems: 'center' }]} onPress={handleLocateMe}>
                 <Ionicons name="locate" size={14} color={GREEN} />
-                <Text style={locStyles.modalDoneText}>Use Current Location</Text>
+                <Text style={locStyles.modalDoneText}>Current Location</Text>
               </Pressable>
 
               <Pressable style={locStyles.modalDoneBtn} onPress={() => setIsMapExpanded(false)}>
@@ -501,6 +534,7 @@ function Step2Location({
               onPressMap={(coords) => {
                 setPin(coords);
                 setSelectedKnownPharmacy(null);
+                updateAddressForPin(coords);
               }}
               onSelectKnownPharmacy={handleSelectKnownPharmacy}
               initialCoords={initialCoords}
@@ -510,9 +544,13 @@ function Step2Location({
           </View>
 
           <SafeAreaView edges={['bottom']} style={locStyles.fullMapFooter}>
-            <Text style={locStyles.footerAddress} numberOfLines={1}>
-              {selectedKnownPharmacy
-                ? `📍 ${selectedKnownPharmacy.name}${selectedKnownPharmacy.address ? ` — ${selectedKnownPharmacy.address}` : ''}`
+            <Text style={locStyles.footerAddress} numberOfLines={2}>
+              {isAddressFetching
+                ? '📍 Detecting address from Google Places...'
+                : valAddress
+                ? `📍 ${valAddress}`
+                : selectedKnownPharmacy
+                ? `📍 ${selectedKnownPharmacy.name}`
                 : pin
                 ? `📍 Custom Location Pin Selected`
                 : 'Tap map location pin to select'}
@@ -1062,8 +1100,9 @@ export default function PharmacyRegister() {
           setPharmName(n);
           setPharmAddress(a);
         }}
-        onDone={(selectedPin, fromKnownMap) => {
+        onDone={(selectedPin, finalAddress, fromKnownMap) => {
           setPin(selectedPin);
+          setPharmAddress(finalAddress);
           setIsFromKnownMap(fromKnownMap);
           setStep(3);
         }}
@@ -1076,11 +1115,9 @@ export default function PharmacyRegister() {
     <Step1Details
       email={email}
       pharmName={pharmName}
-      pharmAddress={pharmAddress}
-      onNext={(e, n, a) => {
+      onNext={(e, n) => {
         setEmail(e);
         setPharmName(n);
-        setPharmAddress(a);
         setStep(2);
       }}
       onBack={goBack}

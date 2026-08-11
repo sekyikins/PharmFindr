@@ -79,48 +79,114 @@ export async function fetchPopularMedicines(limit: number = 6): Promise<PopularM
 }
 
 /**
+ * Fetches distinct categories dynamically from the generic_medicines table.
+ */
+export async function fetchMedicineCategories(): Promise<string[]> {
+  try {
+    const { data, error } = await supabase
+      .from('generic_medicines')
+      .select('category')
+      .not('category', 'is', null)
+      .neq('category', '');
+
+    if (error || !data || data.length === 0) {
+      return ['All', 'Pain Relief', 'Antibiotics', 'Diabetes', 'Heart & BP', 'Gastro', 'Allergy', 'Antimalarial', 'CNS', 'Dermatology', 'Eye & Ear', 'Vitamins'];
+    }
+
+    const counts = new Map<string, number>();
+    for (const row of data) {
+      if (row.category && row.category.trim()) {
+        const cat = row.category.trim();
+        counts.set(cat, (counts.get(cat) || 0) + 1);
+      }
+    }
+
+    // Priority ordering for popular clinical categories
+    const priorityOrder = [
+      'Pain Relief',
+      'Antibiotics',
+      'Diabetes',
+      'Heart & BP',
+      'Gastro',
+      'Allergy',
+      'Antimalarial',
+      'CNS',
+      'Dermatology',
+      'Eye & Ear',
+      'Vitamins',
+      'General',
+      'Immunology',
+      'Oncology',
+    ];
+
+    const uniqueCategories = Array.from(counts.keys()).sort((a, b) => {
+      const idxA = priorityOrder.indexOf(a);
+      const idxB = priorityOrder.indexOf(b);
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+      if (idxA !== -1) return -1;
+      if (idxB !== -1) return 1;
+      return (counts.get(b) || 0) - (counts.get(a) || 0);
+    });
+
+    return ['All', ...uniqueCategories];
+  } catch (e: any) {
+    console.warn('Error fetching medicine categories:', e.message);
+    return ['All', 'Pain Relief', 'Antibiotics', 'Diabetes', 'Heart & BP', 'Gastro', 'Allergy', 'Antimalarial'];
+  }
+}
+
+/**
  * Searches the national medicine database (medicine_products + generic_medicines).
  */
 export async function searchMasterMedicines(query: string, categoryFilter?: string): Promise<MedicineItem[]> {
   const trimmed = query.trim();
+  const hasCategory = categoryFilter && categoryFilter !== 'All';
 
-  if (!trimmed) return [];
+  if (!trimmed && !hasCategory) return [];
 
   const results: MedicineItem[] = [];
   const seenIds = new Set<string>();
 
   try {
-    const [{ data: dbProducts }, { data: dbGenerics }] = await Promise.all([
-      supabase
-        .from('medicine_products')
-        .select(`
+    let productsQuery = supabase
+      .from('medicine_products')
+      .select(`
+        id,
+        brand_name,
+        strength,
+        dosage_form,
+        pack_size,
+        manufacturer,
+        generic_id,
+        generic_medicines (
           id,
-          brand_name,
-          strength,
-          dosage_form,
-          pack_size,
-          manufacturer,
-          generic_id,
-          generic_medicines (
-            id,
-            generic_name,
-            description,
-            category,
-            how_to_take,
-            side_effects,
-            warnings,
-            storage_conditions,
-            contraindications,
-            dosage_forms
-          )
-        `)
-        .ilike('brand_name', `%${trimmed}%`)
-        .limit(30),
-      supabase
-        .from('generic_medicines')
-        .select('id, generic_name, description, category, how_to_take, side_effects, warnings, storage_conditions, contraindications, dosage_forms')
-        .ilike('generic_name', `%${trimmed}%`)
-        .limit(15),
+          generic_name,
+          description,
+          category,
+          how_to_take,
+          side_effects,
+          warnings,
+          storage_conditions,
+          contraindications,
+          dosage_forms
+        )
+      `);
+
+    let genericsQuery = supabase
+      .from('generic_medicines')
+      .select('id, generic_name, description, category, how_to_take, side_effects, warnings, storage_conditions, contraindications, dosage_forms');
+
+    if (trimmed) {
+      productsQuery = productsQuery.ilike('brand_name', `%${trimmed}%`).limit(30);
+      genericsQuery = genericsQuery.ilike('generic_name', `%${trimmed}%`).limit(15);
+    } else if (hasCategory) {
+      genericsQuery = genericsQuery.eq('category', categoryFilter).limit(25);
+      productsQuery = productsQuery.limit(30);
+    }
+
+    const [{ data: dbProducts }, { data: dbGenerics }] = await Promise.all([
+      productsQuery,
+      genericsQuery,
     ]);
 
     if (dbProducts && dbProducts.length > 0) {

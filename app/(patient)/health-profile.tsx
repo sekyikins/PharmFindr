@@ -464,7 +464,7 @@ export default function HealthProfile() {
                 <View style={styles.addInputRow}>
                   <TextInput
                     style={[styles.addInput, { backgroundColor: theme.surfaceSecondary, color: theme.text.primary, borderColor: theme.border }]}
-                    placeholder="Type allergy name (e.g. Penicillin)..."
+                    placeholder="Type allergy name"
                     placeholderTextColor={theme.textDim}
                     value={customAllergy}
                     onChangeText={setCustomAllergy}
@@ -549,7 +549,7 @@ export default function HealthProfile() {
                 <View style={styles.addInputRow}>
                   <TextInput
                     style={[styles.addInput, { backgroundColor: theme.surfaceSecondary, color: theme.text.primary, borderColor: theme.border }]}
-                    placeholder="Type condition name (e.g. Asthma)..."
+                    placeholder="Type condition name"
                     placeholderTextColor={theme.textDim}
                     value={customCondition}
                     onChangeText={setCustomCondition}
@@ -634,7 +634,7 @@ export default function HealthProfile() {
                 <View style={styles.addInputRow}>
                   <TextInput
                     style={[styles.addInput, { backgroundColor: theme.surfaceSecondary, color: theme.text.primary, borderColor: theme.border }]}
-                    placeholder="Type medication name (e.g. Metformin)..."
+                    placeholder="Type medication name"
                     placeholderTextColor={theme.textDim}
                     value={customMedication}
                     onChangeText={setCustomMedication}

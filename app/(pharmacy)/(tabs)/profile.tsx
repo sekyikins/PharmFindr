@@ -25,6 +25,15 @@ import { BottomSheetModal, BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import AvatarPickerSheet from '@/components/ui/AvatarPickerSheet';
 import AppBottomSheet from '@/components/ui/AppBottomSheet';
 import { Header } from '@/components/ui/Header';
+import {
+  getBiometricsPreference,
+  setBiometricsPreference,
+  getBiometricType,
+  getBiometricIcon,
+  isBiometricsSupported,
+  isBiometricsEnrolled,
+  authenticateBiometrics,
+} from '@/lib/biometrics';
 
 const PHARMACY_GREEN = '#10b981';
 
@@ -41,6 +50,9 @@ export default function PharmacyProfile() {
   const [closingTime, setClosingTime] = useState('20:00');
   const [isVerified, setIsVerified] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [biometricsEnabled, setBiometricsEnabled] = useState(false);
+  const [biometricType, setBiometricType] = useState('Biometrics');
+  const [biometricIcon, setBiometricIcon] = useState('scan-outline');
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -129,7 +141,30 @@ export default function PharmacyProfile() {
 
   useEffect(() => {
     fetchProfile();
+    const initBio = async () => {
+      const pref = await getBiometricsPreference();
+      setBiometricsEnabled(pref);
+      const label = await getBiometricType();
+      const icon = await getBiometricIcon();
+      setBiometricType(label);
+      setBiometricIcon(icon);
+    };
+    initBio();
   }, [fetchProfile]);
+
+  const handleToggleBiometrics = async (val: boolean) => {
+    if (val) {
+      const confirmed = await authenticateBiometrics('Confirm your biometrics to enable biometric lock');
+      if (!confirmed) {
+        setBiometricsEnabled(false);
+        await setBiometricsPreference(false);
+        return;
+      }
+    }
+
+    setBiometricsEnabled(val);
+    await setBiometricsPreference(val);
+  };
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -359,6 +394,24 @@ export default function PharmacyProfile() {
                 onValueChange={setNotificationsEnabled}
                 trackColor={{ false: COLORS.borderSlate, true: COLORS.successBorder }}
                 thumbColor={notificationsEnabled ? PHARMACY_GREEN : COLORS.surfaceSecondary}
+              />
+            </View>
+
+            <View style={[styles.divider, { backgroundColor: theme.border }]} />
+
+            <View style={styles.rowItem}>
+              <View style={[styles.iconWrap, { backgroundColor: '#ecfdf5' }]}>
+                <Ionicons name={biometricIcon as any} size={18} color={PHARMACY_GREEN} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.rowTitle, { color: theme.text.primary }]}>Use {biometricType}</Text>
+                <Text style={[styles.rowSub, { color: theme.textMuted }]}>Require {biometricType} on app launch</Text>
+              </View>
+              <Switch
+                value={biometricsEnabled}
+                onValueChange={handleToggleBiometrics}
+                trackColor={{ false: COLORS.borderSlate, true: COLORS.successBorder }}
+                thumbColor={biometricsEnabled ? PHARMACY_GREEN : COLORS.surfaceSecondary}
               />
             </View>
 

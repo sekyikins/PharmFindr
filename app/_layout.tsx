@@ -14,9 +14,8 @@ import { registerForPushNotificationsAsync } from '@/lib/pushNotifications';
 import OfflineBanner from '@/components/ui/OfflineBanner';
 import { ToastProvider } from '@/context/ToastContext';
 import {
-  isBiometricsSupported,
-  isBiometricsEnrolled,
   getBiometricType,
+  getBiometricIcon,
   authenticateBiometrics,
   getBiometricsPreference,
 } from '@/lib/biometrics';
@@ -70,6 +69,7 @@ function RootLayoutNav() {
   const { user, securityNotice, clearSecurityNotice } = useAuthStore();
   const [isLocked, setIsLocked] = useState(false);
   const [biometricType, setBiometricType] = useState('Biometrics');
+  const [biometricIcon, setBiometricIcon] = useState('scan-outline');
   const lastBackgroundTimestamp = useRef<number | null>(null);
 
   useEffect(() => {
@@ -94,7 +94,9 @@ function RootLayoutNav() {
             const enabled = await getBiometricsPreference();
             if (enabled) {
               const label = await getBiometricType();
+              const icon = await getBiometricIcon();
               setBiometricType(label);
+              setBiometricIcon(icon);
               setIsLocked(true);
               triggerUnlock(label);
             }
@@ -115,7 +117,9 @@ function RootLayoutNav() {
     if (!enabled) return;
 
     const label = await getBiometricType();
+    const icon = await getBiometricIcon();
     setBiometricType(label);
+    setBiometricIcon(icon);
     setIsLocked(true);
     triggerUnlock(label);
   };
@@ -143,19 +147,22 @@ function RootLayoutNav() {
 
         {isLocked ? (
           <View style={{ flex: 1, backgroundColor: COLORS.surfaceDark, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
-            <Ionicons name="lock-closed" size={64} color={COLORS.pharmacyPrimary} style={{ marginBottom: 16 }} />
+            <View style={{ width: 88, height: 88, borderRadius: 44, backgroundColor: COLORS.pharmacyPrimary + '20', justifyContent: 'center', alignItems: 'center', marginBottom: 20 }}>
+              <Ionicons name={biometricIcon as any} size={44} color={COLORS.pharmacyPrimary} />
+            </View>
             <Text style={{ color: COLORS.white, fontSize: 22, fontFamily: 'Inter-Bold', marginBottom: 8 }}>PharmFindr Locked</Text>
-            <Text style={{ color: COLORS.textDim, fontSize: 14, fontFamily: 'Inter-Bold', textAlign: 'center', marginBottom: 32 }}>
-              Biometric authentication is required to access your medical records and active reservations.
+            <Text style={{ color: COLORS.textDim, fontSize: 13, fontFamily: 'Inter-Regular', textAlign: 'center', marginBottom: 32, paddingHorizontal: 16, lineHeight: 20 }}>
+              {biometricType} authentication is required to access your medical records and active reservations.
             </Text>
             <Pressable
               style={({ pressed }) => [
-                { backgroundColor: COLORS.pharmacyPrimary, paddingHorizontal: 24, paddingVertical: 14, borderRadius: 24 },
+                { backgroundColor: COLORS.pharmacyPrimary, paddingHorizontal: 28, paddingVertical: 14, borderRadius: 24, flexDirection: 'row', alignItems: 'center', gap: 8 },
                 pressed && { opacity: 0.7 },
               ]}
               onPress={() => triggerUnlock()}
             >
-              <Text style={{ color: COLORS.white, fontSize: 16, fontFamily: 'Inter-Bold' }}>Unlock with {biometricType}</Text>
+              <Ionicons name={biometricIcon as any} size={18} color={COLORS.white} />
+              <Text style={{ color: COLORS.white, fontSize: 15, fontFamily: 'Inter-Bold' }}>Unlock with {biometricType}</Text>
             </Pressable>
           </View>
         ) : (

@@ -12,73 +12,67 @@ try {
 }
 
 /**
- * Check if the device hardware supports biometric authentication.
+ * Check if the device hardware supports biometric authentication (Face ID, Face Unlock, Fingerprint, Iris).
  */
 export async function isBiometricsSupported(): Promise<boolean> {
   if (Platform.OS === 'web' || !LocalAuthentication) return false;
   try {
     const hasHardware = await LocalAuthentication.hasHardwareAsync();
-    return !!hasHardware;
+    const types = await LocalAuthentication.supportedAuthenticationTypesAsync();
+    const level = await LocalAuthentication.getEnrolledLevelAsync();
+    return hasHardware || (Array.isArray(types) && types.length > 0) || level > 0;
   } catch (e) {
-    return false;
+    return true; // Allow native prompt to determine
   }
 }
 
 /**
- * Check if the user has enrolled biometrics (Face ID, Touch ID, Fingerprint).
+ * Check if the user has enrolled biometrics (Face ID, Face Unlock, Fingerprint, or device credentials).
  */
 export async function isBiometricsEnrolled(): Promise<boolean> {
   if (Platform.OS === 'web' || !LocalAuthentication) return false;
   try {
     const isEnrolled = await LocalAuthentication.isEnrolledAsync();
-    return !!isEnrolled;
+    if (isEnrolled) return true;
+    const level = await LocalAuthentication.getEnrolledLevelAsync();
+    // SecurityLevel: NONE (0), SECRET (1), BIOMETRIC_WEAK (2, e.g. Android Face Unlock), BIOMETRIC_STRONG (3)
+    return level > 0;
   } catch (e) {
-    return false;
+    return true; // Allow native prompt to determine
   }
 }
 
 /**
- * Get human-readable biometric type (e.g. "Fingerprint", "Face ID", "Touch ID", "Biometrics").
+ * Get human-readable biometric type (always returns "Biometrics").
  */
 export async function getBiometricType(): Promise<string> {
-  if (Platform.OS === 'web' || !LocalAuthentication) return 'Biometrics';
-  try {
-    const types = await LocalAuthentication.supportedAuthenticationTypesAsync();
-    const hasFace = types.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION);
-    const hasFingerprint = types.includes(LocalAuthentication.AuthenticationType.FINGERPRINT);
-    const hasIris = types.includes(LocalAuthentication.AuthenticationType.IRIS);
-
-    if (Platform.OS === 'android') {
-      if (hasFingerprint && hasFace) {
-        return 'Fingerprint / Face Unlock';
-      }
-      if (hasFingerprint) {
-        return 'Fingerprint';
-      }
-      if (hasFace) {
-        return 'Face Unlock';
-      }
-      if (hasIris) {
-        return 'Iris Scanner';
-      }
-      return 'Biometrics';
-    }
-
-    // iOS Devices
-    if (hasFace) {
-      return 'Face ID';
-    }
-    if (hasFingerprint) {
-      return 'Touch ID';
-    }
-  } catch (e) {
-    // fallback
-  }
   return 'Biometrics';
 }
 
 /**
- * Prompt native biometric authentication modal.
+ * Get the standard biometrics icon.
+ */
+export async function getBiometricIcon(): Promise<string> {
+  return 'finger-print-outline';
+}
+
+/**
+ * Get comprehensive biometric status details.
+ */
+export async function getBiometricDetails(): Promise<{
+  isSupported: boolean;
+  isEnrolled: boolean;
+  type: string;
+  icon: string;
+}> {
+  const isSupported = await isBiometricsSupported();
+  const isEnrolled = await isBiometricsEnrolled();
+
+  return { isSupported, isEnrolled, type: 'Biometrics', icon: 'finger-print-outline' };
+}
+
+/**
+ * Prompt native biometric authentication modal (Face ID / Touch ID / Fingerprint).
  */
 export async function authenticateBiometrics(promptMessage = 'Authenticate to access PharmFindr'): Promise<boolean> {
   if (Platform.OS === 'web' || !LocalAuthentication) return true;
@@ -86,8 +80,8 @@ export async function authenticateBiometrics(promptMessage = 'Authenticate to ac
     const result = await LocalAuthentication.authenticateAsync({
       promptMessage,
       fallbackLabel: 'Use Passcode',
-      disableDeviceFallback: false,
       cancelLabel: 'Cancel',
+      disableDeviceFallback: false,
     });
     return !!result.success;
   } catch (e) {

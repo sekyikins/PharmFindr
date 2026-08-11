@@ -184,7 +184,7 @@ export default function FullMapComponent({
         {markers.map((m) => {
           const isSelected = m.id === selectedId;
           const color = getPinColor(m, isSelected);
-          const descriptionText = `${m.isRegistered ? 'Verified Partner' : 'Public Directory'}${m.isOpen === false ? ' · Closed Now' : ' · Open'}`;
+          const descriptionText = `${m.isRegistered ? 'Verified Partner' : 'Public Directory'}${m.isOpen === false ? ' · Closed' : ' · Open'}`;
 
           return (
             <Marker
@@ -270,7 +270,7 @@ const styles = StyleSheet.create({
   locateFab: {
     position: 'absolute',
     right: 16,
-    top: 150,
+    top: 120,
     width: 48,
     height: 48,
     borderRadius: 24,

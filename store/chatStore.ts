@@ -28,6 +28,7 @@ interface ChatState {
   activeConsultation: Consultation | null;
   messages: Message[];
   loading: boolean;
+  loadingHistory: boolean;
   error: string | null;
 
   fetchConsultations: (userId: string) => Promise<void>;
@@ -62,6 +63,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   activeConsultation: null,
   messages: [],
   loading: false,
+  loadingHistory: false,
   error: null,
 
   // ── Fetch all consultations for user ─────────────────────────────────────
@@ -134,7 +136,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   // ── Select / load a specific consultation ────────────────────────────────
   selectConsultation: async (userId: string, consultationId: string) => {
-    set({ loading: true, error: null });
+    set({ loadingHistory: true, error: null });
     try {
       let target = get().consultations.find((c) => c.id === consultationId);
 
@@ -177,14 +179,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
             created_at: msg.created_at,
             consultation_id: msg.consultation_id,
           }));
-          set({ messages: mapped, loading: false });
+          set({ messages: mapped, loadingHistory: false, loading: false });
           return;
         }
       }
 
-      set({ messages: [], loading: false });
+      set({ messages: [], loadingHistory: false, loading: false });
     } catch (e: any) {
-      set({ loading: false });
+      set({ loadingHistory: false, loading: false });
     }
   },
 

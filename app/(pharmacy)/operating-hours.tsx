@@ -20,6 +20,7 @@ import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
 import { Header } from '@/components/ui/Header';
 import { toast } from '@/context/ToastContext';
 import { supabase } from '@/lib/supabase';
+import { formatTimeHHMM } from '@/lib/osm';
 import { useAuthStore } from '@/store/authStore';
 import { useHardwareBack } from '@/hooks/useHardwareBack';
 
@@ -115,8 +116,8 @@ export default function OperatingHours() {
               return {
                 day: d,
                 isOpen: row ? row.is_open : d !== 'Sunday',
-                opens: row ? row.opening_time || '08:00' : '08:00',
-                closes: row ? row.closing_time || '20:00' : '20:00',
+                opens: formatTimeHHMM(row ? row.opening_time || '08:00' : '08:00'),
+                closes: formatTimeHHMM(row ? row.closing_time || '20:00' : '20:00'),
               };
             });
             setSchedule(mapped);
@@ -137,8 +138,8 @@ export default function OperatingHours() {
             defaultRows.map((r) => ({
               day: r.day_of_week,
               isOpen: r.is_open,
-              opens: r.opening_time,
-              closes: r.closing_time,
+              opens: formatTimeHHMM(r.opening_time),
+              closes: formatTimeHHMM(r.closing_time),
             }))
           );
           return;
@@ -148,8 +149,8 @@ export default function OperatingHours() {
 
         // 3. Fallback to default opening_time/closing_time
         if (pharm.opening_time || pharm.closing_time) {
-          const opens = pharm.opening_time || '08:00';
-          const closes = pharm.closing_time || '20:00';
+          const opens = formatTimeHHMM(pharm.opening_time || '08:00');
+          const closes = formatTimeHHMM(pharm.closing_time || '20:00');
           setSchedule(
             DAYS.map((d) => ({
               day: d,

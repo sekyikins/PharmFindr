@@ -12,7 +12,7 @@ import { useAuthStore } from '@/store/authStore';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeContext } from '@/hooks/useThemeContext';
-import { COLORS,  FONT_SIZE, RADIUS, SPACING  } from '@/styles/theme';
+import { COLORS, SPACING } from '@/styles/theme';
 import { usePharmacyStore } from '@/store/pharmacyStore';
 import { supabase } from '@/lib/supabase';
 import Skeleton from '@/components/ui/Skeleton';
@@ -116,8 +116,6 @@ export default function Home() {
     setRefreshing(false);
   };
 
-  const alertCount = (appUser?.allergies?.length ?? 0) + (appUser?.existing_conditions?.length ?? 0);
-
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
       {/* Top Navigation Bar */}
@@ -177,7 +175,7 @@ export default function Home() {
                 </View>
               </View>
               <Text style={[styles.actionTitle, { color: theme.text.primary }]}>Scan Prescription</Text>
-              <Text style={[styles.actionDesc, { color: theme.textMuted }]}>Extract meds &amp; check stock</Text>
+              <Text style={[styles.actionDesc, { color: theme.textMuted }]}>Extract meds & check stock</Text>
             </Pressable>
 
             <Pressable
@@ -197,7 +195,7 @@ export default function Home() {
                 </View>
               </View>
               <Text style={[styles.actionTitle, { color: theme.text.primary }]}>AI Assistant</Text>
-              <Text style={[styles.actionDesc, { color: theme.textMuted }]}>Dosage, safety &amp; side effects</Text>
+              <Text style={[styles.actionDesc, { color: theme.textMuted }]}>Dosage, safety & side effects</Text>
             </Pressable>
           </View>
         </View>
@@ -230,7 +228,7 @@ export default function Home() {
               </View>
               <Text style={[styles.emptyTitle, { color: theme.text.primary }]}>No Prescriptions Scanned</Text>
               <Text style={[styles.emptyText, { color: theme.textMuted }]}>
-                Scan your medical prescription paper to verify drug safety &amp; locate stock nearby.
+                Scan your medical prescription paper to verify drug safety & locate stock nearby.
               </Text>
               <Pressable
                 style={({ pressed }) => [styles.scanLinkBtn, pressed && { opacity: 0.8 }, { backgroundColor: primaryColor }]}
@@ -332,7 +330,14 @@ export default function Home() {
                   <Ionicons name="business" size={20} color={primaryColor} />
                 </View>
                 <View style={styles.cardBody}>
-                  <Text style={[styles.pharmacyName, { color: theme.text.primary }]} numberOfLines={1}>{p.name}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Text style={[styles.pharmacyName, { color: theme.text.primary, flexShrink: 1 }]} numberOfLines={1}>
+                      {p.name}
+                    </Text>
+                    {(p.isRegistered || p.verified) && (
+                      <Ionicons name="checkmark-circle" size={14} color={COLORS.pharmacyPrimary} />
+                    )}
+                  </View>
                   <View style={styles.pharmacyMeta}>
                     <Ionicons name="navigate-outline" size={12} color={theme.textMuted} />
                     <Text style={[styles.distance, { color: theme.textMuted }]}>{p.distanceKm} km</Text>
@@ -352,13 +357,15 @@ export default function Home() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1
+    flex: 1,
   },
   greeting: {
-    fontSize: 16, fontFamily: 'Inter-Medium'
+    fontSize: 16,
+    fontFamily: 'Inter-Medium',
   },
   name: {
-    fontSize: 18, fontFamily: 'Inter-Bold'
+    fontSize: 18,
+    fontFamily: 'Inter-Bold',
   },
   notifBtn: {
     width: 40,
@@ -367,7 +374,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
-    borderWidth: 1
+    borderWidth: 1,
   },
   notifBadge: {
     position: 'absolute',
@@ -378,89 +385,79 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 3
+    paddingHorizontal: 4,
   },
   notifBadgeText: {
     color: COLORS.white,
     fontSize: 9,
     fontFamily: 'Inter-Bold',
-    lineHeight: 12
-  },
-
-  // Hero Status Banner
-  heroWrapper: {
-    paddingHorizontal: SPACING.xl, paddingTop: SPACING.sm
-  },
-  heroCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 14,
-    borderRadius: 18,
-    borderWidth: 1.2
-  },
-  heroLeft: {
-    flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1
-  },
-  pulseCircle: {
-    width: 34, height: 34, borderRadius: 17, justifyContent: 'center', alignItems: 'center'
-  },
-  heroTitle: {
-    fontSize: 13, fontFamily: 'Inter-Bold'
-  },
-  heroSub: {
-    fontFamily: 'Inter-Regular',
-     fontSize: 11, marginTop: 1
-  },
-  heroBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12
-  },
-  heroBadgeText: {
-    fontSize: 11, fontFamily: 'Inter-Bold'
+    lineHeight: 12,
   },
 
   // Sections
   section: {
-    paddingHorizontal: SPACING.xl, paddingTop: SPACING.lg
+    paddingHorizontal: SPACING.xl,
+    paddingTop: SPACING.lg,
   },
   sectionHeader: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.sm
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.sm,
   },
   sectionLabel: {
-    fontSize: 11, fontFamily: 'Inter-Bold', letterSpacing: 0.8, textTransform: 'uppercase'
+    fontSize: 11,
+    fontFamily: 'Inter-Bold',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
   },
   viewAll: {
-    fontSize: 13, fontFamily: 'Inter-Bold'
+    fontSize: 13,
+    fontFamily: 'Inter-Bold',
   },
 
   // Quick Actions (2-Card Professional Grid)
   actionsRow: {
-    flexDirection: 'row', gap: 12
+    flexDirection: 'row',
+    gap: 12,
   },
   actionCard: {
     flex: 1,
     borderRadius: 18,
     padding: 16,
-    borderWidth: 1.2
+    borderWidth: 1.2,
   },
   actionTopRow: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
   },
   actionIconCircle: {
-    width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center'
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   tagBadge: {
-    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
   },
   tagBadgeText: {
-    fontSize: 10, fontFamily: 'Inter-Bold'
+    fontSize: 10,
+    fontFamily: 'Inter-Bold',
   },
   actionTitle: {
-    fontSize: 14, fontFamily: 'Inter-Bold', marginBottom: 2
+    fontSize: 14,
+    fontFamily: 'Inter-Bold',
+    marginBottom: 2,
   },
   actionDesc: {
     fontFamily: 'Inter-Regular',
-     fontSize: 11, lineHeight: 15
+    fontSize: 11,
+    lineHeight: 15,
   },
 
   // Prescription Cards
@@ -470,7 +467,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 14,
     marginBottom: 10,
-    borderWidth: 1.2
+    borderWidth: 1.2,
   },
   cardIcon: {
     width: 44,
@@ -478,26 +475,18 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12
+    marginRight: 12,
   },
   cardBody: {
-    flex: 1
-  },
-  rxRow: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2
+    flex: 1,
   },
   cardTitle: {
-    fontSize: 14, fontFamily: 'Inter-Bold'
-  },
-  rxVerifiedPill: {
-    flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 7, paddingVertical: 2, borderRadius: 10
-  },
-  rxVerifiedText: {
-    fontSize: 10, fontFamily: 'Inter-Bold', color: COLORS.pharmacyPrimary
+    fontSize: 14,
+    fontFamily: 'Inter-Bold',
   },
   cardSub: {
     fontFamily: 'Inter-Regular',
-     fontSize: 13
+    fontSize: 13,
   },
 
   emptyCard: {
@@ -505,27 +494,39 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: 20,
     alignItems: 'center',
-    marginTop: 4
+    marginTop: 4,
   },
   emptyIconCircle: {
-    width: 48, height: 48, borderRadius: 24, justifyContent: 'center', alignItems: 'center', marginBottom: 8
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
   },
   emptyTitle: {
-    fontSize: 14, fontFamily: 'Inter-Bold', marginBottom: 4
+    fontSize: 14,
+    fontFamily: 'Inter-Bold',
+    marginBottom: 4,
   },
   emptyText: {
     fontFamily: 'Inter-Regular',
-     fontSize: 12, textAlign: 'center', lineHeight: 18, marginBottom: 12
+    fontSize: 12,
+    textAlign: 'center',
+    lineHeight: 18,
+    marginBottom: 12,
   },
   scanLinkBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 10,
-    borderRadius: 20
+    borderRadius: 20,
   },
   scanLinkText: {
-    color: COLORS.white, fontFamily: 'Inter-Bold', fontSize: 13
+    color: COLORS.white,
+    fontFamily: 'Inter-Bold',
+    fontSize: 13,
   },
 
   // Pharmacy Cards
@@ -535,7 +536,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 14,
     marginBottom: 10,
-    borderWidth: 1
+    borderWidth: 1,
   },
   pharmacyIcon: {
     width: 44,
@@ -543,17 +544,20 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12
+    marginRight: 12,
   },
   pharmacyName: {
-    fontSize: 14, fontFamily: 'Inter-Bold', marginBottom: 3
+    fontSize: 14,
+    fontFamily: 'Inter-Bold',
+    marginBottom: 3,
   },
   pharmacyMeta: {
-    flexDirection: 'row', alignItems: 'center', gap: 4
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   distance: {
     fontFamily: 'Inter-Regular',
-     fontSize: 12
+    fontSize: 12,
   },
-
 });

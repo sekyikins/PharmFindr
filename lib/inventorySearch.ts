@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { normalizeMedicineName } from '@/lib/normalizeMedicine';
-import { checkIsOpen } from '@/lib/osm';
+import { checkIsOpen, formatTimeHHMM } from '@/lib/osm';
 import type {
   PrescriptionMedicine,
   InventoryMatch,
@@ -69,7 +69,9 @@ async function searchInventoryForMedicine(
             : (Array.isArray(pharm?.operating_hours) ? pharm.operating_hours : null);
 
           const open = checkIsOpen(pharm?.opening_time, pharm?.closing_time, null, weeklyHours);
-          let todayHours = pharm?.opening_time && pharm?.closing_time ? `${pharm.opening_time} - ${pharm.closing_time}` : undefined;
+          const oTime = formatTimeHHMM(pharm?.opening_time);
+          const cTime = formatTimeHHMM(pharm?.closing_time);
+          let todayHours = oTime && cTime ? `${oTime} - ${cTime}` : undefined;
           if (weeklyHours) {
             const todayRow = weeklyHours.find((h: any) => (h.day || h.day_of_week)?.toLowerCase() === currentDayName.toLowerCase());
             if (todayRow) {
@@ -77,8 +79,8 @@ async function searchInventoryForMedicine(
               if (isOpenToday === false) {
                 todayHours = 'Closed today';
               } else {
-                const o = todayRow.opens || todayRow.opening_time || pharm?.opening_time || '08:00';
-                const c = todayRow.closes || todayRow.closing_time || pharm?.closing_time || '20:00';
+                const o = formatTimeHHMM(todayRow.opens || todayRow.opening_time || pharm?.opening_time || '08:00');
+                const c = formatTimeHHMM(todayRow.closes || todayRow.closing_time || pharm?.closing_time || '20:00');
                 todayHours = `${o} - ${c}`;
               }
             }

@@ -17,21 +17,16 @@ import { useThemeContext } from '@/hooks/useThemeContext';
 import { COLORS,  FONT_SIZE, RADIUS, SPACING  } from '@/styles/theme';
 import Skeleton from '@/components/ui/Skeleton';
 import { Header } from '@/components/ui/Header';
-import { searchMasterMedicines, fetchPopularMedicines, type MedicineItem, type PopularMedicine } from '@/lib/medicineCatalogue';
+import {
+  searchMasterMedicines,
+  fetchPopularMedicines,
+  fetchMedicineCategories,
+  type MedicineItem,
+  type PopularMedicine,
+} from '@/lib/medicineCatalogue';
 import { useRecentSearchesStore } from '@/store/recentSearchesStore';
 import { useNetworkStore } from '@/store/networkStore';
 import { useAuthStore } from '@/store/authStore';
-
-const CATEGORIES = [
-  'All',
-  'Pain Relief',
-  'Antibiotics',
-  'Diabetes',
-  'Heart & BP',
-  'Gastro',
-  'Allergy',
-  'Antimalarial',
-];
 
 export default function SearchMedicines() {
   const router = useRouter();
@@ -47,6 +42,7 @@ export default function SearchMedicines() {
   } = useRecentSearchesStore();
 
   const [query, setQuery] = useState('');
+  const [categories, setCategories] = useState<string[]>(['All']);
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [results, setResults] = useState<MedicineItem[]>([]);
   const [popularMedicines, setPopularMedicines] = useState<PopularMedicine[]>([]);
@@ -63,11 +59,17 @@ export default function SearchMedicines() {
     setPopularLoading(false);
   }, []);
 
+  const loadCategories = useCallback(async () => {
+    const cats = await fetchMedicineCategories();
+    setCategories(cats);
+  }, []);
+
   const handleRefresh = async () => {
     setRefreshing(true);
     await Promise.all([
       loadRecentSearches(user?.id),
       loadRandomPopular(),
+      loadCategories(),
     ]);
     setRefreshing(false);
   };
@@ -75,7 +77,8 @@ export default function SearchMedicines() {
   useEffect(() => {
     loadRecentSearches(user?.id);
     loadRandomPopular();
-  }, [user?.id, loadRecentSearches, loadRandomPopular]);
+    loadCategories();
+  }, [user?.id, loadRecentSearches, loadRandomPopular, loadCategories]);
 
   const runSearch = useCallback(
     async (term: string, cat?: string) => {
@@ -204,7 +207,7 @@ export default function SearchMedicines() {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.categoryScroll}
         >
-          {CATEGORIES.map((cat) => {
+          {categories.map((cat) => {
             const isSelected = selectedCategory === cat;
             return (
               <Pressable

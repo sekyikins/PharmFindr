@@ -15,6 +15,7 @@ import { useThemeContext } from '@/hooks/useThemeContext';
 import { useHardwareBack } from '@/hooks/useHardwareBack';
 import { COLORS, FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
 import { supabase } from '@/lib/supabase';
+import { formatTimeHHMM } from '@/lib/osm';
 
 export default function PharmacyDetail() {
   const router = useRouter();
@@ -56,6 +57,8 @@ export default function PharmacyDetail() {
     Array<{ day: string; isOpen: boolean; opens: string; closes: string }>
   >([]);
   const [isOpenNow, setIsOpenNow] = useState<boolean | null>(null);
+  const [statusText, setStatusText] = useState<string | null>(null);
+  const [isClosingSoon, setIsClosingSoon] = useState(false);
 
   useEffect(() => {
     const rawId = decodeURIComponent(id);
@@ -87,8 +90,8 @@ export default function PharmacyDetail() {
                 return {
                   day: d,
                   isOpen: row ? row.is_open : d !== 'Sunday',
-                  opens: row ? row.opening_time || '08:00' : '08:00',
-                  closes: row ? row.closing_time || '20:00' : '20:00',
+                  opens: formatTimeHHMM(row ? (row.opening_time || '08:00') : '08:00'),
+                  closes: formatTimeHHMM(row ? (row.closing_time || '20:00') : '20:00'),
                 };
               });
             } else if (Array.isArray(data.operating_hours) && data.operating_hours.length > 0) {
@@ -99,8 +102,8 @@ export default function PharmacyDetail() {
                 return {
                   day: d,
                   isOpen: row ? (row.isOpen !== undefined ? row.isOpen : row.is_open) : d !== 'Sunday',
-                  opens: row ? row.opens || row.opening_time || '08:00' : '08:00',
-                  closes: row ? row.closes || row.closing_time || '20:00' : '20:00',
+                  opens: formatTimeHHMM(row ? (row.opens || row.opening_time || '08:00') : '08:00'),
+                  closes: formatTimeHHMM(row ? (row.closes || row.closing_time || '20:00') : '20:00'),
                 };
               });
             }
@@ -108,7 +111,9 @@ export default function PharmacyDetail() {
             setWeeklySchedule(scheduleList);
 
             // Compute current open status
-            let todayHoursStr = data.opening_time ? `${data.opening_time} - ${data.closing_time}` : undefined;
+            const oTime = formatTimeHHMM(data.opening_time);
+            const cTime = formatTimeHHMM(data.closing_time);
+            let todayHoursStr = oTime && cTime ? `${oTime} - ${cTime}` : undefined;
             if (scheduleList.length > 0) {
               const todayRow = scheduleList.find((s) => s.day.toLowerCase() === currentDayName.toLowerCase());
               if (todayRow) {
@@ -134,14 +139,47 @@ export default function PharmacyDetail() {
               name: data.name || prev.name,
               address: data.address || prev.address,
               phone: data.phone || prev.phone,
-              hours: todayHoursStr || (data.opening_time ? `${data.opening_time} - ${data.closing_time}` : prev.hours),
+              hours: todayHoursStr || (oTime && cTime ? `${oTime} - ${cTime}` : prev.hours),
               lat: data.latitude || prev.lat,
               lon: data.longitude || prev.lon,
             }));
           }
         });
+    } else {
+      // It's a public map pharmacy: query Google Places API (New) for live operating hours & schedule
+      const cleanName = (params.name || details.name || 'Pharmacy').replace(/^Public Pharmacy$/i, 'Pharmacy');
+      const targetCoords = {
+        latitude: parseFloat(params.lat ?? String(details.lat ?? 5.6037)),
+        longitude: parseFloat(params.lon ?? String(details.lon ?? -0.187)),
+      };
+
+      import('@/lib/googlePlaces').then(({ fetchPlaceDetailsByNameAndCoords }) => {
+        fetchPlaceDetailsByNameAndCoords(cleanName, targetCoords).then((gDetails) => {
+          if (gDetails) {
+            if (gDetails.weeklySchedule && gDetails.weeklySchedule.length > 0) {
+              setWeeklySchedule(gDetails.weeklySchedule);
+            }
+            if (gDetails.isOpen !== undefined) {
+              setIsOpenNow(gDetails.isOpen);
+            }
+            if (gDetails.statusText) {
+              setStatusText(gDetails.statusText);
+            }
+            if (gDetails.isClosingSoon !== undefined) {
+              setIsClosingSoon(gDetails.isClosingSoon);
+            }
+            setDetails((prev) => ({
+              ...prev,
+              name: (prev.name && prev.name !== 'Public Pharmacy') ? prev.name : (gDetails.name || prev.name),
+              address: gDetails.address || prev.address,
+              phone: (prev.phone && prev.phone !== 'N/A') ? prev.phone : (gDetails.phone || prev.phone),
+              hours: gDetails.hours || prev.hours,
+            }));
+          }
+        });
+      });
     }
-  }, [id]);
+  }, [id, params]);
 
   const name = details.name;
   const address = details.address;
@@ -184,9 +222,31 @@ export default function PharmacyDetail() {
         <View style={[styles.infoCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
           <View style={styles.infoTitleRow}>
             <Text style={[styles.pharmName, { color: theme.text.primary }]} numberOfLines={2}>{name}</Text>
-            <View style={[styles.statusBadge, { backgroundColor: isOpen ? theme.successBg : theme.surfaceSecondary }]}>
-              <Text style={[styles.statusText, { color: isOpen ? theme.successText : theme.textMuted }]}>
-                {isOpen ? 'Open Now' : 'Closed'}
+            <View
+              style={[
+                styles.statusBadge,
+                {
+                  backgroundColor: isClosingSoon
+                    ? '#FEF3C7'
+                    : isOpen
+                    ? theme.successBg
+                    : theme.surfaceSecondary,
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.statusText,
+                  {
+                    color: isClosingSoon
+                      ? '#B45309'
+                      : isOpen
+                      ? theme.successText
+                      : theme.textMuted,
+                  },
+                ]}
+              >
+                {isOpen ? (statusText || 'Open') : 'Closed'}
               </Text>
             </View>
           </View>
@@ -196,7 +256,7 @@ export default function PharmacyDetail() {
           </View>
           <View style={styles.detailRow}>
             <Ionicons name="time-outline" size={14} color={theme.textMuted} />
-            <Text style={[styles.detailText, { color: theme.textMuted }]}>Today: {hours}</Text>
+            <Text style={[styles.detailText, { color: theme.textMuted }]}>Today: {formatTimeHHMM(hours)}</Text>
           </View>
           <Pressable
             style={({ pressed }) => [styles.detailRow, pressed && { opacity: 0.6 }]}
@@ -246,7 +306,7 @@ export default function PharmacyDetail() {
                         isToday && { fontFamily: 'Inter-Bold' },
                       ]}
                     >
-                      {s.isOpen ? `${s.opens} - ${s.closes}` : 'Closed'}
+                      {s.isOpen ? `${formatTimeHHMM(s.opens)} - ${formatTimeHHMM(s.closes)}` : 'Closed'}
                     </Text>
                   </View>
                 );

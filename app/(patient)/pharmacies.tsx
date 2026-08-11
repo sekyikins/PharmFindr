@@ -285,10 +285,12 @@ export default function Pharmacies() {
 
   const filtered = useMemo(() => {
     return pharmacies.filter((p) => {
-      const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesDistance = p.distanceKm <= maxDistanceKm;
+      const q = searchQuery.toLowerCase().trim();
+      const matchesSearch = !q || p.name.toLowerCase().includes(q) || (p.address && p.address.toLowerCase().includes(q));
+      const isVerifiedPartner = p.isRegistered === true || p.verified === true;
+      const matchesDistance = isVerifiedPartner ? true : p.distanceKm <= maxDistanceKm;
       const matchesOpen = !onlyOpen || p.isOpen !== false;
-      const matchesVerified = !onlyVerified || p.isRegistered === true;
+      const matchesVerified = !onlyVerified || isVerifiedPartner;
       return matchesSearch && matchesDistance && matchesOpen && matchesVerified;
     });
   }, [pharmacies, searchQuery, maxDistanceKm, onlyOpen, onlyVerified]);
@@ -309,6 +311,24 @@ export default function Pharmacies() {
       params: {
         id: encodeURIComponent(pharmacy.id),
         name: pharmacy.name,
+        lat: String(pharmacy.latitude),
+        lon: String(pharmacy.longitude),
+        distanceKm: String(pharmacy.distanceKm),
+        walkMinutes: String(pharmacy.walkMinutes),
+      },
+    });
+  };
+
+  // Navigate to full pharmacy profile & weekly operating hours schedule
+  const handleViewDetails = (pharmacy: OsmPharmacy) => {
+    router.push({
+      pathname: '/(patient)/pharmacy/[id]',
+      params: {
+        id: encodeURIComponent(pharmacy.id),
+        name: pharmacy.name,
+        address: pharmacy.address,
+        phone: pharmacy.phone || 'N/A',
+        hours: pharmacy.hours || 'N/A',
         lat: String(pharmacy.latitude),
         lon: String(pharmacy.longitude),
         distanceKm: String(pharmacy.distanceKm),
@@ -408,9 +428,6 @@ export default function Pharmacies() {
               <Text style={[styles.contextTitle, { color: primaryColor }]}>
                 Medication Search: {routeQuery}
               </Text>
-              <Text style={[styles.contextSub, { color: theme.text.primary }]}>
-                Tap any pharmacy pin on the map to view stock, directions & reservation.
-              </Text>
             </View>
           </View>
         ) : null}
@@ -482,21 +499,52 @@ export default function Pharmacies() {
                     </View>
                   )}
 
-                  {selectedPharmacy.hours && (
-                    <View style={[
-                      styles.hoursBadge,
-                      { backgroundColor: selectedPharmacy.isOpen === false ? theme.surfaceSecondary : theme.successBg }
-                    ]}>
+                  {(selectedPharmacy.statusText || selectedPharmacy.hours) && (
+                    <View
+                      style={[
+                        styles.hoursBadge,
+                        {
+                          backgroundColor: selectedPharmacy.isClosingSoon
+                            ? '#FEF3C7'
+                            : selectedPharmacy.isOpen === false
+                            ? theme.surfaceSecondary
+                            : theme.successBg,
+                        },
+                      ]}
+                    >
                       <Ionicons
-                        name={selectedPharmacy.isOpen === false ? "time-outline" : "checkmark-circle"}
+                        name={
+                          selectedPharmacy.isClosingSoon
+                            ? 'alert-circle-outline'
+                            : selectedPharmacy.isOpen === false
+                            ? 'time-outline'
+                            : 'checkmark-circle'
+                        }
                         size={12}
-                        color={selectedPharmacy.isOpen === false ? theme.textMuted : theme.success}
+                        color={
+                          selectedPharmacy.isClosingSoon
+                            ? '#D97706'
+                            : selectedPharmacy.isOpen === false
+                            ? theme.textMuted
+                            : theme.success
+                        }
                       />
-                      <Text style={[
-                        styles.hoursText,
-                        { color: selectedPharmacy.isOpen === false ? theme.textMuted : theme.successText }
-                      ]}>
-                        {selectedPharmacy.isOpen === false ? 'Closed Now' : 'Open Now'} ({selectedPharmacy.hours})
+                      <Text
+                        style={[
+                          styles.hoursText,
+                          {
+                            color: selectedPharmacy.isClosingSoon
+                              ? '#B45309'
+                              : selectedPharmacy.isOpen === false
+                              ? theme.textMuted
+                              : theme.successText,
+                          },
+                        ]}
+                      >
+                        {selectedPharmacy.isOpen === false
+                          ? 'Closed'
+                          : selectedPharmacy.statusText ||
+                            (selectedPharmacy.hours ? `Open (${selectedPharmacy.hours})` : 'Open')}
                       </Text>
                     </View>
                   )}
@@ -568,6 +616,20 @@ export default function Pharmacies() {
 
             {/* Action Buttons Row */}
             <View style={styles.actionRow}>
+              {/* Full Details -> View profile & full weekly hours schedule */}
+              <Pressable
+                style={({ pressed }) => [
+                  styles.actionBtn,
+                  styles.secondaryActionBtn,
+                  pressed && { opacity: 0.7 },
+                  { borderColor: theme.border, backgroundColor: theme.card },
+                ]}
+                onPress={() => handleViewDetails(selectedPharmacy)}
+              >
+                <Ionicons name="information-circle-outline" size={18} color={theme.text.primary} />
+                <Text style={[styles.actionBtnText, { color: theme.text.primary }]}>Details</Text>
+              </Pressable>
+
               {/* Navigate -> In-app directions */}
               <Pressable
                 style={({ pressed }) => [
@@ -764,10 +826,6 @@ const styles = StyleSheet.create({
   contextTitle: {
     fontSize: 13, fontFamily: 'Inter-Bold'
   },
-  contextSub: {
-    fontFamily: 'Inter-Regular',
-     fontSize: 11, marginTop: 2
-  },
 
   searchBarContainer: {
     paddingHorizontal: 16,
@@ -788,15 +846,9 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     fontFamily: 'Inter-Regular',
-     flex: 1, fontSize: 14, paddingVertical: 0
-  },
-  pinCountBadge: {
-    fontSize: 12,
-    fontFamily: 'Inter-SemiBold',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: RADIUS.pill,
-    overflow: 'hidden'
+    flex: 1,
+    fontSize: 14,
+    paddingVertical: 0,
   },
 
   overlayTop: {
@@ -860,9 +912,12 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Bold'
   },
   hoursBadge: {
+    flexDirection: 'row',
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: RADIUS.sm
+    borderRadius: RADIUS.sm,
+    alignItems: "center",
+    gap: 6,
   },
   hoursText: {
     fontSize: 11,

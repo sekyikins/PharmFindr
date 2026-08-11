@@ -66,12 +66,12 @@ export default function AIChat() {
   const { theme, primaryColor } = useThemeContext();
   const insets = useSafeAreaInsets();
   const { user, profile, appUser } = useAuthStore();
-  const isProfileIncomplete = !appUser?.age || !appUser?.weight || ((appUser?.allergies?.length || 0) === 0 && (appUser?.existing_conditions?.length || 0) === 0);
   const {
     consultations,
     activeConsultation,
     messages,
     loading,
+    loadingHistory,
     fetchConsultations,
     selectConsultation,
     getOrCreateGeneralConsultation,
@@ -81,6 +81,7 @@ export default function AIChat() {
     deleteConsultation,
   } = useChatStore();
 
+  const [isInitializing, setIsInitializing] = useState(true);
   const scrollRef = useRef<ScrollView>(null);
   const [inputText, setInputText] = useState('');
   const MIN_HEIGHT = 44;
@@ -153,16 +154,30 @@ export default function AIChat() {
 
   // Initialize consultations & select active thread
   useEffect(() => {
-    if (!userId) return;
+    if (!userId) {
+      setIsInitializing(false);
+      return;
+    }
 
+    let isMounted = true;
     const init = async () => {
-      await fetchConsultations(userId);
-      if (!activeConsultation) {
-        const general = await getOrCreateGeneralConsultation(userId);
-        await selectConsultation(userId, general.id);
+      setIsInitializing(true);
+      try {
+        await fetchConsultations(userId);
+        if (!activeConsultation) {
+          const general = await getOrCreateGeneralConsultation(userId);
+          await selectConsultation(userId, general.id);
+        }
+      } catch (e: any) {
+        console.warn('Chat init note:', e.message);
+      } finally {
+        if (isMounted) setIsInitializing(false);
       }
     };
     init();
+    return () => {
+      isMounted = false;
+    };
   }, [userId]);
 
   // Toast prompt for completely empty health profile (only if zero parameters filled & shown once per app session)
@@ -554,51 +569,56 @@ export default function AIChat() {
         style={{ flex: 1 }}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 60 + insets.top : 0}
       >
-        <ScrollView
-          ref={scrollRef}
-          style={styles.messageList}
-          contentContainerStyle={styles.messageContent}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-        >
+        {(isInitializing || loadingHistory) && messages.length === 0 ? (
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            <ActivityIndicator size="large" color={primaryColor} />
+          </View>
+        ) : (
+          <ScrollView
+            ref={scrollRef}
+            style={styles.messageList}
+            contentContainerStyle={styles.messageContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
           {/* Welcome Hero Card when thread is fresh/empty */}
-          {messages.length === 0 && !loading && (
-            <View style={styles.welcomeHeroContainer}>
-              <View style={[styles.welcomeCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
-                <View style={[styles.welcomeIconCircle, { backgroundColor: primaryColor + '15' }]}>
-                  <Ionicons name="sparkles" size={26} color={primaryColor} />
-                </View>
-                <Text style={[styles.welcomeTitle, { color: theme.text.primary }]}>
-                  {isGeneral ? `Hello ${firstName}! 👋` : activeConsultation?.title}
-                </Text>
-                <Text style={[styles.welcomeSubText, { color: theme.textMuted }]}>
-                  I'm your clinical AI assistant. Ask me about medicine usage, side effects, dosages, or search for nearby pharmacy availability.
-                </Text>
+            {messages.length === 0 && !loading && (
+              <View style={styles.welcomeHeroContainer}>
+                <View style={[styles.welcomeCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+                  <View style={[styles.welcomeIconCircle, { backgroundColor: primaryColor + '15' }]}>
+                    <Ionicons name="sparkles" size={26} color={primaryColor} />
+                  </View>
+                  <Text style={[styles.welcomeTitle, { color: theme.text.primary }]}>
+                    {isGeneral ? `Hello ${firstName}! 👋` : activeConsultation?.title}
+                  </Text>
+                  <Text style={[styles.welcomeSubText, { color: theme.textMuted }]}>
+                    I'm your clinical AI assistant. Ask me about medicine usage, side effects, dosages, or search for nearby pharmacy availability.
+                  </Text>
 
-                <View style={styles.featuredGrid}>
-                  {FEATURED_PROMPTS.map((promptItem) => (
-                    <Pressable
-                      key={promptItem.title}
-                      style={({ pressed }) => [
-                        styles.featuredCard,
-                        { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
-                        pressed && { opacity: 0.7 },
-                      ]}
-                      onPress={() => handleSend(promptItem.prompt)}
-                    >
-                      <View style={[styles.promptIconBox, { backgroundColor: promptItem.color + '15' }]}>
-                        <Ionicons name={promptItem.icon as any} size={18} color={promptItem.color} />
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={[styles.promptTitle, { color: theme.text.primary }]}>{promptItem.title}</Text>
-                        <Text style={[styles.promptDesc, { color: theme.textMuted }]}>{promptItem.desc}</Text>
-                      </View>
-                    </Pressable>
-                  ))}
+                  <View style={styles.featuredGrid}>
+                    {FEATURED_PROMPTS.map((promptItem) => (
+                      <Pressable
+                        key={promptItem.title}
+                        style={({ pressed }) => [
+                          styles.featuredCard,
+                          { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
+                          pressed && { opacity: 0.7 },
+                        ]}
+                        onPress={() => handleSend(promptItem.prompt)}
+                      >
+                        <View style={[styles.promptIconBox, { backgroundColor: promptItem.color + '15' }]}>
+                          <Ionicons name={promptItem.icon as any} size={18} color={promptItem.color} />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.promptTitle, { color: theme.text.primary }]}>{promptItem.title}</Text>
+                          <Text style={[styles.promptDesc, { color: theme.textMuted }]}>{promptItem.desc}</Text>
+                        </View>
+                      </Pressable>
+                    ))}
+                  </View>
                 </View>
               </View>
-            </View>
-          )}
+            )}
 
           {/* Messages */}
           {messages.map((msg) => (
@@ -660,6 +680,7 @@ export default function AIChat() {
             </View>
           )}
         </ScrollView>
+        )}
 
         {/* Input Bar */}
         <View style={[styles.inputContainer, { backgroundColor: theme.card, borderTopColor: theme.border }]}>

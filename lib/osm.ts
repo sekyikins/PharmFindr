@@ -9,10 +9,37 @@ export interface OsmPharmacy {
   longitude: number;
   phone?: string;
   hours?: string;
+  weeklyHours?: string[];
+  statusText?: string;
+  nextOpenTime?: string;
+  nextCloseTime?: string;
+  isClosingSoon?: boolean;
+  utcOffsetMinutes?: number;
   distanceKm: number;
   walkMinutes: number;
   isRegistered?: boolean;
+  verified?: boolean;
   isOpen?: boolean;
+}
+
+/**
+ * Strips seconds from time strings, ensuring only hours and minutes are displayed.
+ * E.g. "08:00:00" -> "08:00", "20:00:00" -> "20:00", "08:00:00 - 20:00:00" -> "08:00 - 20:00"
+ */
+export function formatTimeHHMM(timeStr?: string | null): string {
+  if (!timeStr) return '';
+  const clean = timeStr.trim();
+  if (clean.includes('-') || clean.includes('–') || clean.includes('—')) {
+    const parts = clean.split(/[-–—]/).map((s) => formatTimeHHMM(s.trim()));
+    return parts.join(' - ');
+  }
+  const match = clean.match(/^(\d{1,2}):(\d{2})(?::\d{2})?(?:\.\d+)?\s*(AM|PM)?$/i);
+  if (match) {
+    const [, h, m, ampm] = match;
+    const hStr = h.padStart(2, '0');
+    return ampm ? `${parseInt(h, 10)}:${m} ${ampm.toUpperCase()}` : `${hStr}:${m}`;
+  }
+  return clean;
 }
 
 function parseTimeMinutes(timeStr?: string | null): number | null {
@@ -113,7 +140,7 @@ function buildAddress(tags: Record<string, string>): string {
 }
 
 /**
- * Fetch registered pharmacies from Supabase database including weekly operating hours.
+ * Fetch registered verified pharmacies from Supabase database including weekly operating hours.
  */
 export async function getRegisteredPharmacies(userCoords?: Coords | null): Promise<OsmPharmacy[]> {
   const coordsBase = userCoords || DEFAULT_COORDS;
@@ -124,9 +151,14 @@ export async function getRegisteredPharmacies(userCoords?: Coords | null): Promi
   try {
     const { data, error } = await supabase
       .from('pharmacies')
-      .select('id, name, address, phone, latitude, longitude, opening_time, closing_time, operating_hours, pharmacy_operating_hours(day_of_week, is_open, opening_time, closing_time)');
+      .select('id, name, address, phone, latitude, longitude, opening_time, closing_time, verified, pharmacy_operating_hours(day_of_week, is_open, opening_time, closing_time)');
 
-    if (error || !data) return [];
+    if (error) {
+      console.warn('Error fetching registered pharmacies from Supabase:', error.message);
+      return [];
+    }
+
+    if (!data) return [];
 
     return data
       .filter((p) => p.latitude != null && p.longitude != null)
@@ -135,24 +167,34 @@ export async function getRegisteredPharmacies(userCoords?: Coords | null): Promi
         const dist = haversineKm(coordsBase, coords);
         const weeklyHours = (p.pharmacy_operating_hours && p.pharmacy_operating_hours.length > 0)
           ? p.pharmacy_operating_hours
-          : (Array.isArray(p.operating_hours) ? p.operating_hours : null);
+          : null;
 
         const open = checkIsOpen(p.opening_time, p.closing_time, null, weeklyHours);
 
-        let todayHoursStr = p.opening_time && p.closing_time ? `${p.opening_time} - ${p.closing_time}` : undefined;
+        const oTime = formatTimeHHMM(p.opening_time);
+        const cTime = formatTimeHHMM(p.closing_time);
+        let todayHoursStr = oTime && cTime ? `${oTime} - ${cTime}` : undefined;
         if (weeklyHours) {
-          const todayRow = weeklyHours.find((h: any) => (h.day || h.day_of_week)?.toLowerCase() === currentDayName.toLowerCase());
+          const todayRow = weeklyHours.find(
+            (h: any) => (h.day || h.day_of_week)?.toLowerCase() === currentDayName.toLowerCase()
+          );
           if (todayRow) {
             const isOpenToday = todayRow.isOpen !== undefined ? todayRow.isOpen : todayRow.is_open;
             if (isOpenToday === false) {
               todayHoursStr = 'Closed today';
             } else {
-              const o = todayRow.opens || todayRow.opening_time || p.opening_time || '08:00';
-              const c = todayRow.closes || todayRow.closing_time || p.closing_time || '20:00';
+              const o = formatTimeHHMM(todayRow.opens || todayRow.opening_time || p.opening_time || '08:00');
+              const c = formatTimeHHMM(todayRow.closes || todayRow.closing_time || p.closing_time || '20:00');
               todayHoursStr = `${o} - ${c}`;
             }
           }
         }
+
+        const statusText = !open
+          ? 'Closed'
+          : todayHoursStr && todayHoursStr !== 'Closed today'
+          ? `Open (${todayHoursStr})`
+          : 'Open';
 
         return {
           id: p.id,
@@ -162,9 +204,11 @@ export async function getRegisteredPharmacies(userCoords?: Coords | null): Promi
           longitude: p.longitude,
           phone: p.phone || undefined,
           hours: todayHoursStr,
+          statusText,
           distanceKm: Math.round(dist * 10) / 10,
           walkMinutes: Math.round((dist / 5) * 60),
           isRegistered: true,
+          verified: p.verified ?? true,
           isOpen: open,
         };
       });
@@ -175,7 +219,10 @@ export async function getRegisteredPharmacies(userCoords?: Coords | null): Promi
 }
 
 /**
- * Search nearby pharmacies using live Overpass API (OSM real-world data) + Supabase database.
+ * Search nearby pharmacies using:
+ * 1. Supabase database (Registered & verified partner pharmacies)
+ * 2. Google Places API (New) (Live public pharmacies with real-time operating hours)
+ * 3. Overpass API (OSM real-world open map fallback)
  */
 export async function searchNearbyPharmacies(
   userCoords: Coords,
@@ -188,6 +235,7 @@ export async function searchNearbyPharmacies(
 
   const resultList: OsmPharmacy[] = [];
   const knownIds = new Set<string>();
+  const knownNames = new Set<string>();
 
   // 1. Fetch registered database pharmacies from Supabase
   const registeredMeds = await getRegisteredPharmacies(coordsBase);
@@ -196,80 +244,113 @@ export async function searchNearbyPharmacies(
   for (const reg of registeredMeds) {
     if (!knownIds.has(reg.id)) {
       knownIds.add(reg.id);
+      knownNames.add(reg.name.toLowerCase().trim());
       resultList.push(reg);
       if (onItemFound) onItemFound(reg);
     }
   }
 
-  // 2. Fetch live real-world public map locations via Overpass API
-  const query = `[out:json][timeout:10];(node["amenity"="pharmacy"](around:${radiusMeters},${lat},${lon});way["amenity"="pharmacy"](around:${radiusMeters},${lat},${lon});node["healthcare"="pharmacy"](around:${radiusMeters},${lat},${lon});way["healthcare"="pharmacy"](around:${radiusMeters},${lat},${lon}););out center;`;
+  // 2. Fetch live public pharmacies with real-time operating hours via Google Places API (New)
+  try {
+    const { searchGoogleNearbyPharmacies } = await import('./googlePlaces');
+    const googlePharmacies = await searchGoogleNearbyPharmacies(coordsBase, radiusMeters, signal);
 
-  const endpoints = [
-    `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`,
-    `https://lz4.overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`,
-    `https://z.overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`,
-    `https://overpass.kumi.systems/api/interpreter?data=${encodeURIComponent(query)}`,
-  ];
-
-  for (const url of endpoints) {
-    if (signal?.aborted) break;
-    const fetchController = new AbortController();
-    const timeoutId = setTimeout(() => fetchController.abort(), 8000);
-
-    try {
-      const res = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-          'User-Agent': 'PharmFindrApp/1.0',
-        },
-        signal: fetchController.signal,
-      });
-      clearTimeout(timeoutId);
-
-      if (res && res.ok) {
-        const json = await res.json();
-        const elements: any[] = json.elements ?? [];
-
-        for (const el of elements) {
-          if (signal?.aborted) break;
-          const elLat = el.lat ?? el.center?.lat;
-          const elLon = el.lon ?? el.center?.lon;
-          if (elLat == null || elLon == null) continue;
-
-          const tags: Record<string, string> = el.tags ?? {};
-          const phone = tags['phone'] ?? tags['contact:phone'];
-          if (phone && registeredPhones.has(phone)) continue;
-
-          const itemId = `osm-${el.type || 'node'}-${el.id}`;
-          if (knownIds.has(itemId)) continue;
-
-          const pharmacyCoords: Coords = { latitude: elLat, longitude: elLon };
-          const distanceKm = haversineKm(coordsBase, pharmacyCoords);
-
-          const open = checkIsOpen(null, null, tags['opening_hours']);
-          const item: OsmPharmacy = {
-            id: itemId,
-            name: tags['name'] ?? tags['brand'] ?? tags['operator'] ?? 'Public Pharmacy',
-            address: buildAddress(tags),
-            latitude: elLat,
-            longitude: elLon,
-            phone,
-            hours: tags['opening_hours'] ?? undefined,
-            distanceKm: Math.round(distanceKm * 10) / 10,
-            walkMinutes: Math.round((distanceKm / 5) * 60),
-            isRegistered: false,
-            isOpen: open,
-          };
-
-          knownIds.add(itemId);
-          resultList.push(item);
-          if (onItemFound) onItemFound(item);
-        }
-        break; // Successfully fetched live OSM map data!
+    for (const gPharm of googlePharmacies) {
+      if (signal?.aborted) break;
+      const cleanName = gPharm.name.toLowerCase().trim();
+      if (
+        !knownIds.has(gPharm.id) &&
+        !knownNames.has(cleanName) &&
+        (!gPharm.phone || !registeredPhones.has(gPharm.phone))
+      ) {
+        knownIds.add(gPharm.id);
+        knownNames.add(cleanName);
+        resultList.push(gPharm);
+        if (onItemFound) onItemFound(gPharm);
       }
-    } catch {
-      clearTimeout(timeoutId);
+    }
+  } catch (err: any) {
+    if (err?.name !== 'AbortError') {
+      console.warn('Google Places live search fallback:', err.message);
+    }
+  }
+
+  // 3. Supplemental live OSM map locations via Overpass API (if Google returns few or for open-map coverage)
+  if (resultList.length < 5 && !signal?.aborted) {
+    const query = `[out:json][timeout:10];(node["amenity"="pharmacy"](around:${radiusMeters},${lat},${lon});way["amenity"="pharmacy"](around:${radiusMeters},${lat},${lon});node["healthcare"="pharmacy"](around:${radiusMeters},${lat},${lon});way["healthcare"="pharmacy"](around:${radiusMeters},${lat},${lon}););out center;`;
+
+    const endpoints = [
+      `https://places.googleapis.com/v1/places:searchNearby`, // proxy guard
+      `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`,
+      `https://lz4.overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`,
+      `https://z.overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`,
+      `https://overpass.kumi.systems/api/interpreter?data=${encodeURIComponent(query)}`,
+    ].slice(1);
+
+    for (const url of endpoints) {
+      if (signal?.aborted) break;
+      const fetchController = new AbortController();
+      const timeoutId = setTimeout(() => fetchController.abort(), 8000);
+
+      try {
+        const res = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            'User-Agent': 'PharmFindrApp/1.0',
+          },
+          signal: fetchController.signal,
+        });
+        clearTimeout(timeoutId);
+
+        if (res && res.ok) {
+          const json = await res.json();
+          const elements: any[] = json.elements ?? [];
+
+          for (const el of elements) {
+            if (signal?.aborted) break;
+            const elLat = el.lat ?? el.center?.lat;
+            const elLon = el.lon ?? el.center?.lon;
+            if (elLat == null || elLon == null) continue;
+
+            const tags: Record<string, string> = el.tags ?? {};
+            const phone = tags['phone'] ?? tags['contact:phone'];
+            if (phone && registeredPhones.has(phone)) continue;
+
+            const itemId = `osm-${el.type || 'node'}-${el.id}`;
+            const name = tags['name'] ?? tags['brand'] ?? tags['operator'] ?? 'Public Pharmacy';
+            const cleanName = name.toLowerCase().trim();
+
+            if (knownIds.has(itemId) || knownNames.has(cleanName)) continue;
+
+            const pharmacyCoords: Coords = { latitude: elLat, longitude: elLon };
+            const distanceKm = haversineKm(coordsBase, pharmacyCoords);
+
+            const open = checkIsOpen(null, null, tags['opening_hours']);
+            const item: OsmPharmacy = {
+              id: itemId,
+              name,
+              address: buildAddress(tags),
+              latitude: elLat,
+              longitude: elLon,
+              phone,
+              hours: tags['opening_hours'] ?? undefined,
+              distanceKm: Math.round(distanceKm * 10) / 10,
+              walkMinutes: Math.round((distanceKm / 5) * 60),
+              isRegistered: false,
+              isOpen: open,
+            };
+
+            knownIds.add(itemId);
+            knownNames.add(cleanName);
+            resultList.push(item);
+            if (onItemFound) onItemFound(item);
+          }
+          break;
+        }
+      } catch {
+        clearTimeout(timeoutId);
+      }
     }
   }
 
