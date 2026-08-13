@@ -13,7 +13,6 @@ import {
   BackHandler,
   PanResponder,
   Animated,
-  StatusBar,
   Platform,
   KeyboardAvoidingView,
 } from 'react-native';
@@ -480,7 +479,6 @@ export default function EditAccount() {
       {/* IMMERSIVE GESTURE DISMISSIBLE AVATAR VIEWER OVERLAY */}
       {avatarModalVisible && (
         <Animated.View style={[styles.waAvatarModalContainer, { opacity: previewOpacity }]}>
-          <StatusBar barStyle="light-content" backgroundColor="#0b0b0b" animated />
           <Pressable style={{ flex: 1 }} onPress={() => setAvatarModalVisible(false)}>
             <Animated.View
               {...panResponder.panHandlers}
@@ -602,12 +600,6 @@ export default function EditAccount() {
           />
 
           <View style={styles.passwordActionRow}>
-            <Pressable
-              style={({ pressed }) => [styles.cancelPasswordBtn, pressed && { opacity: 0.5 }, { borderColor: theme.border }]}
-              onPress={() => passwordSheetRef.current?.dismiss()}
-            >
-              <Text style={[styles.cancelPasswordText, { color: theme.textMuted }]}>Cancel</Text>
-            </Pressable>
             <Pressable
               style={({ pressed }) => [styles.confirmPasswordBtn, pressed && { opacity: 0.5 }, { backgroundColor: primaryColor }]}
               onPress={handleChangePasswordSubmit}

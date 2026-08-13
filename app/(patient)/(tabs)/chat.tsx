@@ -16,6 +16,7 @@ import {
   Modal,
   Share,
   PanResponder,
+  Dimensions,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -26,6 +27,9 @@ import { useAuthStore } from '@/store/authStore';
 import { useNetworkStore } from '@/store/networkStore';
 import { FormattedMarkdown } from '@/components/ui/FormattedMarkdown';
 import { toast } from '@/context/ToastContext';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const SIDEBAR_WIDTH = Math.min(320, SCREEN_WIDTH * 0.82);
 
 const FEATURED_PROMPTS = [
   {
@@ -87,62 +91,105 @@ export default function AIChat() {
   const MIN_HEIGHT = 44;
   const [inputHeight, setInputHeight] = useState(MIN_HEIGHT);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const [showNewConsultModal, setShowNewConsultModal] = useState(false);
   const [newTopicTitle, setNewTopicTitle] = useState('');
   const [showBannerDetails, setShowBannerDetails] = useState(true);
   const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
 
-  const slideAnim = useRef(new Animated.Value(-320)).current;
-  const overlayOpacity = useRef(new Animated.Value(0)).current;
+  const sidebarOpenRef = useRef(sidebarOpen);
+  useEffect(() => {
+    sidebarOpenRef.current = sidebarOpen;
+  }, [sidebarOpen]);
 
-  // Swipe to dismiss missing health profile banner
-  const [bannerDismissed, setBannerDismissed] = useState(false);
-  const bannerPan = useRef(new Animated.ValueXY()).current;
-  const bannerOpacity = useRef(new Animated.Value(1)).current;
+  const slideAnim = useRef(new Animated.Value(-SIDEBAR_WIDTH)).current;
+  const overlayOpacity = slideAnim.interpolate({
+    inputRange: [-SIDEBAR_WIDTH, 0],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
 
-  const bannerPanResponder = useRef(
+  const openSidebar = useCallback((velocity?: number) => {
+    setSidebarOpen(true);
+    setIsDragging(false);
+    Animated.spring(slideAnim, {
+      toValue: 0,
+      velocity: velocity ?? 0,
+      tension: 65,
+      friction: 11,
+      useNativeDriver: true,
+    }).start();
+  }, [slideAnim]);
+
+  const closeSidebar = useCallback((velocity?: number) => {
+    setIsDragging(false);
+    Animated.spring(slideAnim, {
+      toValue: -SIDEBAR_WIDTH,
+      velocity: velocity ?? 0,
+      tension: 65,
+      friction: 11,
+      useNativeDriver: true,
+    }).start(() => {
+      setSidebarOpen(false);
+    });
+  }, [slideAnim]);
+
+  // Swipe-to-open and swipe-to-close pan responder
+  const panResponder = useRef(
     PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
       onMoveShouldSetPanResponder: (_, gestureState) => {
-        return Math.abs(gestureState.dx) > 8 || Math.abs(gestureState.dy) > 8;
-      },
-      onPanResponderMove: Animated.event([null, { dx: bannerPan.x, dy: bannerPan.y }], {
-        useNativeDriver: false,
-      }),
-      onPanResponderRelease: (_, gestureState) => {
-        if (
-          Math.abs(gestureState.dx) > 60 ||
-          gestureState.dy < -30 ||
-          Math.abs(gestureState.vx) > 0.4
-        ) {
-          Animated.parallel([
-            Animated.timing(bannerPan, {
-              toValue: { x: gestureState.dx > 0 ? 350 : -350, y: gestureState.dy },
-              duration: 200,
-              useNativeDriver: false,
-            }),
-            Animated.timing(bannerOpacity, {
-              toValue: 0,
-              duration: 200,
-              useNativeDriver: false,
-            }),
-          ]).start(() => setBannerDismissed(true));
+        const { dx, dy } = gestureState;
+        const isHorizontal = Math.abs(dx) > Math.abs(dy) * 1.2;
+
+        if (!sidebarOpenRef.current) {
+          // Swipe right anywhere on the screen to slide open sidebar
+          return isHorizontal && dx > 15;
         } else {
-          Animated.spring(bannerPan, {
-            toValue: { x: 0, y: 0 },
-            useNativeDriver: false,
-          }).start();
+          // Swipe left anywhere to slide closed sidebar
+          return isHorizontal && dx < -15;
+        }
+      },
+      onPanResponderGrant: () => {
+        setIsDragging(true);
+      },
+      onPanResponderMove: (_, gestureState) => {
+        const { dx } = gestureState;
+        if (!sidebarOpenRef.current) {
+          // Dragging open from closed: dx is positive
+          const newX = Math.min(0, -SIDEBAR_WIDTH + Math.max(0, dx));
+          slideAnim.setValue(newX);
+        } else {
+          // Dragging closed from open: dx is negative
+          const newX = Math.min(0, Math.max(-SIDEBAR_WIDTH, dx));
+          slideAnim.setValue(newX);
+        }
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        const { dx, vx } = gestureState;
+        if (!sidebarOpenRef.current) {
+          if (dx > SIDEBAR_WIDTH * 0.25 || vx > 0.35) {
+            openSidebar(vx);
+          } else {
+            closeSidebar(vx);
+          }
+        } else {
+          if (dx < -SIDEBAR_WIDTH * 0.25 || vx < -0.35) {
+            closeSidebar(vx);
+          } else {
+            openSidebar(vx);
+          }
+        }
+      },
+      onPanResponderTerminate: () => {
+        if (sidebarOpenRef.current) {
+          openSidebar();
+        } else {
+          closeSidebar();
         }
       },
     })
   ).current;
-
-  const handleDismissBanner = () => {
-    Animated.timing(bannerOpacity, {
-      toValue: 0,
-      duration: 150,
-      useNativeDriver: false,
-    }).start(() => setBannerDismissed(true));
-  };
 
   const userId = user?.id;
 
@@ -216,22 +263,6 @@ export default function AIChat() {
     }
   }, [messages]);
 
-  // Sidebar animations
-  const openSidebar = () => {
-    setSidebarOpen(true);
-    Animated.parallel([
-      Animated.timing(slideAnim, { toValue: 0, duration: 250, useNativeDriver: true }),
-      Animated.timing(overlayOpacity, { toValue: 1, duration: 250, useNativeDriver: true }),
-    ]).start();
-  };
-
-  const closeSidebar = () => {
-    Animated.parallel([
-      Animated.timing(slideAnim, { toValue: -320, duration: 250, useNativeDriver: true }),
-      Animated.timing(overlayOpacity, { toValue: 0, duration: 250, useNativeDriver: true }),
-    ]).start(() => setSidebarOpen(false));
-  };
-
   // Hardware Back button
   useEffect(() => {
     if (!sidebarOpen) return;
@@ -240,16 +271,16 @@ export default function AIChat() {
       return true;
     });
     return () => subscription.remove();
-  }, [sidebarOpen]);
+  }, [sidebarOpen, closeSidebar]);
 
   useFocusEffect(
     useCallback(() => {
       return () => {
         setSidebarOpen(false);
-        slideAnim.setValue(-320);
-        overlayOpacity.setValue(0);
+        setIsDragging(false);
+        slideAnim.setValue(-SIDEBAR_WIDTH);
       };
-    }, [])
+    }, [slideAnim])
   );
 
   const handleSend = useCallback(
@@ -348,151 +379,153 @@ export default function AIChat() {
   const prescriptionConsultations = consultations.filter((c) => c.type !== 'general');
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']} {...panResponder.panHandlers}>
+      {/* ── Sidebar Backdrop ── */}
+      <Animated.View
+        pointerEvents={sidebarOpen ? 'auto' : 'none'}
+        style={[
+          styles.backdrop,
+          {
+            opacity: overlayOpacity,
+          },
+        ]}
+      >
+        <Pressable style={{ flex: 1 }} onPress={() => closeSidebar()} />
+      </Animated.View>
+
       {/* ── Sidebar Drawer ── */}
-      {sidebarOpen && (
-        <>
-          <Animated.View style={[styles.backdrop, { opacity: overlayOpacity }]}>
-            <Pressable style={{ flex: 1 }} onPress={closeSidebar} />
-          </Animated.View>
+      <Animated.View
+        pointerEvents={sidebarOpen || isDragging ? 'auto' : 'none'}
+        style={[
+          styles.sidebar,
+          {
+            width: SIDEBAR_WIDTH,
+            backgroundColor: theme.card,
+            borderRightColor: theme.border,
+            transform: [{ translateX: slideAnim }],
+          },
+        ]}
+      >
+        {/* Sidebar Header */}
+        <View style={[styles.sidebarHeader, { paddingTop: Math.max(insets.top, 16), borderBottomColor: theme.border }]}>
+            <Text style={[styles.sidebarTitle, { color: theme.text.primary }]}>Consultations</Text>
+            <Text style={[styles.sidebarSub, { color: theme.textDim }]}>Clinical AI Chat Threads</Text>
+        </View>
 
-          <Animated.View
-            style={[
-              styles.sidebar,
-              {
-                backgroundColor: theme.card,
-                borderRightColor: theme.border,
-                transform: [{ translateX: slideAnim }],
-              },
-            ]}
+        <View style={styles.sidebarBody}>
+          {/* Start New Consultation Button */}
+          <Pressable
+            style={({ pressed }) => [pressed && { opacity: 0.8 }, styles.newChatBtn, { backgroundColor: primaryColor }]}
+            onPress={() => {
+              closeSidebar();
+              setShowNewConsultModal(true);
+            }}
           >
-            {/* Sidebar Header */}
-            <View style={[styles.sidebarHeader, { paddingTop: Math.max(insets.top, 16), borderBottomColor: theme.border }]}>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.sidebarTitle, { color: theme.text.primary }]}>Consultations</Text>
-                <Text style={[styles.sidebarSub, { color: theme.textDim }]}>Clinical AI Chat Threads</Text>
-              </View>
-              <Pressable onPress={closeSidebar} style={({ pressed }) => [pressed && { opacity: 0.5 }, { padding: 4 }]}>
-                <Ionicons name="close" size={22} color={theme.textDim} />
-              </Pressable>
+            <Ionicons name="add-circle" size={18} color={COLORS.white} />
+            <Text style={styles.newChatText}>Start New Consultation</Text>
+          </Pressable>
+
+          {/* 1. General Assistant */}
+          <Text style={[styles.sidebarSection, { color: theme.textDim, marginTop: 14 }]}>ACTIVE ASSISTANT</Text>
+
+          <Pressable
+            style={({ pressed }) => [
+              styles.chatItem,
+              pressed && { opacity: 0.5 },
+              isGeneral && { backgroundColor: theme.patientSecondary, borderColor: primaryColor + '40', borderWidth: 1 },
+            ]}
+            onPress={async () => {
+              if (userId) {
+                const gen = await getOrCreateGeneralConsultation(userId);
+                handleSelectConsultation(gen.id);
+              }
+            }}
+          >
+            <View style={[styles.chatIconBox, { backgroundColor: primaryColor + '18' }]}>
+              <Ionicons name="sparkles" size={18} color={primaryColor} />
             </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.chatItemText, { color: theme.text.primary, fontFamily: isGeneral ? 'Inter-Bold' : 'Inter-Medium' }]}>
+                General AI Assistant
+              </Text>
+              <Text style={[styles.chatItemSub, { color: theme.textDim }]}>Everyday health &amp; medicine questions</Text>
+            </View>
+          </Pressable>
 
-            <View style={styles.sidebarBody}>
-              {/* Start New Consultation Button */}
-              <Pressable
-                style={({ pressed }) => [pressed && { opacity: 0.8 }, styles.newChatBtn, { backgroundColor: primaryColor }]}
-                onPress={() => {
-                  closeSidebar();
-                  setShowNewConsultModal(true);
-                }}
-              >
-                <Ionicons name="add-circle" size={18} color={COLORS.white} />
-                <Text style={styles.newChatText}>Start New Consultation</Text>
-              </Pressable>
+          {/* 2. Prescription Consultations */}
+          <Text style={[styles.sidebarSection, { color: theme.textDim, marginTop: 16 }]}>PAST CONSULTATIONS</Text>
 
-              {/* 1. General Assistant */}
-              <Text style={[styles.sidebarSection, { color: theme.textDim, marginTop: 14 }]}>ACTIVE ASSISTANT</Text>
-
-              <Pressable
-                style={({ pressed }) => [
-                  styles.chatItem,
-                  pressed && { opacity: 0.5 },
-                  isGeneral && { backgroundColor: theme.patientSecondary, borderColor: primaryColor + '40', borderWidth: 1 },
-                ]}
-                onPress={async () => {
-                  if (userId) {
-                    const gen = await getOrCreateGeneralConsultation(userId);
-                    handleSelectConsultation(gen.id);
-                  }
-                }}
-              >
-                <View style={[styles.chatIconBox, { backgroundColor: primaryColor + '18' }]}>
-                  <Ionicons name="sparkles" size={18} color={primaryColor} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.chatItemText, { color: theme.text.primary, fontFamily: isGeneral ? 'Inter-Bold' : 'Inter-Medium' }]}>
-                    General AI Assistant
-                  </Text>
-                  <Text style={[styles.chatItemSub, { color: theme.textDim }]}>Everyday health &amp; medicine questions</Text>
-                </View>
-              </Pressable>
-
-              {/* 2. Prescription Consultations */}
-              <Text style={[styles.sidebarSection, { color: theme.textDim, marginTop: 16 }]}>PAST CONSULTATIONS</Text>
-
-              <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
-                {prescriptionConsultations.length === 0 ? (
-                  <View style={styles.emptyDrawerBox}>
-                    <Ionicons name="chatbubbles-outline" size={28} color={theme.textDim} />
-                    <Text style={[styles.emptySectionText, { color: theme.textDim }]}>
-                      No saved consultations yet. Scan a prescription or start a topic consultation above!
-                    </Text>
-                  </View>
-                ) : (
-                  prescriptionConsultations.map((item) => {
-                    const isSelected = activeConsultation?.id === item.id;
-                    return (
-                      <View key={item.id} style={styles.consultationRow}>
-                        <Pressable
-                          style={({ pressed }) => [
-                            styles.chatItem,
-                            { flex: 1 },
-                            pressed && { opacity: 0.5 },
-                            isSelected && { backgroundColor: theme.patientSecondary, borderWidth: 1, borderColor: primaryColor + '40' },
+          <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
+            {prescriptionConsultations.length === 0 ? (
+              <View style={styles.emptyDrawerBox}>
+                <Ionicons name="chatbubbles-outline" size={28} color={theme.textDim} />
+                <Text style={[styles.emptySectionText, { color: theme.textDim }]}>
+                  No saved consultations yet. Scan a prescription or start a topic consultation above!
+                </Text>
+              </View>
+            ) : (
+              prescriptionConsultations.map((item) => {
+                const isSelected = activeConsultation?.id === item.id;
+                return (
+                  <View key={item.id} style={styles.consultationRow}>
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.chatItem,
+                        { flex: 1 },
+                        pressed && { opacity: 0.5 },
+                        isSelected && { backgroundColor: theme.patientSecondary, borderWidth: 1, borderColor: primaryColor + '40' },
+                      ]}
+                      onPress={() => handleSelectConsultation(item.id)}
+                    >
+                      <Ionicons
+                        name={item.type === 'prescription' ? 'receipt-outline' : 'medkit-outline'}
+                        size={18}
+                        color={primaryColor}
+                      />
+                      <View style={{ flex: 1 }}>
+                        <Text
+                          style={[
+                            styles.chatItemText,
+                            { color: theme.text.primary, fontFamily: isSelected ? 'Inter-Bold' : 'Inter-Medium' },
                           ]}
-                          onPress={() => handleSelectConsultation(item.id)}
+                          numberOfLines={1}
                         >
-                          <Ionicons
-                            name={item.type === 'prescription' ? 'receipt-outline' : 'medkit-outline'}
-                            size={18}
-                            color={primaryColor}
-                          />
-                          <View style={{ flex: 1 }}>
-                            <Text
-                              style={[
-                                styles.chatItemText,
-                                { color: theme.text.primary, fontFamily: isSelected ? 'Inter-Bold' : 'Inter-Medium' },
-                              ]}
-                              numberOfLines={1}
-                            >
-                              {item.title}
-                            </Text>
-                            <Text style={[styles.chatItemSub, { color: theme.textDim }]}>
-                              {new Date(item.updated_at || item.created_at).toLocaleDateString('en-US', {
-                                month: 'short',
-                                day: 'numeric',
-                              })}
-                            </Text>
-                          </View>
-                        </Pressable>
-                        <Pressable
-                          onPress={() => handleDeleteConsultationItem(item.id, item.title)}
-                          style={({ pressed }) => [pressed && { opacity: 0.5 }, { padding: 8 }]}
-                        >
-                          <Ionicons name="trash-outline" size={16} color={theme.error} />
-                        </Pressable>
+                          {item.title}
+                        </Text>
+                        <Text style={[styles.chatItemSub, { color: theme.textDim }]}>
+                          {new Date(item.updated_at || item.created_at).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                          })}
+                        </Text>
                       </View>
-                    );
-                  })
-                )}
-              </ScrollView>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => handleDeleteConsultationItem(item.id, item.title)}
+                      style={({ pressed }) => [pressed && { opacity: 0.5 }, { padding: 8 }]}
+                    >
+                      <Ionicons name="trash-outline" size={16} color={theme.error} />
+                    </Pressable>
+                  </View>
+                );
+              })
+            )}
+          </ScrollView>
 
-              <View style={{ borderTopWidth: 1, borderTopColor: theme.border, paddingTop: 8 }}>
-                <Pressable style={({ pressed }) => [styles.chatItem, pressed && { opacity: 0.5 }]} onPress={handleClearAssistantChats}>
-                  <Ionicons name="trash-outline" size={18} color={theme.error} />
-                  <Text style={[styles.chatItemText, { color: theme.error }]}>Clear Assistant Chats</Text>
-                </Pressable>
-              </View>
-            </View>
-          </Animated.View>
-        </>
-      )}
+          <View style={{ borderTopWidth: 1, borderTopColor: theme.border, paddingTop: 8 }}>
+            <Pressable style={({ pressed }) => [styles.chatItem, pressed && { opacity: 0.5 }]} onPress={handleClearAssistantChats}>
+              <Ionicons name="trash-outline" size={18} color={theme.error} />
+              <Text style={[styles.chatItemText, { color: theme.error }]}>Clear Assistant Chats</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Animated.View>
 
       {/* ── Top Header ── */}
       <View style={[styles.header, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
         <Pressable
           style={({ pressed }) => [styles.menuBtn, pressed && { opacity: 0.5 }, { backgroundColor: theme.surfaceSecondary }]}
-          onPress={openSidebar}
+          onPress={() => openSidebar()}
         >
           <Ionicons name="menu" size={22} color={theme.text.primary} />
         </Pressable>
@@ -796,21 +829,22 @@ const styles = StyleSheet.create({
   backdrop: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0, 0, 0, 0.45)',
-    zIndex: 90
+    zIndex: 90,
   },
   sidebar: {
     position: 'absolute',
     left: 0,
     top: 0,
     bottom: 0,
-    width: 300,
     zIndex: 100,
-    borderRightWidth: 1
+    borderRightWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 4, height: 0 },
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
+    elevation: 16,
   },
   sidebarHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingBottom: 8,
     borderBottomWidth: 1

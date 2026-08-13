@@ -20,12 +20,32 @@ import Svg, { Path } from 'react-native-svg';
 import { useAuthStore } from '@/store/authStore';
 import { useThemeContext } from '@/hooks/useThemeContext';
 import { useHardwareBack } from '@/hooks/useHardwareBack';
+import { toast } from '@/context/ToastContext';
 
 const GREEN = '#10b981';
 const INPUT_BG = '#f8fafc';
 const TEXT_PRIMARY = '#0f172a';
 const LABEL_COLOR = '#64748b';
 const PLACEHOLDER_COLOR = '#94a3b8';
+
+function getFriendlyRegisterErrorMessage(err: any, defaultMsg = 'Registration failed.'): string {
+  const message = err?.message || String(err || '');
+  if (!message) return defaultMsg;
+
+  if (/network|fetch|connect|timeout|offline|internet|getaddrinfo|econnrefused/i.test(message)) {
+    return 'Registration failed due to poor connectivity. Please check your internet connection.';
+  }
+
+  if (/already registered|already in use|unique constraint|user already exists/i.test(message)) {
+    return 'An account with this email already exists. Please login instead.';
+  }
+
+  if (/password.*least 6/i.test(message)) {
+    return 'Password must be at least 6 characters long.';
+  }
+
+  return message;
+}
 
 export default function Register() {
   const router = useRouter();
@@ -52,7 +72,6 @@ export default function Register() {
   const [confirmPassword, setConfirmPassword] = useState('');
 
   const [loading, setLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // Input refs for Enter key navigation
   const phoneRef = useRef<TextInput>(null);
@@ -64,26 +83,27 @@ export default function Register() {
 
   const handleRegister = async () => {
     if (!fullName.trim() || !email.trim() || !password.trim()) {
-      setErrorMsg('Please fill in all required fields.');
+      toast.error('Please fill in all required fields.');
       return;
     }
     if (password !== confirmPassword) {
-      setErrorMsg('Passwords do not match.');
+      toast.error('Passwords do not match.');
       return;
     }
     if (password.length < 6) {
-      setErrorMsg('Password must be at least 6 characters.');
+      toast.error('Password must be at least 6 characters.');
       return;
     }
 
     setLoading(true);
-    setErrorMsg(null);
 
     try {
       await signUp(phone || '', email, password, 'user', fullName);
+      toast.success('Registration successful! Welcome to PharmaFindr.');
       router.replace('/(patient)/(tabs)/home');
     } catch (e: any) {
-      setErrorMsg(e.message || 'Registration failed. Please try again.');
+      const msg = getFriendlyRegisterErrorMessage(e, 'Registration failed. Please try again.');
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -121,12 +141,6 @@ export default function Register() {
 
         {/* Form */}
         <View style={styles.form}>
-          {errorMsg && (
-            <View style={styles.errorBox}>
-              <Text style={styles.errorText}>{errorMsg}</Text>
-            </View>
-          )}
-
           <Text style={styles.label}>FULL NAME</Text>
           <View style={styles.inputRow}>
             <Ionicons name="person-outline" size={16} color={PLACEHOLDER_COLOR} style={styles.inputIcon} />
@@ -135,7 +149,7 @@ export default function Register() {
               placeholder="John Doe"
               placeholderTextColor={PLACEHOLDER_COLOR}
               value={fullName}
-              onChangeText={setFullName}
+              onChangeText={(text) => setFullName(text)}
               returnKeyType="next"
               blurOnSubmit={false}
               onSubmitEditing={() => phoneRef.current?.focus()}
@@ -151,7 +165,7 @@ export default function Register() {
               placeholder="+233 24 000 0000"
               placeholderTextColor={PLACEHOLDER_COLOR}
               value={phone}
-              onChangeText={setPhone}
+              onChangeText={(text) => setPhone(text)}
               keyboardType="phone-pad"
               returnKeyType="next"
               blurOnSubmit={false}
@@ -168,7 +182,7 @@ export default function Register() {
               placeholder="john@example.com"
               placeholderTextColor={PLACEHOLDER_COLOR}
               value={email}
-              onChangeText={setEmail}
+              onChangeText={(text) => setEmail(text)}
               keyboardType="email-address"
               autoCapitalize="none"
               returnKeyType="next"
@@ -186,7 +200,7 @@ export default function Register() {
               placeholder="Create a password"
               placeholderTextColor={PLACEHOLDER_COLOR}
               value={password}
-              onChangeText={setPassword}
+              onChangeText={(text) => setPassword(text)}
               secureTextEntry
               autoCapitalize="none"
               returnKeyType="next"
@@ -204,7 +218,7 @@ export default function Register() {
               placeholder="Repeat your password"
               placeholderTextColor={PLACEHOLDER_COLOR}
               value={confirmPassword}
-              onChangeText={setConfirmPassword}
+              onChangeText={(text) => setConfirmPassword(text)}
               secureTextEntry
               autoCapitalize="none"
               returnKeyType="done"
@@ -258,13 +272,6 @@ const styles = StyleSheet.create({
   },
   form: {
     padding: 24, backgroundColor: COLORS.white
-  },
-  errorBox: {
-    backgroundColor: COLORS.errorBg, borderWidth: 1, borderColor: COLORS.error, borderRadius: 12, padding: 12, marginBottom: 16
-  },
-  errorText: {
-    fontFamily: 'Inter-Regular',
-     color: COLORS.error, fontSize: 13, textAlign: 'center'
   },
   label: {
     fontSize: 10, fontFamily: 'Inter-Bold', color: LABEL_COLOR, letterSpacing: 0.5, marginBottom: 8, textTransform: 'uppercase'

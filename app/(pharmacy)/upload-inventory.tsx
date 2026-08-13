@@ -21,6 +21,7 @@ import * as XLSX from 'xlsx';
 import { supabase } from '@/lib/supabase';
 import { COLORS, FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
 import { useHardwareBack } from '@/hooks/useHardwareBack';
+import { toast } from '@/context/ToastContext';
 
 const PHARMACY_GREEN = '#10b981';
 
@@ -43,10 +44,8 @@ export default function UploadInventory() {
   const [fileSize, setFileSize] = useState<string | null>(null);
   const [parsedItems, setParsedItems] = useState<any[]>([]);
   const [uploading, setUploading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const handlePickDocument = async () => {
-    setErrorMsg(null);
     try {
       const result = await DocumentPicker.getDocumentAsync({
         type: [
@@ -115,7 +114,7 @@ export default function UploadInventory() {
         setParsedItems(items);
       }
     } catch (e: any) {
-      setErrorMsg(e.message || 'Failed to read file.');
+      toast.error(e.message || 'Failed to read file.');
       setParsedItems([]);
     } finally {
       setLoading(false);
@@ -125,7 +124,6 @@ export default function UploadInventory() {
   const handleUpload = async () => {
     if (!parsedItems.length || !user) return;
     setUploading(true);
-    setErrorMsg(null);
 
     try {
       // Fetch pharmacy ID owned by user
@@ -173,7 +171,7 @@ export default function UploadInventory() {
         ]
       );
     } catch (e: any) {
-      setErrorMsg(e.message || 'Failed to import inventory batch.');
+      toast.error(e.message || 'Failed to import inventory batch.');
     } finally {
       setUploading(false);
     }
@@ -259,14 +257,6 @@ export default function UploadInventory() {
             ))}
           </View>
         </View>
-
-        {/* ── 3. Error Alert ── */}
-        {errorMsg && (
-          <View style={styles.errorBox}>
-            <Ionicons name="alert-circle" size={20} color={COLORS.error} />
-            <Text style={styles.errorText}>{errorMsg}</Text>
-          </View>
-        )}
 
         {/* ── 4. File Preview & Import Action ── */}
         {parsedItems.length > 0 && (
@@ -434,23 +424,6 @@ const styles = StyleSheet.create({
   colTagText: {
     fontSize: 9,
     fontFamily: 'Inter-Bold'
-  },
-
-  errorBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    backgroundColor: COLORS.errorBg,
-    borderColor: '#fecaca',
-    borderWidth: 1,
-    padding: SPACING.md,
-    borderRadius: RADIUS.lg
-  },
-  errorText: {
-    color: COLORS.error,
-    fontSize: FONT_SIZE.md,
-    fontFamily: 'Inter-SemiBold',
-    flex: 1
   },
 
   previewCard: {

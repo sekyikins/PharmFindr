@@ -142,7 +142,7 @@ function RootLayoutNav() {
   return (
     <BottomSheetModalProvider>
       <ThemeProvider value={DefaultTheme}>
-        <StatusBar barStyle="dark-content" backgroundColor={COLORS.white} />
+        <StatusBar barStyle="dark-content" backgroundColor={COLORS.white} translucent={false} />
         <OfflineBanner />
 
         {isLocked ? (

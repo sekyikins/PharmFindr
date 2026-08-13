@@ -50,6 +50,8 @@ interface OtpInputProps {
   accentColor?: string;
   /** Called once all 6 digits are present — auto-submit hook */
   onComplete?: (code: string) => void;
+  /** Called whenever the current digits change */
+  onChange?: (code: string) => void;
   /** Called when Resend is tapped (timer has expired) */
   onResend?: () => void;
   /** Resend countdown in seconds (default 30) */
@@ -69,6 +71,7 @@ const OtpInput = forwardRef<OtpInputHandle, OtpInputProps>((props, ref) => {
   const {
     accentColor = '#10b981',
     onComplete,
+    onChange,
     onResend,
     resendSeconds = 30,
     subtitle,
@@ -109,6 +112,7 @@ const OtpInput = forwardRef<OtpInputHandle, OtpInputProps>((props, ref) => {
       // Clear boxes first
       setDigits(EMPTY);
       setSuccessState(false);
+      onChange?.('');
       // Shake animation
       Animated.sequence([
         Animated.timing(shakeAnim, { toValue: 10, duration: 60, useNativeDriver: true }),
@@ -127,6 +131,7 @@ const OtpInput = forwardRef<OtpInputHandle, OtpInputProps>((props, ref) => {
     reset() {
       setDigits(EMPTY);
       setSuccessState(false);
+      onChange?.('');
     },
   }));
 
@@ -152,6 +157,7 @@ const OtpInput = forwardRef<OtpInputHandle, OtpInputProps>((props, ref) => {
       const next = [...digits];
       next[index] = '';
       setDigits(next);
+      onChange?.(next.join(''));
       return;
     }
 
@@ -161,6 +167,7 @@ const OtpInput = forwardRef<OtpInputHandle, OtpInputProps>((props, ref) => {
       const charArray = clean.slice(0, OTP_LENGTH).split('');
       charArray.forEach((d, i) => { filled[i] = d; });
       setDigits(filled);
+      onChange?.(charArray.join(''));
 
       const lastIdx = Math.min(charArray.length - 1, OTP_LENGTH - 1);
       inputRefs.current[lastIdx]?.focus();
@@ -175,13 +182,14 @@ const OtpInput = forwardRef<OtpInputHandle, OtpInputProps>((props, ref) => {
     const next = [...digits];
     next[index] = clean;
     setDigits(next);
+    onChange?.(next.join(''));
 
     focusNext(index);
 
     if (next.every((d) => d !== '')) {
       onComplete?.(next.join(''));
     }
-  }, [digits, onComplete]);
+  }, [digits, onComplete, onChange]);
 
   /** Fires on backspace */
   const handleKeyPress = useCallback((e: any, index: number) => {
@@ -192,6 +200,7 @@ const OtpInput = forwardRef<OtpInputHandle, OtpInputProps>((props, ref) => {
         if (index > 0) {
           next[index - 1] = '';
           setDigits(next);
+          onChange?.(next.join(''));
           focusPrev(index);
         }
       } else {
@@ -199,9 +208,10 @@ const OtpInput = forwardRef<OtpInputHandle, OtpInputProps>((props, ref) => {
         const next = [...digits];
         next[index] = '';
         setDigits(next);
+        onChange?.(next.join(''));
       }
     }
-  }, [digits]);
+  }, [digits, onChange]);
 
   // ── Resend ─────────────────────────────────────────────────────────────────
 
@@ -348,5 +358,4 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: 'Inter-SemiBold'
   },
-
 });

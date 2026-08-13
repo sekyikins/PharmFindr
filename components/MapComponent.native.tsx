@@ -41,20 +41,25 @@ export default function MapComponent({
   onExpand,
 }: MapComponentProps) {
   const mapRef = React.useRef<MapView>(null);
+  const hasFocusedRef = React.useRef(false);
   const lat = pin?.latitude ?? initialCoords?.latitude ?? 5.6037;
   const lon = pin?.longitude ?? initialCoords?.longitude ?? -0.187;
 
+  // Auto-focus strictly ONCE when the map is opened
   React.useEffect(() => {
-    mapRef.current?.animateToRegion(
-      {
-        latitude: lat,
-        longitude: lon,
-        latitudeDelta: 0.015,
-        longitudeDelta: 0.015,
-      },
-      500
-    );
-  }, [lat, lon]);
+    if (!hasFocusedRef.current && (initialCoords || pin)) {
+      hasFocusedRef.current = true;
+      mapRef.current?.animateToRegion(
+        {
+          latitude: lat,
+          longitude: lon,
+          latitudeDelta: 0.015,
+          longitudeDelta: 0.015,
+        },
+        400
+      );
+    }
+  }, [initialCoords, pin, lat, lon]);
 
   return (
     <View style={styles.container}>
@@ -120,10 +125,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     position: 'relative',
-    overflow: 'hidden'
+    overflow: 'hidden',
   },
   map: {
-    flex: 1
+    flex: 1,
   },
   expandBtn: {
     position: 'absolute',
@@ -139,8 +144,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.borderSlate,
     shadowColor: COLORS.black,
-    shadowOffset: { width: 0, height: 2
-  },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
@@ -148,7 +152,6 @@ const styles = StyleSheet.create({
   expandText: {
     fontSize: 12,
     fontFamily: 'Inter-Bold',
-    color: COLORS.surfaceDark
+    color: COLORS.surfaceDark,
   },
-
 });

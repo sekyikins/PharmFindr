@@ -27,12 +27,28 @@ import * as Location from 'expo-location';
 import { searchNearbyPharmacies } from '@/lib/osm';
 import { fetchAddressForCoords } from '@/lib/googlePlaces';
 import { useHardwareBack } from '@/hooks/useHardwareBack';
+import { toast } from '@/context/ToastContext';
 
 const GREEN = '#10b981';
 const INPUT_BG = '#f8fafc';
 const TEXT_PRIMARY = '#0f172a';
 const LABEL_COLOR = '#64748b';
 const PLACEHOLDER_COLOR = '#94a3b8';
+
+function getFriendlyPharmacyErrorMessage(err: any, defaultMsg = 'Operation failed.'): string {
+  const message = err?.message || String(err || '');
+  if (!message) return defaultMsg;
+
+  if (/network|fetch|connect|timeout|offline|internet|getaddrinfo|econnrefused/i.test(message)) {
+    return 'Registration failed due to poor connectivity. Please check your internet connection.';
+  }
+
+  if (/already registered|already exists|unique constraint|duplicate/i.test(message)) {
+    return 'A pharmacy account already exists with these details. Please login instead.';
+  }
+
+  return message;
+}
 
 // ── Shared Hero header ────────────────────────────────────────────────────
 function Hero({ step, onBack }: { step: 1 | 2 | 3 | 4; onBack: () => void }) {
@@ -185,17 +201,16 @@ function Step1Details({
 }) {
   const [valEmail, setValEmail] = useState(email);
   const [valName, setValName] = useState(pharmName);
-  const [err, setErr] = useState<string | null>(null);
 
   const pharmNameRef = useRef<TextInput>(null);
 
   const handleContinue = () => {
     if (!valEmail.trim() || !valName.trim()) {
-      setErr('Please fill in your pharmacy email and registered business name.');
+      toast.error('Please fill in your pharmacy email and registered business name.');
       return;
     }
     if (!valEmail.includes('@')) {
-      setErr('Please enter a valid email address.');
+      toast.error('Please enter a valid email address.');
       return;
     }
     onNext(valEmail.trim(), valName.trim());
@@ -208,18 +223,12 @@ function Step1Details({
         <View style={s.form}>
           <Text style={s.secSub}>Enter your pharmacy email and registered pharmacy name.</Text>
 
-          {err && (
-            <View style={s.errBox}>
-              <Text style={s.errText}>{err}</Text>
-            </View>
-          )}
-
           <FieldLabel>PHARMACY EMAIL ADDRESS</FieldLabel>
           <InputRow
             icon="mail-outline"
             placeholder="pharmacy@example.com"
             value={valEmail}
-            onChange={setValEmail}
+            onChange={(text) => setValEmail(text)}
             keyboard="email-address"
             returnKeyType="next"
             onSubmitEditing={() => pharmNameRef.current?.focus()}
@@ -233,7 +242,7 @@ function Step1Details({
             icon="shield-checkmark-outline"
             placeholder="e.g. City Care Pharmacy"
             value={valName}
-            onChange={setValName}
+            onChange={(text) => setValName(text)}
             returnKeyType="done"
             onSubmitEditing={handleContinue}
           />
@@ -266,7 +275,6 @@ function Step2Location({
   const [knownPharmacies, setKnownPharmacies] = useState<KnownPharmacy[]>([]);
   const [registeredPharmacies, setRegisteredPharmacies] = useState<KnownPharmacy[]>([]);
   const [initialCoords, setInitialCoords] = useState<{ latitude: number; longitude: number } | null>(null);
-  const [err, setErr] = useState<string | null>(null);
   const [mapDataLoading, setMapDataLoading] = useState(true);
 
   const [isMapExpanded, setIsMapExpanded] = useState(false);
@@ -297,55 +305,59 @@ function Step2Location({
   };
 
   useEffect(() => {
-    async function loadLocationAndMapData() {
+    let isMounted = true;
+    (async () => {
       setMapDataLoading(true);
       try {
-        let currentLat = 5.6037;
-        let currentLon = -0.187;
-
-        // 1. Request device GPS foreground location
         const { status } = await Location.requestForegroundPermissionsAsync();
+        let centerLat = 5.6037;
+        let centerLon = -0.187;
+
         if (status === 'granted') {
           const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-          if (loc?.coords) {
-            currentLat = loc.coords.latitude;
-            currentLon = loc.coords.longitude;
-            const devicePin = { latitude: currentLat, longitude: currentLon };
-            setInitialCoords(devicePin);
-            setPin(devicePin);
-            if (!valAddress) {
-              updateAddressForPin(devicePin);
-            }
+          if (loc?.coords && isMounted) {
+            centerLat = loc.coords.latitude;
+            centerLon = loc.coords.longitude;
+            setInitialCoords({ latitude: centerLat, longitude: centerLon });
           }
         }
 
-        const userCoords = { latitude: currentLat, longitude: currentLon };
-        if (!initialCoords) {
-          setInitialCoords(userCoords);
-        }
+        const [osmList, dbPharmacies] = await Promise.all([
+          searchNearbyPharmacies({ latitude: centerLat, longitude: centerLon }, 5000),
+          supabase.from('pharmacies').select('id, name, latitude, longitude, address').limit(100),
+        ]);
 
-        // 2. Stream pharmacies via shared lib/osm service
-        await searchNearbyPharmacies(userCoords, 5000, (pharm) => {
-          const item = {
-            id: pharm.id,
-            name: pharm.name,
-            address: pharm.address,
-            latitude: pharm.latitude,
-            longitude: pharm.longitude,
-          };
-          if (pharm.isRegistered) {
-            setRegisteredPharmacies((prev) => (prev.some((p) => p.id === item.id) ? prev : [...prev, item]));
-          } else {
-            setKnownPharmacies((prev) => (prev.some((p) => p.id === item.id) ? prev : [...prev, item]));
-          }
-        });
+        if (!isMounted) return;
+
+        const regList: KnownPharmacy[] = (dbPharmacies.data || [])
+          .filter((p: any) => p.latitude && p.longitude)
+          .map((p: any) => ({
+            id: p.id,
+            name: p.name || 'Pharmacy',
+            address: p.address || 'Address registered in database',
+            latitude: Number(p.latitude),
+            longitude: Number(p.longitude),
+          }));
+        setRegisteredPharmacies(regList);
+
+        const knownList: KnownPharmacy[] = (osmList || []).map((p) => ({
+          id: String(p.id),
+          name: p.name || 'Public Pharmacy',
+          address: p.address || 'Public Map Address',
+          latitude: p.latitude,
+          longitude: p.longitude,
+        }));
+        setKnownPharmacies(knownList);
       } catch (e: any) {
-        console.warn('Could not load map data:', e.message);
+        console.warn('Map initialization notice:', e.message);
       } finally {
-        setMapDataLoading(false);
+        if (isMounted) setMapDataLoading(false);
       }
-    }
-    loadLocationAndMapData();
+    })();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const handleLocateMe = async () => {
@@ -375,11 +387,11 @@ function Step2Location({
 
   const handleConfirm = () => {
     if (!pin) {
-      setErr('Please select your pharmacy location on the map.');
+      toast.error('Please select your pharmacy location on the map.');
       return;
     }
     if (!valAddress.trim()) {
-      setErr('Please verify or enter the physical address for your pharmacy.');
+      toast.error('Please verify or enter the physical address for your pharmacy.');
       return;
     }
 
@@ -427,12 +439,6 @@ function Step2Location({
             Tap an existing pharmacy pin or tap anywhere on the map to set your location. The physical address will be auto-detected below.
           </Text>
 
-          {err && (
-            <View style={s.errBox}>
-              <Text style={s.errText}>{err}</Text>
-            </View>
-          )}
-
           {/* Map Preview Card */}
           <View style={locStyles.mapCard}>
             <View style={locStyles.mapHeader}>
@@ -472,7 +478,9 @@ function Step2Location({
                   setSelectedKnownPharmacy(null);
                   updateAddressForPin(coords);
                 }}
-                onSelectKnownPharmacy={handleSelectKnownPharmacy}
+                onSelectKnownPharmacy={(pharm) => {
+                  handleSelectKnownPharmacy(pharm);
+                }}
                 initialCoords={initialCoords}
                 knownPharmacies={knownPharmacies}
                 registeredPharmacies={registeredPharmacies}
@@ -495,7 +503,9 @@ function Step2Location({
               icon="navigate-outline"
               placeholder="e.g. Ring Road Central, Accra"
               value={valAddress}
-              onChange={setValAddress}
+              onChange={(text) => {
+                setValAddress(text);
+              }}
               returnKeyType="done"
               onSubmitEditing={handleConfirm}
             />
@@ -584,16 +594,11 @@ function Step3Phone({
 }) {
   const [valPhone, setValPhone] = useState(phone);
   const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   const handleSend = async () => {
-    setErr(null);
-    setSuccessMsg(null);
-
     const validation = validateGhanaPhone(valPhone);
     if (!validation.valid || !validation.formatted) {
-      setErr(validation.error || 'Please enter a valid Ghana phone number.');
+      toast.error(validation.error || 'Please enter a valid Ghana phone number.');
       return;
     }
 
@@ -607,7 +612,7 @@ function Step3Phone({
         .limit(1);
 
       if (!dbError && existing && existing.length > 0) {
-        setErr('A pharmacy account already exists with this phone number. Please login instead.');
+        toast.error('A pharmacy account already exists with this phone number. Please login instead.');
         setLoading(false);
         return;
       }
@@ -619,11 +624,15 @@ function Step3Phone({
     setLoading(false);
 
     if (!result.success) {
-      setErr(result.error || 'Failed to send OTP code. Please try again.');
+      const isNetwork = /network|fetch|connect|timeout/i.test(result.error || '');
+      const msg = isNetwork
+        ? 'Failed to send OTP due to poor connectivity. Please check your internet.'
+        : (result.error || 'Failed to send OTP code. Please try again.');
+      toast.error(msg);
       return;
     }
 
-    setSuccessMsg(`OTP sent via SMS to ${valPhone}!`);
+    toast.success(`OTP sent via SMS to ${valPhone}!`);
     setTimeout(() => onNext(valPhone, validation.formatted!), 600);
   };
 
@@ -634,25 +643,12 @@ function Step3Phone({
         <View style={s.form}>
           <Text style={s.secSub}>We will send a 6-digit verification code to verify ownership of this number.</Text>
 
-          {err && (
-            <View style={s.errBox}>
-              <Text style={s.errText}>{err}</Text>
-            </View>
-          )}
-
-          {successMsg && (
-            <View style={s.successBox}>
-              <Ionicons name="checkmark-circle" size={16} color="#059669" style={{ marginRight: 8 }} />
-              <Text style={s.successText}>{successMsg}</Text>
-            </View>
-          )}
-
           <FieldLabel>PHARMACY PHONE NUMBER</FieldLabel>
           <InputRow
             icon="call-outline"
             placeholder="0551234567 or +233..."
             value={valPhone}
-            onChange={setValPhone}
+            onChange={(text) => setValPhone(text)}
             keyboard="phone-pad"
             returnKeyType="done"
             onSubmitEditing={handleSend}
@@ -690,29 +686,33 @@ function Step4VerifyOTP({
   const { signUp } = useAuthStore();
   const otpRef = useRef<OtpInputHandle>(null);
   const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
 
   const handleResend = async () => {
-    setErr(null);
     const result = await sendArkeselOtp(formattedPhone);
     if (!result.success) {
-      setErr(result.error || 'Failed to resend OTP. Please try again.');
+      const isNetwork = /network|fetch|connect|timeout/i.test(result.error || '');
+      const msg = isNetwork
+        ? 'Failed to resend OTP due to poor connectivity.'
+        : (result.error || 'Failed to resend OTP. Please try again.');
+      toast.error(msg);
+    } else {
+      toast.success('A new verification code has been sent to your phone.');
     }
   };
 
   const handleVerifyAndRegister = async (code: string) => {
     if (code.length < 6) {
-      setErr('Please enter the 6-digit OTP code.');
+      toast.error('Please enter the 6-digit OTP code.');
       return;
     }
     setLoading(true);
-    setErr(null);
 
     const result = await verifyArkeselOtp(formattedPhone, code);
 
     if (!result.success) {
       setLoading(false);
-      setErr(result.error || 'Invalid verification code.');
+      const msg = result.error || 'Invalid verification code.';
+      toast.error(msg);
       otpRef.current?.shake();
       return;
     }
@@ -796,9 +796,11 @@ function Step4VerifyOTP({
         }
       }
 
+      toast.success('Pharmacy registration successful! Welcome to PharmFindr.');
       setTimeout(() => onDone(shouldBeVerified), 600);
     } catch (e: any) {
-      setErr(e.message || 'Failed to finalize pharmacy registration.');
+      const msg = getFriendlyPharmacyErrorMessage(e, 'Failed to finalize pharmacy registration.');
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -813,14 +815,9 @@ function Step4VerifyOTP({
             We sent a 6-digit code to <Text style={{ fontFamily: 'Inter-Bold', color: TEXT_PRIMARY }}>{phone}</Text>.
           </Text>
 
-          {err && (
-            <View style={s.errBox}>
-              <Text style={s.errText}>{err}</Text>
-            </View>
-          )}
-
           <OtpInput
             ref={otpRef}
+            onChange={() => {}}
             onComplete={(code) => handleVerifyAndRegister(code)}
             onResend={handleResend}
             disabled={loading}
@@ -1004,21 +1001,6 @@ const s = StyleSheet.create({
     fontFamily: 'Inter-Regular',
      fontSize: 13, color: LABEL_COLOR, marginBottom: 20, lineHeight: 18
   },
-  errBox: {
-    backgroundColor: COLORS.errorBg, borderWidth: 1, borderColor: COLORS.error, borderRadius: 12, padding: 12, marginBottom: 16
-  },
-  errText: {
-    fontFamily: 'Inter-Regular',
-     color: COLORS.error, fontSize: 13, textAlign: 'center'
-  },
-  successBox: {
-    backgroundColor: '#ecfdf5', borderWidth: 1, borderColor: COLORS.pharmacyPrimary, borderRadius: 12, padding: 12, marginBottom: 16, flexDirection: 'row', alignItems: 'center'
-  },
-  successText: {
-    fontFamily: 'Inter-Regular',
-     color: COLORS.pharmacyTextDark, fontSize: 13, flex: 1
-  },
-
 });
 
 // ══ Main export: Orchestrates 4 registration steps + success ══════════════

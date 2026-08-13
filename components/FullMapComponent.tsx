@@ -174,7 +174,7 @@ const styles = StyleSheet.create({
   locateFab: {
     position: 'absolute',
     right: 16,
-    top: 120,
+    top: 150,
     width: 48,
     height: 48,
     borderRadius: 24,

@@ -6,6 +6,7 @@ import {
   ScrollView,
   Pressable,
   Linking,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,6 +17,16 @@ import { useHardwareBack } from '@/hooks/useHardwareBack';
 import { COLORS, FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
 import { supabase } from '@/lib/supabase';
 import { formatTimeHHMM } from '@/lib/osm';
+import { getCurrentLocation, type Coords } from '@/lib/location';
+import {
+  getRoute,
+  formatDistance,
+  formatDuration,
+  cleanDistanceString,
+  cleanDurationString,
+  type RouteResult,
+} from '@/lib/ors';
+import { usePharmacyStore } from '@/store/pharmacyStore';
 
 export default function PharmacyDetail() {
   const router = useRouter();
@@ -52,6 +63,11 @@ export default function PharmacyDetail() {
     lat: parseFloat(params.lat ?? '5.6037'),
     lon: parseFloat(params.lon ?? '-0.187'),
   });
+
+  const [userCoords, setUserCoords] = useState<Coords | null>(usePharmacyStore.getState().userCoords);
+  const [route, setRoute] = useState<RouteResult | null>(null);
+  const [routeLoading, setRouteLoading] = useState(true);
+  const [routeError, setRouteError] = useState<string | null>(null);
 
   const [weeklySchedule, setWeeklySchedule] = useState<
     Array<{ day: string; isOpen: boolean; opens: string; closes: string }>
@@ -181,6 +197,33 @@ export default function PharmacyDetail() {
     }
   }, [id, params]);
 
+  useEffect(() => {
+    if (isNaN(details.lat) || isNaN(details.lon)) return;
+    let cancelled = false;
+
+    async function fetchRoute() {
+      setRouteLoading(true);
+      setRouteError(null);
+      try {
+        const user = await getCurrentLocation();
+        if (cancelled) return;
+        setUserCoords(user);
+        const result = await getRoute(user, { latitude: details.lat, longitude: details.lon });
+        if (cancelled) return;
+        setRoute(result);
+      } catch (e: any) {
+        if (!cancelled) setRouteError(e?.message ?? 'Could not calculate route');
+      } finally {
+        if (!cancelled) setRouteLoading(false);
+      }
+    }
+
+    fetchRoute();
+    return () => {
+      cancelled = true;
+    };
+  }, [details.lat, details.lon]);
+
   const name = details.name;
   const address = details.address;
   const phone = details.phone;
@@ -190,8 +233,21 @@ export default function PharmacyDetail() {
   const distanceKm = params.distanceKm ?? 'N/A';
   const walkMinutes = params.walkMinutes ?? 'N/A';
 
+  const distanceLabel = route
+    ? formatDistance(route.distanceMeters)
+    : cleanDistanceString(params.distanceKm);
+
+  const durationLabel = route
+    ? cleanDurationString(formatDuration(route.durationSeconds))
+    : cleanDurationString(params.walkMinutes);
+
   const hasValidCoords = !isNaN(lat) && !isNaN(lon);
   const isOpen = isOpenNow !== null ? isOpenNow : (!!hours && hours !== 'N/A' && hours !== 'Closed today');
+
+  const centerLat = userCoords ? (userCoords.latitude + lat) / 2 : lat;
+  const centerLon = userCoords ? (userCoords.longitude + lon) / 2 : lon;
+  const latDelta = userCoords ? Math.max(0.015, Math.abs(userCoords.latitude - lat) * 1.6) : 0.012;
+  const lonDelta = userCoords ? Math.max(0.015, Math.abs(userCoords.longitude - lon) * 1.6) : 0.012;
 
   const now = new Date();
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -201,10 +257,14 @@ export default function PharmacyDetail() {
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
       <View style={styles.mapSection}>
         <FullMapComponent
-          initialRegion={{ latitude: lat, longitude: lon, latitudeDelta: 0.012, longitudeDelta: 0.012 }}
-          userCoords={null}
-          markers={[{ id, name, address, latitude: lat, longitude: lon }]}
+          initialRegion={{ latitude: centerLat, longitude: centerLon, latitudeDelta: latDelta, longitudeDelta: lonDelta }}
+          userCoords={userCoords}
+          selectedId={id}
+          routeCoords={route?.coordinates}
+          markers={[{ id, name, address, latitude: lat, longitude: lon, isOpen, isRegistered: !!weeklySchedule.length }]}
           onSelectMarker={() => {}}
+          mapPadding={{ top: 20, right: 20, bottom: 20, left: 20 }}
+          showLegend={false}
         />
         <Pressable
           style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.5 }, { backgroundColor: theme.card }]}
@@ -268,7 +328,16 @@ export default function PharmacyDetail() {
           </Pressable>
           <View style={styles.detailRow}>
             <Ionicons name="navigate-outline" size={14} color={theme.textMuted} />
-            <Text style={[styles.detailText, { color: theme.textMuted }]}>{distanceKm} km · {walkMinutes} min walk</Text>
+            {routeLoading && (!params.distanceKm || params.distanceKm === 'N/A') ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <ActivityIndicator size="small" color={primaryColor} />
+                <Text style={[styles.detailText, { color: theme.textMuted }]}>Calculating distance & walk time…</Text>
+              </View>
+            ) : (
+              <Text style={[styles.detailText, { color: theme.textMuted }]}>
+                {distanceLabel} · {durationLabel}
+              </Text>
+            )}
           </View>
         </View>
 
@@ -334,7 +403,18 @@ export default function PharmacyDetail() {
               if (!hasValidCoords) return;
               router.push({
                 pathname: '/(patient)/pharmacy/[id]/navigate',
-                params: { id: encodeURIComponent(id), name, lat: String(lat), lon: String(lon), distanceKm, walkMinutes },
+                params: {
+                  id: encodeURIComponent(id),
+                  name,
+                  lat: String(lat),
+                  lon: String(lon),
+                  userLat: userCoords ? String(userCoords.latitude) : undefined,
+                  userLon: userCoords ? String(userCoords.longitude) : undefined,
+                  distanceMeters: route ? String(route.distanceMeters) : undefined,
+                  durationSeconds: route ? String(route.durationSeconds) : undefined,
+                  distanceKm: route ? (route.distanceMeters / 1000).toFixed(1) : distanceKm,
+                  walkMinutes: route ? String(Math.round(route.durationSeconds / 60)) : walkMinutes,
+                },
               });
             }}
           >

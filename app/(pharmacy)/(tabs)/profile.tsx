@@ -504,17 +504,6 @@ export default function PharmacyProfile() {
           <View style={styles.modalActions}>
             <Pressable
               style={({ pressed }) => [
-                styles.cancelBtn,
-                pressed && { opacity: 0.8 },
-                { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
-              ]}
-              onPress={() => editSheetRef.current?.dismiss()}
-            >
-              <Text style={[styles.cancelBtnText, { color: theme.text.primary }]}>Cancel</Text>
-            </Pressable>
-
-            <Pressable
-              style={({ pressed }) => [
                 styles.saveBtn,
                 pressed && { opacity: 0.8 },
                 { backgroundColor: PHARMACY_GREEN },
@@ -548,17 +537,6 @@ export default function PharmacyProfile() {
           </View>
 
           <View style={styles.modalActions}>
-            <Pressable
-              style={({ pressed }) => [
-                styles.cancelBtn,
-                pressed && { opacity: 0.8 },
-                { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
-              ]}
-              onPress={() => pwdSheetRef.current?.dismiss()}
-            >
-              <Text style={[styles.cancelBtnText, { color: theme.text.primary }]}>Cancel</Text>
-            </Pressable>
-
             <Pressable
               style={({ pressed }) => [
                 styles.saveBtn,

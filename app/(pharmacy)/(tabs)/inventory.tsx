@@ -504,19 +504,13 @@ export default function Inventory() {
           />
           <View style={styles.modalActions}>
             <Pressable
-              style={({pressed})=>[styles.modalBtn, pressed && {opacity: 0.5}, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border, borderWidth: 1 }]}
-              onPress={() => { setEditItem(null); editSheetRef.current?.dismiss?.() ?? editSheetRef.current?.close?.(); }}
-            >
-              <Text style={{ color: theme.text.primary }}>Cancel</Text>
-            </Pressable>
-            <Pressable
-              style={({pressed})=>[styles.modalBtn, pressed && {opacity: 0.5}, { backgroundColor: primaryColor }]}
+              style={({pressed})=>[styles.modalBtn, { flex: 1 }, pressed && {opacity: 0.5}, { backgroundColor: primaryColor }]}
               onPress={handleSaveEdit}
               disabled={saving}
             >
               {saving
                 ? <ActivityIndicator color={COLORS.white} />
-                : <Text style={{ color: COLORS.white, fontFamily: 'Inter-SemiBold' }}>Save</Text>
+                : <Text style={{ color: COLORS.white, fontFamily: 'Inter-SemiBold' }}>Save Medicine</Text>
               }
             </Pressable>
           </View>

@@ -11,7 +11,7 @@ import { COLORS } from '@/styles/theme';
  *
  * The component can be expanded to full-screen via the expand button.
  */
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -161,7 +161,7 @@ function MapCanvas({
         return (
           <Pressable
             key={pharm.id}
-            style={({pressed})=>[styles.pinWrapper, pressed && {opacity: 0.5}, { left: x - 12, top: y - 28 }]}
+            style={({ pressed }) => [styles.pinWrapper, pressed && { opacity: 0.5 }, { left: x - 12, top: y - 28 }]}
             onPress={(e) => {
               e.stopPropagation?.();
               onSelectKnownPharmacy?.(pharm);
@@ -229,19 +229,19 @@ export default function MapComponent({
         />
 
         {/* Expand button */}
-        <Pressable style={({pressed})=>[styles.expandBtn, pressed && {opacity: 0.5}]} onPress={() => setFullscreen(true)}>
+        <Pressable style={({ pressed }) => [styles.expandBtn, pressed && { opacity: 0.5 }]} onPress={() => setFullscreen(true)}>
           <Ionicons name="expand-outline" size={16} color={COLORS.white} />
           <Text style={styles.expandText}>Full Screen</Text>
         </Pressable>
       </View>
 
       {/* ── Full-screen modal ── */}
-      <Modal visible={fullscreen} animationType="slide" statusBarTranslucent>
+      <Modal visible={fullscreen} animationType="slide">
         <SafeAreaView style={styles.modalRoot}>
           {/* Header */}
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Select Pharmacy Location</Text>
-            <Pressable style={({pressed})=>[styles.closeBtn, pressed && {opacity: 0.5}]} onPress={() => setFullscreen(false)}>
+            <Pressable style={({ pressed }) => [styles.closeBtn, pressed && { opacity: 0.5 }]} onPress={() => setFullscreen(false)}>
               <Ionicons name="close" size={22} color="#1d293d" />
             </Pressable>
           </View>
@@ -279,7 +279,7 @@ export default function MapComponent({
           </View>
 
           {/* Done button */}
-          <Pressable style={({pressed})=>[styles.doneBtn, pressed && {opacity: 0.5}]} onPress={() => setFullscreen(false)}>
+          <Pressable style={({ pressed }) => [styles.doneBtn, pressed && { opacity: 0.5 }]} onPress={() => setFullscreen(false)}>
             <Ionicons name="checkmark" size={18} color={COLORS.white} />
             <Text style={styles.doneBtnText}>Confirm & Close</Text>
           </Pressable>
@@ -295,44 +295,44 @@ const styles = StyleSheet.create({
   inlineContainer: {
     borderRadius: 16,
     overflow: 'hidden',
-    position: 'relative'
+    position: 'relative',
   },
   canvas: {
     backgroundColor: COLORS.borderSubtle,
     position: 'relative',
-    overflow: 'hidden'
+    overflow: 'hidden',
   },
   mapGrid: {
     position: 'absolute',
     top: 0,
     left: 0,
-    backgroundColor: '#f0f4f8'
+    backgroundColor: '#f0f4f8',
   },
   river: {
     position: 'absolute',
     left: 0,
     right: 0,
-    backgroundColor: COLORS.borderBlue
+    backgroundColor: COLORS.borderBlue,
   },
   road: {
     position: 'absolute',
     backgroundColor: COLORS.white,
     borderColor: COLORS.borderSubtle,
-    borderWidth: 0.5
+    borderWidth: 0.5,
   },
   street: {
     position: 'absolute',
-    backgroundColor: COLORS.background
+    backgroundColor: COLORS.background,
   },
   block: {
     position: 'absolute',
     backgroundColor: COLORS.borderSubtle,
-    borderRadius: 4
+    borderRadius: 4,
   },
   pinWrapper: {
     position: 'absolute',
     alignItems: 'center',
-    zIndex: 10
+    zIndex: 10,
   },
   knownLabel: {
     backgroundColor: COLORS.successBg,
@@ -340,13 +340,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 5,
     paddingVertical: 2,
     marginTop: -4,
-    maxWidth: 90
+    maxWidth: 90,
   },
   knownLabelText: {
     fontSize: 9,
     fontFamily: 'Inter-Bold',
     color: COLORS.pharmacyText,
-    textAlign: 'center'
+    textAlign: 'center',
   },
   registeredLabel: {
     backgroundColor: COLORS.pendingBg,
@@ -354,26 +354,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: 5,
     paddingVertical: 2,
     marginTop: -4,
-    maxWidth: 90
+    maxWidth: 90,
   },
   registeredLabelText: {
     fontSize: 9,
     fontFamily: 'Inter-SemiBold',
     color: COLORS.pendingText,
-    textAlign: 'center'
+    textAlign: 'center',
   },
   customLabel: {
     backgroundColor: COLORS.infoBg,
     borderRadius: 6,
     paddingHorizontal: 6,
     paddingVertical: 2,
-    marginTop: -6
+    marginTop: -6,
   },
   customLabelText: {
     fontSize: 9,
     fontFamily: 'Inter-Bold',
     color: COLORS.patientTextDark,
-    textAlign: 'center'
+    textAlign: 'center',
   },
   infoBar: {
     position: 'absolute',
@@ -386,13 +386,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5
+    gap: 5,
   },
   infoText: {
     fontSize: 10,
     color: COLORS.textMuted,
     fontFamily: 'Inter-Medium',
-    flex: 1
+    flex: 1,
   },
   expandBtn: {
     position: 'absolute',
@@ -405,18 +405,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    zIndex: 20
+    zIndex: 20,
   },
   expandText: {
     fontSize: 11,
     fontFamily: 'Inter-Bold',
-    color: COLORS.white
+    color: COLORS.white,
   },
 
   // Modal styles
   modalRoot: {
     flex: 1,
-    backgroundColor: COLORS.background
+    backgroundColor: COLORS.background,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -426,12 +426,12 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     backgroundColor: COLORS.white,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.borderSubtle
+    borderBottomColor: COLORS.borderSubtle,
   },
   modalTitle: {
     fontSize: 17,
     fontFamily: 'Inter-Bold',
-    color: COLORS.textDarkAlt
+    color: COLORS.textDarkAlt,
   },
   closeBtn: {
     width: 36,
@@ -439,7 +439,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     backgroundColor: COLORS.surfaceSecondary,
     justifyContent: 'center',
-    alignItems: 'center'
+    alignItems: 'center',
   },
   modalLegend: {
     flexDirection: 'row',
@@ -449,21 +449,21 @@ const styles = StyleSheet.create({
     gap: 14,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.borderSubtle,
-    flexWrap: 'wrap'
+    flexWrap: 'wrap',
   },
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5
+    gap: 5,
   },
   legendText: {
     fontSize: 11,
     color: COLORS.textSecondary,
-    fontFamily: 'Inter-Medium'
+    fontFamily: 'Inter-Medium',
   },
   modalMapWrap: {
     flex: 1,
-    overflow: 'hidden'
+    overflow: 'hidden',
   },
   doneBtn: {
     margin: 16,
@@ -473,12 +473,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8
+    gap: 8,
   },
   doneBtnText: {
     fontSize: 15,
     fontFamily: 'Inter-Bold',
-    color: COLORS.white
+    color: COLORS.white,
   },
-
 });

@@ -281,7 +281,7 @@ export default function Home() {
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionLabel, { color: theme.textDim }]}>NEARBY PHARMACIES</Text>
             <Pressable style={({ pressed }) => [pressed && { opacity: 0.5 }]} onPress={() => router.push('/(patient)/pharmacies')}>
-              <Text style={[styles.viewAll, { color: primaryColor }]}>See All</Text>
+              <Text style={[styles.viewAll, { color: primaryColor }]}>View Map</Text>
             </Pressable>
           </View>
 

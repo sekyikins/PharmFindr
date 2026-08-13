@@ -7,6 +7,7 @@ import {
   Pressable,
   Animated,
   Easing,
+  PanResponder,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -33,11 +34,58 @@ export default function Toast({ toast, onDismiss }: ToastProps) {
   const { theme, primaryColor } = useThemeContext();
   const insets = useSafeAreaInsets();
 
+  const translateX = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(-100)).current;
   const opacity = useRef(new Animated.Value(0)).current;
   const scale = useRef(new Animated.Value(0.95)).current;
+  const timerRef = useRef<any>(null);
 
   const duration = toast.duration ?? 4500;
+
+  const dismissToast = (direction: 'up' | 'left' | 'right' = 'up') => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+
+    const anims: Animated.CompositeAnimation[] = [
+      Animated.timing(opacity, {
+        toValue: 0,
+        duration: 180,
+        useNativeDriver: true,
+      }),
+    ];
+
+    if (direction === 'up') {
+      anims.push(
+        Animated.timing(translateY, {
+          toValue: -120,
+          duration: 200,
+          easing: Easing.in(Easing.quad),
+          useNativeDriver: true,
+        })
+      );
+    } else if (direction === 'left') {
+      anims.push(
+        Animated.timing(translateX, {
+          toValue: -400,
+          duration: 200,
+          easing: Easing.in(Easing.quad),
+          useNativeDriver: true,
+        })
+      );
+    } else if (direction === 'right') {
+      anims.push(
+        Animated.timing(translateX, {
+          toValue: 400,
+          duration: 200,
+          easing: Easing.in(Easing.quad),
+          useNativeDriver: true,
+        })
+      );
+    }
+
+    Animated.parallel(anims).start(() => {
+      onDismiss();
+    });
+  };
 
   useEffect(() => {
     // Slide & fade in
@@ -61,30 +109,74 @@ export default function Toast({ toast, onDismiss }: ToastProps) {
     ]).start();
 
     // Auto dismiss timer
-    const timer = setTimeout(() => {
-      dismissToast();
+    timerRef.current = setTimeout(() => {
+      dismissToast('up');
     }, duration);
 
-    return () => clearTimeout(timer);
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
   }, []);
 
-  const dismissToast = () => {
-    Animated.parallel([
-      Animated.timing(translateY, {
-        toValue: -80,
-        duration: 220,
-        easing: Easing.in(Easing.quad),
-        useNativeDriver: true,
-      }),
-      Animated.timing(opacity, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      onDismiss();
-    });
-  };
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        const isHorizontal = Math.abs(gestureState.dx) > 8;
+        const isUpward = gestureState.dy < -6;
+        return isHorizontal || isUpward;
+      },
+      onPanResponderGrant: () => {
+        if (timerRef.current) clearTimeout(timerRef.current);
+      },
+      onPanResponderMove: (_, gestureState) => {
+        translateX.setValue(gestureState.dx);
+        if (gestureState.dy < 0) {
+          translateY.setValue(gestureState.dy);
+        } else {
+          translateY.setValue(gestureState.dy * 0.2);
+        }
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        // 1. Swipe UP
+        if (gestureState.dy < -35 || gestureState.vy < -0.4) {
+          dismissToast('up');
+          return;
+        }
+
+        // 2. Swipe LEFT
+        if (gestureState.dx < -50 || gestureState.vx < -0.4) {
+          dismissToast('left');
+          return;
+        }
+
+        // 3. Swipe RIGHT
+        if (gestureState.dx > 50 || gestureState.vx > 0.4) {
+          dismissToast('right');
+          return;
+        }
+
+        // Reset back if threshold not met
+        Animated.parallel([
+          Animated.spring(translateX, {
+            toValue: 0,
+            useNativeDriver: true,
+            bounciness: 6,
+          }),
+          Animated.spring(translateY, {
+            toValue: 0,
+            useNativeDriver: true,
+            bounciness: 6,
+          }),
+        ]).start();
+
+        // Resume auto-dismiss timer
+        timerRef.current = setTimeout(() => {
+          dismissToast('up');
+        }, 2500);
+      },
+    })
+  ).current;
 
   const type = toast.type || 'info';
 
@@ -94,36 +186,36 @@ export default function Toast({ toast, onDismiss }: ToastProps) {
         return {
           icon: 'shield-checkmark',
           accent: primaryColor,
-          bg: COLORS.surfaceDark,
+          bg: 'rgba(15, 23, 42, 0.88)',
           textColor: COLORS.white,
-          subColor: COLORS.borderSlate,
+          subColor: '#e2e8f0',
           border: primaryColor,
         };
       case 'success':
         return {
           icon: 'checkmark-circle',
           accent: COLORS.pharmacyPrimary,
-          bg: '#064e3b',
+          bg: 'rgba(6, 78, 59, 0.88)',
           textColor: COLORS.white,
-          subColor: COLORS.successBorder,
+          subColor: '#a7f3d0',
           border: COLORS.pharmacyPrimary,
         };
       case 'warning':
         return {
           icon: 'alert-circle',
           accent: COLORS.warning,
-          bg: COLORS.pendingText,
+          bg: 'rgba(120, 53, 15, 0.88)',
           textColor: COLORS.white,
-          subColor: COLORS.pendingBorder,
+          subColor: '#fde68a',
           border: COLORS.warning,
         };
       case 'error':
         return {
           icon: 'warning',
           accent: COLORS.error,
-          bg: COLORS.errorDarkBg,
+          bg: 'rgba(127, 29, 29, 0.88)',
           textColor: COLORS.white,
-          subColor: COLORS.errorBorder,
+          subColor: '#fecaca',
           border: COLORS.error,
         };
       case 'info':
@@ -131,9 +223,9 @@ export default function Toast({ toast, onDismiss }: ToastProps) {
         return {
           icon: 'information-circle',
           accent: COLORS.info,
-          bg: COLORS.textPrimary,
+          bg: 'rgba(15, 23, 42, 0.88)',
           textColor: COLORS.white,
-          subColor: COLORS.textDim,
+          subColor: '#cbd5e1',
           border: COLORS.info,
         };
     }
@@ -143,11 +235,12 @@ export default function Toast({ toast, onDismiss }: ToastProps) {
 
   return (
     <Animated.View
+      {...panResponder.panHandlers}
       style={[
         styles.toastWrapper,
         {
           top: Math.max(insets.top, 12) + 6,
-          transform: [{ translateY }, { scale }],
+          transform: [{ translateY }, { translateX }, { scale }],
           opacity,
         },
       ]}
@@ -188,21 +281,12 @@ export default function Toast({ toast, onDismiss }: ToastProps) {
             ]}
             onPress={() => {
               if (toast.onAction) toast.onAction();
-              dismissToast();
+              dismissToast('up');
             }}
           >
             <Text style={styles.actionText}>{toast.actionLabel}</Text>
           </Pressable>
         ) : null}
-
-        {/* Dismiss X */}
-        <Pressable
-          onPress={dismissToast}
-          style={({ pressed }) => [styles.closeBtn, pressed && { opacity: 0.5 }]}
-          hitSlop={8}
-        >
-          <Ionicons name="close" size={16} color={styleConfig.subColor} />
-        </Pressable>
       </View>
     </Animated.View>
   );
@@ -213,7 +297,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 14,
     right: 14,
-    zIndex: 9999
+    zIndex: 9999,
   },
   container: {
     flexDirection: 'row',
@@ -223,8 +307,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1.5,
     shadowColor: COLORS.black,
-    shadowOffset: { width: 0, height: 6
-  },
+    shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.25,
     shadowRadius: 10,
     elevation: 8,
@@ -235,36 +318,32 @@ const styles = StyleSheet.create({
     height: 34,
     borderRadius: 17,
     justifyContent: 'center',
-    alignItems: 'center'
+    alignItems: 'center',
   },
   textContainer: {
     flex: 1,
-    justifyContent: 'center'
+    justifyContent: 'center',
   },
   title: {
     fontSize: 13,
     fontFamily: 'Inter-Bold',
-    marginBottom: 2
+    marginBottom: 2,
   },
   message: {
     fontSize: 12,
     fontFamily: 'Inter-Regular',
-    lineHeight: 16
+    lineHeight: 16,
   },
   actionBtn: {
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 12,
     justifyContent: 'center',
-    alignItems: 'center'
+    alignItems: 'center',
   },
   actionText: {
     color: COLORS.white,
     fontSize: 11,
-    fontFamily: 'Inter-Bold'
+    fontFamily: 'Inter-Bold',
   },
-  closeBtn: {
-    padding: 4
-  },
-
 });

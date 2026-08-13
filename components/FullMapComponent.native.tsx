@@ -17,7 +17,7 @@ export interface MarkerData {
 }
 
 interface FullMapComponentProps {
-  initialRegion: {
+  initialRegion?: {
     latitude: number;
     longitude: number;
     latitudeDelta: number;
@@ -48,71 +48,99 @@ export default function FullMapComponent({
   selectedId,
   onSelectMarker,
   routeCoords,
-  mapPadding = { top: 90, right: 16, bottom: 140, left: 16 },
+  mapPadding,
   showLegend = true,
-  refreshKey,
   onPressLocate,
 }: FullMapComponentProps) {
   const mapRef = useRef<MapView>(null);
   const markerRefs = useRef<Record<string, MapMarker | null>>({});
   const mapReadyRef = useRef(false);
-  const hasCenteredRef = useRef(false);
-  const userMovedMapRef = useRef(false);
+  const hasFramedRouteRef = useRef(false);
+  const hasFramedInitialRef = useRef(false);
 
-  // Central camera function — called from both onMapReady and useEffects
-  const applyCamera = useCallback((
-    coords: { latitude: number; longitude: number } | null,
-    selId: string | null | undefined,
-    mkrs: MarkerData[],
-    force = false,
-  ) => {
+  // 1. Initial Route Framing: Runs strictly once when navigation route polyline (2+ points) becomes available
+  useEffect(() => {
     if (!mapRef.current || !mapReadyRef.current) return;
-    if (userMovedMapRef.current && !force) return;
+    if (routeCoords && routeCoords.length >= 2 && !hasFramedRouteRef.current) {
+      hasFramedRouteRef.current = true;
+      hasFramedInitialRef.current = true;
+      const defaultPadding = mapPadding || { top: 90, right: 40, bottom: 200, left: 40 };
+      mapRef.current.fitToCoordinates(routeCoords, {
+        edgePadding: defaultPadding,
+        animated: true,
+      });
+    }
+  }, [routeCoords, mapPadding]);
 
-    const selected = selId ? mkrs.find((m) => m.id === selId) : null;
+  // 2. Initial User Location Framing: Runs strictly once when opening browse map without directions
+  useEffect(() => {
+    if (!mapRef.current || !mapReadyRef.current || hasFramedInitialRef.current) return;
 
-    if (selected) {
-      hasCenteredRef.current = true;
-      if (coords) {
-        // Frame both user + pharmacy
-        mapRef.current.fitToCoordinates(
-          [
-            { latitude: coords.latitude, longitude: coords.longitude },
-            { latitude: selected.latitude, longitude: selected.longitude },
-          ],
-          { edgePadding: { top: 100, right: 60, bottom: 260, left: 60 }, animated: true }
-        );
-      } else {
-        mapRef.current.animateToRegion(
-          { latitude: selected.latitude, longitude: selected.longitude, latitudeDelta: 0.015, longitudeDelta: 0.015 },
-          500
-        );
-      }
-      setTimeout(() => markerRefs.current[selId!]?.showCallout?.(), 700);
-    } else if (coords) {
-      // No selection — center on user
-      hasCenteredRef.current = true;
+    // If route coordinates are expected, wait for the route polyline instead of zooming to single point
+    if (routeCoords !== undefined) {
+      return;
+    }
+
+    if (userCoords) {
+      hasFramedInitialRef.current = true;
       mapRef.current.animateToRegion(
-        { latitude: coords.latitude, longitude: coords.longitude, latitudeDelta: 0.035, longitudeDelta: 0.035 },
-        500
+        {
+          latitude: userCoords.latitude,
+          longitude: userCoords.longitude,
+          latitudeDelta: 0.015,
+          longitudeDelta: 0.015,
+        },
+        400
       );
     }
-  }, []);
+  }, [userCoords, routeCoords]);
 
-  // Center camera directly on device GPS location when user taps the Locate button
+  // 3. Map Ready Callback: Triggers initial framing once native Google Maps finishes layout
+  const handleMapReady = useCallback(() => {
+    mapReadyRef.current = true;
+
+    // Check if route coordinates are already available on ready
+    if (routeCoords && routeCoords.length >= 2 && !hasFramedRouteRef.current) {
+      hasFramedRouteRef.current = true;
+      hasFramedInitialRef.current = true;
+      const defaultPadding = mapPadding || { top: 90, right: 40, bottom: 200, left: 40 };
+      setTimeout(() => {
+        mapRef.current?.fitToCoordinates(routeCoords, {
+          edgePadding: defaultPadding,
+          animated: true,
+        });
+      }, 200);
+      return;
+    }
+
+    // Check if user location is available on ready
+    if (routeCoords === undefined && userCoords && !hasFramedInitialRef.current) {
+      hasFramedInitialRef.current = true;
+      setTimeout(() => {
+        mapRef.current?.animateToRegion(
+          {
+            latitude: userCoords.latitude,
+            longitude: userCoords.longitude,
+            latitudeDelta: 0.015,
+            longitudeDelta: 0.015,
+          },
+          400
+        );
+      }, 200);
+    }
+  }, [routeCoords, userCoords, mapPadding]);
+
+  // Center camera directly on device GPS location ONLY when user taps the Locate button
   const handleCenterOnUser = useCallback(() => {
-    userMovedMapRef.current = false;
-    hasCenteredRef.current = true;
-
     if (userCoords && mapRef.current) {
       mapRef.current.animateToRegion(
         {
           latitude: userCoords.latitude,
           longitude: userCoords.longitude,
-          latitudeDelta: 0.025,
-          longitudeDelta: 0.025,
+          latitudeDelta: 0.015,
+          longitudeDelta: 0.015,
         },
-        500
+        400
       );
     }
 
@@ -121,40 +149,12 @@ export default function FullMapComponent({
     }
   }, [userCoords, onPressLocate]);
 
-  // Detect user-initiated pan/zoom — suppress further auto-centering until next selection
-  const handleRegionChangeComplete = useCallback((_region: any, details?: { isGesture?: boolean }) => {
-    if (details?.isGesture) {
-      userMovedMapRef.current = true;
-    }
-  }, []);
-
-  // Fire camera as soon as the map is ready (handles pre-loaded coords/selection)
-  const handleMapReady = useCallback(() => {
-    mapReadyRef.current = true;
-    applyCamera(userCoords, selectedId, markers);
-  }, [userCoords, selectedId, markers, applyCamera]);
-
-  // Re-apply when userCoords arrives after map is already ready (slow GPS)
-  useEffect(() => {
-    applyCamera(userCoords, selectedId, markers);
-  }, [userCoords]);
-
-  // Re-apply when selectedId changes — reset user-moved flag so the map re-centers
-  useEffect(() => {
-    if (selectedId) {
-      userMovedMapRef.current = false;
-      applyCamera(userCoords, selectedId, markers, true);
-    }
-  }, [selectedId, markers]);
-
-  // Force re-centering when refreshKey changes (user manually tapped refresh)
-  useEffect(() => {
-    if (refreshKey !== undefined && refreshKey > 0) {
-      userMovedMapRef.current = false;
-      hasCenteredRef.current = false;
-      applyCamera(userCoords, selectedId, markers, true);
-    }
-  }, [refreshKey]);
+  const defaultInitialRegion = initialRegion || {
+    latitude: userCoords?.latitude ?? 5.6037,
+    longitude: userCoords?.longitude ?? -0.187,
+    latitudeDelta: 0.015,
+    longitudeDelta: 0.015,
+  };
 
   return (
     <View style={styles.container}>
@@ -162,24 +162,13 @@ export default function FullMapComponent({
         ref={mapRef}
         style={styles.map}
         provider={PROVIDER_GOOGLE}
-        initialRegion={initialRegion}
+        initialRegion={defaultInitialRegion}
         onMapReady={handleMapReady}
-        onRegionChangeComplete={handleRegionChangeComplete}
         showsUserLocation
         showsMyLocationButton={false}
         showsCompass
-        mapPadding={mapPadding}
+        mapPadding={mapPadding || { top: 120, right: 16, bottom: 140, left: 16 }}
       >
-        {/* User position fallback if showsUserLocation isn't ready */}
-        {userCoords && (
-          <Marker
-            coordinate={userCoords}
-            title="You are here"
-            pinColor={COLORS.patientPrimary}
-            zIndex={100}
-          />
-        )}
-
         {/* Pharmacy markers */}
         {markers.map((m) => {
           const isSelected = m.id === selectedId;
@@ -227,10 +216,6 @@ export default function FullMapComponent({
       {showLegend && (
         <View style={styles.legendBar} pointerEvents="box-none">
           <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: COLORS.patientPrimary }]} />
-            <Text style={styles.legendText}>You</Text>
-          </View>
-          <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: COLORS.pharmacyPrimary }]} />
             <Text style={styles.legendText}>Verified</Text>
           </View>
@@ -270,7 +255,7 @@ const styles = StyleSheet.create({
   locateFab: {
     position: 'absolute',
     right: 16,
-    top: 120,
+    top: 150,
     width: 48,
     height: 48,
     borderRadius: 24,

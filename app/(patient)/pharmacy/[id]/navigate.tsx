@@ -15,9 +15,18 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import FullMapComponent from '@/components/FullMapComponent';
 import { useThemeContext } from '@/hooks/useThemeContext';
 import { COLORS, FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
-import { getCurrentLocation, type Coords } from '@/lib/location';
-import { getRoute, formatDistance, formatDuration, type RouteResult } from '@/lib/ors';
+import { getCurrentLocation, watchLocation, type Coords } from '@/lib/location';
+import {
+  getRoute,
+  formatDistance,
+  formatDuration,
+  cleanDistanceString,
+  cleanDurationString,
+  type RouteResult,
+} from '@/lib/ors';
+import { haversineKm } from '@/lib/osm';
 import { useHardwareBack } from '@/hooks/useHardwareBack';
+import { usePharmacyStore } from '@/store/pharmacyStore';
 
 export default function Navigate() {
   const router = useRouter();
@@ -27,6 +36,10 @@ export default function Navigate() {
     name?: string;
     lat?: string;
     lon?: string;
+    userLat?: string;
+    userLon?: string;
+    distanceMeters?: string;
+    durationSeconds?: string;
     distanceKm?: string;
     walkMinutes?: string;
   }>();
@@ -46,60 +59,122 @@ export default function Navigate() {
   const pharmLon = parseFloat(params.lon ?? '-0.187');
   const pharmCoords: Coords = { latitude: pharmLat, longitude: pharmLon };
 
-  const [userCoords, setUserCoords] = useState<Coords | null>(null);
-  const [route, setRoute] = useState<RouteResult | null>(null);
-  const [loading, setLoading] = useState(true);
+  const initialUserCoords: Coords | null =
+    params.userLat && params.userLon
+      ? { latitude: parseFloat(params.userLat), longitude: parseFloat(params.userLon) }
+      : usePharmacyStore.getState().userCoords;
+
+  const initialRoute: RouteResult | null =
+    params.distanceMeters && params.durationSeconds
+      ? {
+          coordinates: [],
+          distanceMeters: parseFloat(params.distanceMeters),
+          durationSeconds: parseFloat(params.durationSeconds),
+        }
+      : null;
+
+  const [userCoords, setUserCoords] = useState<Coords | null>(initialUserCoords);
+  const [route, setRoute] = useState<RouteResult | null>(initialRoute);
+  const [loading, setLoading] = useState(!initialRoute || initialRoute.coordinates.length === 0);
   const [error, setError] = useState<string | null>(null);
   const [sheetIndex, setSheetIndex] = useState(0);
 
   const sheetRef = useRef<BottomSheet>(null);
+  const lastRouteCalcCoordsRef = useRef<Coords | null>(null);
+  const isFetchingRouteRef = useRef(false);
 
   // Exact fixed snap points (100px = header only, 160px = header + button)
   const snapPoints = useMemo(() => [100, 160], []);
 
+  // Continuously track device GPS location and update route, distance, and walk time in real-time
   useEffect(() => {
-    let cancelled = false;
-    async function fetchRoute() {
-      setLoading(true);
-      setError(null);
+    let isMounted = true;
+    let subscription: { remove: () => void } | null = null;
+
+    async function startLiveNavigation() {
+      // 1. Initial immediate location & route calculation
       try {
-        const user = await getCurrentLocation();
-        if (cancelled) return;
-        setUserCoords(user);
-        const result = await getRoute(user, pharmCoords);
-        if (cancelled) return;
-        setRoute(result);
+        const initialLoc = initialUserCoords || (await getCurrentLocation());
+        if (!isMounted) return;
+        setUserCoords(initialLoc);
+        lastRouteCalcCoordsRef.current = initialLoc;
+
+        isFetchingRouteRef.current = true;
+        const initialResult = await getRoute(initialLoc, pharmCoords);
+        if (isMounted && initialResult) {
+          setRoute(initialResult);
+          setError(null);
+        }
       } catch (e: any) {
-        if (!cancelled) setError(e?.message ?? 'Could not load route.');
+        if (isMounted && !initialRoute) {
+          setError(e?.message ?? 'Could not calculate navigation route.');
+        }
       } finally {
-        if (!cancelled) setLoading(false);
+        isFetchingRouteRef.current = false;
+        if (isMounted) setLoading(false);
+      }
+
+      // 2. Real-time GPS location watcher
+      const sub = await watchLocation(
+        async (freshCoords: Coords) => {
+          if (!isMounted) return;
+          setUserCoords(freshCoords);
+
+          // Check how far user moved since last route calculation
+          const lastCalc = lastRouteCalcCoordsRef.current;
+          const movedMeters = lastCalc ? haversineKm(lastCalc, freshCoords) * 1000 : 999;
+
+          // Re-calculate full ORS walking route if moved >= 8 meters
+          if (movedMeters >= 8 && !isFetchingRouteRef.current) {
+            lastRouteCalcCoordsRef.current = freshCoords;
+            isFetchingRouteRef.current = true;
+            try {
+              const updatedResult = await getRoute(freshCoords, pharmCoords);
+              if (isMounted && updatedResult) {
+                setRoute(updatedResult);
+                setError(null);
+              }
+            } catch (err: any) {
+              console.warn('Live navigation route update error:', err.message);
+            } finally {
+              isFetchingRouteRef.current = false;
+            }
+          }
+        },
+        { timeInterval: 2000, distanceInterval: 4 }
+      );
+
+      if (isMounted) {
+        subscription = sub;
+      } else {
+        sub?.remove();
       }
     }
-    fetchRoute();
+
+    startLiveNavigation();
+
     return () => {
-      cancelled = true;
+      isMounted = false;
+      subscription?.remove();
     };
-  }, []);
+  }, [pharmLat, pharmLon]);
 
   const centerLat = userCoords ? (userCoords.latitude + pharmLat) / 2 : pharmLat;
   const centerLon = userCoords ? (userCoords.longitude + pharmLon) / 2 : pharmLon;
 
   const distanceLabel = route
     ? formatDistance(route.distanceMeters)
-    : params.distanceKm
-    ? params.distanceKm + ' km'
-    : '—';
+    : cleanDistanceString(params.distanceKm);
+
   const durationLabel = route
-    ? formatDuration(route.durationSeconds)
-    : params.walkMinutes
-    ? params.walkMinutes + ' min walk'
-    : '—';
+    ? cleanDurationString(formatDuration(route.durationSeconds))
+    : cleanDurationString(params.walkMinutes);
 
   function openExternalNav() {
     const destination = `${pharmLat},${pharmLon}`;
     const origin = userCoords ? `${userCoords.latitude},${userCoords.longitude}` : '';
     const googleMapsUrl = origin
-      ? `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=driving`
+      ? `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=walking`
       : `https://www.google.com/maps/search/?api=1&query=${destination}`;
 
     Linking.openURL(googleMapsUrl).catch(() => {
@@ -116,14 +191,15 @@ export default function Navigate() {
             initialRegion={{
               latitude: centerLat,
               longitude: centerLon,
-              latitudeDelta: 0.03,
-              longitudeDelta: 0.03,
+              latitudeDelta: 0.015,
+              longitudeDelta: 0.015,
             }}
             userCoords={userCoords}
+            selectedId={params.id ?? ''}
             markers={[{ id: params.id ?? '', name: pharmName, address: '', latitude: pharmLat, longitude: pharmLon }]}
             onSelectMarker={() => {}}
             routeCoords={route?.coordinates}
-            mapPadding={{ top: 70, right: 10, bottom: 100, left: 10 }}
+            mapPadding={{ top: (insets.top || 20) + 70, right: 24, bottom: 180, left: 24 }}
             showLegend={false}
           />
         </View>

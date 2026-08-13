@@ -72,3 +72,24 @@ export function formatDuration(seconds: number): string {
   const m = mins % 60;
   return m > 0 ? `${h}h ${m}min` : `${h}h`;
 }
+
+/** Format distance string consistently with unit (e.g. "1.3 km" or "800 m"). */
+export function cleanDistanceString(val?: string | number | null): string {
+  if (val === undefined || val === null || val === 'N/A' || val === '—' || val === '') return '—';
+  const s = String(val).trim();
+  if (s.endsWith('km') || s.endsWith('m')) return s;
+  const num = parseFloat(s);
+  if (isNaN(num)) return s;
+  return `${num.toFixed(1)} km`;
+}
+
+/** Format walk duration string consistently with unit (e.g. "12 min walk"). */
+export function cleanDurationString(val?: string | number | null): string {
+  if (val === undefined || val === null || val === 'N/A' || val === '—' || val === '') return '—';
+  const s = String(val).trim();
+  if (s.includes('walk')) return s;
+  if (s.includes('min') || s.includes('h')) return `${s} walk`;
+  const num = parseFloat(s);
+  if (isNaN(num)) return s;
+  return `${Math.round(num)} min walk`;
+}

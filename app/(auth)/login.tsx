@@ -22,6 +22,26 @@ import { sendArkeselOtp, verifyArkeselOtp, validateGhanaPhone } from '@/lib/arke
 import { supabase } from '@/lib/supabase';
 import { PHARMACY_PASS } from '@/lib/authConstants';
 import OtpInput, { type OtpInputHandle } from '@/components/ui/OtpInput';
+import { toast } from '@/context/ToastContext';
+
+function getFriendlyAuthErrorMessage(err: any, defaultMsg = 'Authentication failed.'): string {
+  const message = err?.message || String(err || '');
+  if (!message) return defaultMsg;
+
+  if (/network|fetch|connect|timeout|offline|internet|getaddrinfo|econnrefused/i.test(message)) {
+    return 'Login failed due to poor connectivity. Please check your internet connection.';
+  }
+
+  if (/invalid login credentials|invalid email or password|user not found/i.test(message)) {
+    return 'Invalid email or password. Please check your credentials and try again.';
+  }
+
+  if (/rate limit|too many requests/i.test(message)) {
+    return 'Too many login attempts. Please wait a moment before trying again.';
+  }
+
+  return message;
+}
 
 export default function Login() {
   const router = useRouter();
@@ -44,7 +64,6 @@ export default function Login() {
   const [pharmStep, setPharmStep] = useState<1 | 2>(1);
 
   const [loading, setLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // Input refs for Enter key navigation
   const passwordRef = useRef<TextInput>(null);
@@ -52,42 +71,40 @@ export default function Login() {
 
   const handlePatientLogin = async () => {
     if (!email.trim() || !password.trim()) {
-      setErrorMsg('Please fill in both email and password.');
+      toast.error('Please fill in both email and password.');
       return;
     }
 
     setLoading(true);
-    setErrorMsg(null);
 
     try {
       await signIn(email, password);
+      toast.success('Login successful! Welcome back.');
       router.replace('/(patient)/(tabs)/home');
     } catch (error: any) {
-      setErrorMsg(error.message || 'Login failed.');
+      const msg = getFriendlyAuthErrorMessage(error, 'Login failed. Please check your credentials.');
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
   };
 
   const [formattedPhone, setFormattedPhone] = useState('');
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   const handleSendOtp = async () => {
     const raw = phone.trim();
     if (!raw) {
-      setErrorMsg('Please enter your pharmacy phone number.');
+      toast.error('Please enter your pharmacy phone number.');
       return;
     }
 
     const validation = validateGhanaPhone(raw);
     if (!validation.valid) {
-      setErrorMsg(validation.error || 'Invalid phone number.');
+      toast.error(validation.error || 'Invalid phone number.');
       return;
     }
 
     setLoading(true);
-    setErrorMsg(null);
-    setSuccessMsg(null);
 
     try {
       const cleanPhone = validation.formatted.replace(/[\s+]+/g, '');
@@ -100,7 +117,7 @@ export default function Login() {
       if (dbError) {
         console.warn('Supabase pharmacy phone lookup error:', dbError.message);
       } else if (!pharmacies || pharmacies.length === 0) {
-        setErrorMsg('No pharmacy account found with this number. Please register first.');
+        toast.error('No pharmacy account found with this number. Please register first.');
         setLoading(false);
         return;
       }
@@ -113,43 +130,48 @@ export default function Login() {
     setLoading(false);
 
     if (!result.success) {
-      setErrorMsg(result.error || 'Failed to send OTP. Please try again.');
+      const isNetwork = /network|fetch|connect|timeout/i.test(result.error || '');
+      const msg = isNetwork
+        ? 'Failed to send OTP due to poor connectivity. Please check your internet.'
+        : (result.error || 'Failed to send OTP. Please try again.');
+      toast.error(msg);
       return;
     }
 
-    setSuccessMsg(`OTP sent! A 6-digit code has been sent via SMS to ${raw}.`);
+    toast.success(`OTP sent! A 6-digit code has been sent via SMS to ${raw}.`);
     setPharmStep(2);
   };
 
   const handleResendOtp = async () => {
     setLoading(true);
-    setErrorMsg(null);
-    setSuccessMsg(null);
 
     const result = await sendArkeselOtp(formattedPhone);
     setLoading(false);
 
     if (!result.success) {
-      setErrorMsg(result.error || 'Failed to resend OTP. Please try again.');
+      const isNetwork = /network|fetch|connect|timeout/i.test(result.error || '');
+      const msg = isNetwork
+        ? 'Failed to resend OTP due to poor connectivity.'
+        : (result.error || 'Failed to resend OTP. Please try again.');
+      toast.error(msg);
       return;
     }
 
-    setSuccessMsg('A new OTP code has been sent to your phone.');
+    toast.success('A new OTP code has been sent to your phone.');
   };
 
   const handleVerifyOtp = async (codeToVerify?: string) => {
     const token = (codeToVerify || otpToken).trim();
     if (!token) {
-      setErrorMsg('Please enter the 6-digit code sent to your phone.');
+      toast.error('Please enter the 6-digit code sent to your phone.');
       return;
     }
 
     setLoading(true);
-    setErrorMsg(null);
 
     const verification = await verifyArkeselOtp(formattedPhone, token);
     if (!verification.success) {
-      setErrorMsg(verification.error || 'Invalid OTP code.');
+      toast.error(verification.error || 'Invalid OTP code.');
       otpRef.current?.shake();
       setLoading(false);
       return;
@@ -203,12 +225,14 @@ export default function Login() {
       }
 
       otpRef.current?.showSuccess();
+      toast.success('Pharmacy login successful! Welcome back.');
       setTimeout(() => {
         router.replace('/(pharmacy)/(tabs)/inventory');
       }, 400);
     } catch (error: any) {
       console.warn('Pharmacy auth sign-in error:', error.message);
-      setErrorMsg(error.message || 'Login failed.');
+      const msg = getFriendlyAuthErrorMessage(error, 'Login failed.');
+      toast.error(msg);
       setLoading(false);
     }
   };
@@ -245,11 +269,7 @@ export default function Login() {
             <View style={styles.roleContainer}>
               <Pressable
                 style={[styles.roleTab, !isPharmacy && styles.roleTabActive]}
-                onPress={() => {
-                  setRole('patient');
-                  setErrorMsg(null);
-                  setSuccessMsg(null);
-                }}
+                onPress={() => setRole('patient')}
               >
                 <Ionicons name="person-outline" size={14} color={!isPharmacy ? BLUE : COLORS.white} style={{ marginRight: 6 }} />
                 <Text style={[styles.roleTabText, !isPharmacy && { color: BLUE }]}>Patient</Text>
@@ -257,11 +277,7 @@ export default function Login() {
 
               <Pressable
                 style={[styles.roleTab, isPharmacy && styles.roleTabActive]}
-                onPress={() => {
-                  setRole('pharmacy');
-                  setErrorMsg(null);
-                  setSuccessMsg(null);
-                }}
+                onPress={() => setRole('pharmacy')}
               >
                 <Ionicons name="business-outline" size={14} color={isPharmacy ? GREEN : COLORS.white} style={{ marginRight: 6 }} />
                 <Text style={[styles.roleTabText, isPharmacy && { color: GREEN }]}>Pharmacy</Text>
@@ -279,19 +295,6 @@ export default function Login() {
 
         {/* Form Container */}
         <View style={styles.form}>
-          {errorMsg && (
-            <View style={[styles.errorBox, { borderColor: COLORS.error }]}>
-              <Text style={styles.errorText}>{errorMsg}</Text>
-            </View>
-          )}
-
-          {successMsg && (
-            <View style={styles.successBox}>
-              <Ionicons name="checkmark-circle" size={18} color={COLORS.pharmacyPrimary} style={{ marginRight: 8 }} />
-              <Text style={styles.successText}>{successMsg}</Text>
-            </View>
-          )}
-
           {/* PATIENT LOGIN FORM */}
           {!isPharmacy && (
             <View>
@@ -304,7 +307,7 @@ export default function Login() {
                   placeholder="your.email@example.com"
                   placeholderTextColor={COLORS.textDim}
                   value={email}
-                  onChangeText={setEmail}
+                  onChangeText={(text) => setEmail(text)}
                   keyboardType="email-address"
                   autoCapitalize="none"
                   returnKeyType="next"
@@ -323,7 +326,7 @@ export default function Login() {
                   placeholder="Enter your password"
                   placeholderTextColor={COLORS.textDim}
                   value={password}
-                  onChangeText={setPassword}
+                  onChangeText={(text) => setPassword(text)}
                   secureTextEntry
                   autoCapitalize="none"
                   returnKeyType="done"
@@ -368,7 +371,7 @@ export default function Login() {
                       placeholder="e.g. 0244123456"
                       placeholderTextColor={COLORS.textDim}
                       value={phone}
-                      onChangeText={setPhone}
+                      onChangeText={(text) => setPhone(text)}
                       keyboardType="phone-pad"
                       returnKeyType="done"
                       onSubmitEditing={handleSendOtp}
@@ -405,6 +408,7 @@ export default function Login() {
                   <OtpInput
                     ref={otpRef}
                     accentColor={GREEN}
+                    onChange={(code) => setOtpToken(code)}
                     onComplete={(code) => {
                       setOtpToken(code);
                       handleVerifyOtp(code);
@@ -436,10 +440,7 @@ export default function Login() {
                         gap: 4,
                       },
                     ]}
-                    onPress={() => {
-                      setPharmStep(1);
-                      setErrorMsg(null);
-                    }}
+                    onPress={() => setPharmStep(1)}
                   >
                     <Ionicons name="arrow-back" size={14} color={COLORS.textMuted} />
                     <Text style={{ color: COLORS.textMuted, fontSize: 13, fontFamily: 'Inter-SemiBold' }}>Change Phone Number</Text>
@@ -489,20 +490,6 @@ const styles = StyleSheet.create({
   },
   form: {
     padding: 24, backgroundColor: COLORS.white
-  },
-  errorBox: {
-    backgroundColor: COLORS.errorBg, borderWidth: 1, borderRadius: 12, padding: 12, marginBottom: 16
-  },
-  errorText: {
-    fontFamily: 'Inter-Regular',
-     color: COLORS.error, fontSize: 13, textAlign: 'center'
-  },
-  successBox: {
-    backgroundColor: '#ecfdf5', borderWidth: 1, borderColor: COLORS.pharmacyPrimary, borderRadius: 12, padding: 12, marginBottom: 16, flexDirection: 'row', alignItems: 'center'
-  },
-  successText: {
-    fontFamily: 'Inter-Regular',
-     color: COLORS.pharmacyText, fontSize: 13, flex: 1
   },
   label: {
     fontSize: 10, fontFamily: 'Inter-Bold', color: COLORS.textMuted, letterSpacing: 0.5, marginBottom: 8

@@ -77,7 +77,6 @@ export default function AddMedicine() {
   const [quantity, setQuantity] = useState(params.quantity || '');
 
   const [loading, setLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // Autocomplete Suggestions State
   const [genericSuggestions, setGenericSuggestions] = useState<GenericOption[]>([]);
@@ -183,23 +182,21 @@ export default function AddMedicine() {
   // ── 3. Handle Save Stock ───────────────────────────────────────────────────
 
   const handleSave = async () => {
-    setErrorMsg(null);
-
     const name = brandName.trim() || genericName.trim();
     if (!name) {
-      setErrorMsg('Please enter a Brand Name or Generic Name.');
+      toast.error('Please enter a Brand Name or Generic Name.');
       return;
     }
 
     const priceNum = parseFloat(price);
     if (isNaN(priceNum) || priceNum <= 0) {
-      setErrorMsg('Please enter a valid price (greater than 0).');
+      toast.error('Please enter a valid price (greater than 0).');
       return;
     }
 
     const qtyNum = parseInt(quantity, 10);
     if (isNaN(qtyNum) || qtyNum < 0) {
-      setErrorMsg('Please enter a valid stock quantity.');
+      toast.error('Please enter a valid stock quantity.');
       return;
     }
 
@@ -249,7 +246,7 @@ export default function AddMedicine() {
         router.back();
       }
     } catch (e: any) {
-      setErrorMsg(e.message || 'Failed to save inventory stock.');
+      toast.error(e.message || 'Failed to save inventory stock.');
     } finally {
       setLoading(false);
     }
@@ -272,12 +269,6 @@ export default function AddMedicine() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-        {errorMsg && (
-          <View style={[styles.errorBox, { backgroundColor: '#fef2f2', borderColor: '#fecaca' }]}>
-            <Ionicons name="alert-circle" size={18} color="#ef4444" style={{ marginRight: 8 }} />
-            <Text style={[styles.errorText, { color: '#ef4444' }]}>{errorMsg}</Text>
-          </View>
-        )}
 
         {/* ── 1. Generic Name Autocomplete ── */}
         <View style={styles.inputContainer}>
@@ -433,15 +424,6 @@ export default function AddMedicine() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   scrollContent: { padding: SPACING.xl },
-  errorBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    padding: 12,
-    borderRadius: RADIUS.lg,
-    marginBottom: 20,
-  },
-  errorText: { fontSize: FONT_SIZE.sm, fontWeight: '600', flex: 1 },
   inputContainer: { position: 'relative', zIndex: 1, marginBottom: 4 },
   dropdownCard: {
     position: 'absolute',

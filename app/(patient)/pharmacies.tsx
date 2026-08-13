@@ -288,7 +288,8 @@ export default function Pharmacies() {
       const q = searchQuery.toLowerCase().trim();
       const matchesSearch = !q || p.name.toLowerCase().includes(q) || (p.address && p.address.toLowerCase().includes(q));
       const isVerifiedPartner = p.isRegistered === true || p.verified === true;
-      const matchesDistance = isVerifiedPartner ? true : p.distanceKm <= maxDistanceKm;
+      // All pharmacies (registered or not) outside the user filter distance (e.g. 5km) must not show
+      const matchesDistance = p.distanceKm <= maxDistanceKm;
       const matchesOpen = !onlyOpen || p.isOpen !== false;
       const matchesVerified = !onlyVerified || isVerifiedPartner;
       return matchesSearch && matchesDistance && matchesOpen && matchesVerified;
@@ -299,10 +300,10 @@ export default function Pharmacies() {
     ? {
         latitude: userCoords.latitude,
         longitude: userCoords.longitude,
-        latitudeDelta: 0.05,
-        longitudeDelta: 0.05,
+        latitudeDelta: 0.015,
+        longitudeDelta: 0.015,
       }
-    : { latitude: 5.6037, longitude: -0.187, latitudeDelta: 0.05, longitudeDelta: 0.05 };
+    : { latitude: 5.6037, longitude: -0.187, latitudeDelta: 0.015, longitudeDelta: 0.015 };
 
   // Navigate to in-app direction/route screen
   const handleInAppNavigate = (pharmacy: OsmPharmacy) => {
@@ -313,6 +314,8 @@ export default function Pharmacies() {
         name: pharmacy.name,
         lat: String(pharmacy.latitude),
         lon: String(pharmacy.longitude),
+        userLat: userCoords ? String(userCoords.latitude) : undefined,
+        userLon: userCoords ? String(userCoords.longitude) : undefined,
         distanceKm: String(pharmacy.distanceKm),
         walkMinutes: String(pharmacy.walkMinutes),
       },
@@ -331,6 +334,8 @@ export default function Pharmacies() {
         hours: pharmacy.hours || 'N/A',
         lat: String(pharmacy.latitude),
         lon: String(pharmacy.longitude),
+        userLat: userCoords ? String(userCoords.latitude) : undefined,
+        userLon: userCoords ? String(userCoords.longitude) : undefined,
         distanceKm: String(pharmacy.distanceKm),
         walkMinutes: String(pharmacy.walkMinutes),
       },
@@ -550,14 +555,6 @@ export default function Pharmacies() {
                   )}
                 </View>
               </View>
-
-              {/* Close Button */}
-              <Pressable
-                style={({ pressed }) => [styles.closeBtn, pressed && { opacity: 0.5 }, { backgroundColor: theme.surfaceSecondary }]}
-                onPress={dismissCard}
-              >
-                <Ionicons name="close" size={18} color={theme.text.primary} />
-              </Pressable>
             </View>
 
             {/* Distance & Time */}
