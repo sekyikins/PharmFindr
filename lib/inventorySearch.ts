@@ -89,106 +89,108 @@ async function searchInventoryForMedicine(
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const currentDayName = dayNames[now.getDay()];
 
-  const matchMap = new Map<string, InventoryMatch>();
+  // Build a single OR filter across all variants — one round-trip instead of N
+  const orFilter = variants
+    .map((term) => `generic_name.ilike.%${term}%,brand_name.ilike.%${term}%,medicine_name.ilike.%${term}%`)
+    .join(',');
 
-  for (const term of variants) {
-    try {
-      const { data, error } = await supabase
-        .from('inventory')
-        .select(`
+  try {
+    const { data, error } = await supabase
+      .from('inventory')
+      .select(`
+        id,
+        medicine_name,
+        generic_name,
+        brand_name,
+        strength,
+        dosage_form,
+        manufacturer,
+        price,
+        quantity,
+        pharmacies (
           id,
-          medicine_name,
-          generic_name,
-          brand_name,
-          strength,
-          dosage_form,
-          manufacturer,
-          price,
-          quantity,
-          pharmacies (
-            id,
-            name,
-            phone,
-            latitude,
-            longitude,
+          name,
+          phone,
+          latitude,
+          longitude,
+          opening_time,
+          closing_time,
+          is_verified,
+          pharmacy_operating_hours (
+            day_of_week,
+            is_open,
             opening_time,
-            closing_time,
-            is_verified,
-            pharmacy_operating_hours (
-              day_of_week,
-              is_open,
-              opening_time,
-              closing_time
-            )
+            closing_time
           )
-        `)
-        .or(`generic_name.ilike.%${term}%,brand_name.ilike.%${term}%,medicine_name.ilike.%${term}%`)
-        .gt('quantity', 0)
-        .limit(30);
+        )
+      `)
+      .or(orFilter)
+      .gt('quantity', 0)
+      .limit(60);
 
-      if (error) {
-        console.warn('Inventory search error:', error.message);
-        continue;
-      }
-
-      if (data && data.length > 0) {
-        for (const item of data) {
-          if (matchMap.has(item.id)) continue;
-
-          const pharm: any = item.pharmacies;
-          const weeklyHours = (pharm?.pharmacy_operating_hours && pharm?.pharmacy_operating_hours.length > 0)
-            ? pharm.pharmacy_operating_hours
-            : null;
-
-          const open = checkIsOpen(pharm?.opening_time, pharm?.closing_time, null, weeklyHours);
-          const oTime = formatTimeHHMM(pharm?.opening_time);
-          const cTime = formatTimeHHMM(pharm?.closing_time);
-          let todayHours = oTime && cTime ? `${oTime} - ${cTime}` : undefined;
-          if (weeklyHours) {
-            const todayRow = weeklyHours.find((h: any) => (h.day || h.day_of_week)?.toLowerCase() === currentDayName.toLowerCase());
-            if (todayRow) {
-              const isOpenToday = todayRow.isOpen !== undefined ? todayRow.isOpen : todayRow.is_open;
-              if (isOpenToday === false) {
-                todayHours = 'Closed today';
-              } else {
-                const o = formatTimeHHMM(todayRow.opens || todayRow.opening_time || pharm?.opening_time || '08:00');
-                const c = formatTimeHHMM(todayRow.closes || todayRow.closing_time || pharm?.closing_time || '20:00');
-                todayHours = `${o} - ${c}`;
-              }
-            }
-          }
-
-          matchMap.set(item.id, {
-            inventoryId: item.id,
-            medicineName: item.medicine_name,
-            genericName: item.generic_name ?? null,
-            brandName: item.brand_name ?? null,
-            strength: item.strength ?? '',
-            dosageForm: item.dosage_form ?? null,
-            manufacturer: item.manufacturer ?? null,
-            price: parseFloat(item.price) || 0,
-            quantity: item.quantity,
-            pharmacyId: pharm?.id ?? '',
-            pharmacyName: pharm?.name ?? 'Unknown Pharmacy',
-            pharmacyPhone: pharm?.phone ?? null,
-            latitude: pharm?.latitude,
-            longitude: pharm?.longitude,
-            isOpen: open,
-            hours: todayHours,
-          });
-        }
-
-        // If we found specific matches with this variant, continue to next variant or return
-        if (matchMap.size > 0) {
-          break;
-        }
-      }
-    } catch (e: any) {
-      console.warn(`Search variant "${term}" failed:`, e.message);
+    if (error) {
+      console.warn('Inventory search error:', error.message);
+      return [];
     }
-  }
 
-  return Array.from(matchMap.values());
+    if (!data || data.length === 0) return [];
+
+    const matchMap = new Map<string, InventoryMatch>();
+
+    for (const item of data) {
+      if (matchMap.has(item.id)) continue;
+
+      const pharm: any = item.pharmacies;
+      const weeklyHours = pharm?.pharmacy_operating_hours?.length > 0
+        ? pharm.pharmacy_operating_hours
+        : null;
+
+      const open = checkIsOpen(pharm?.opening_time, pharm?.closing_time, null, weeklyHours);
+      const oTime = formatTimeHHMM(pharm?.opening_time);
+      const cTime = formatTimeHHMM(pharm?.closing_time);
+      let todayHours = oTime && cTime ? `${oTime} - ${cTime}` : undefined;
+
+      if (weeklyHours) {
+        const todayRow = weeklyHours.find((h: any) =>
+          (h.day || h.day_of_week)?.toLowerCase() === currentDayName.toLowerCase()
+        );
+        if (todayRow) {
+          const isOpenToday = todayRow.isOpen !== undefined ? todayRow.isOpen : todayRow.is_open;
+          if (isOpenToday === false) {
+            todayHours = 'Closed today';
+          } else {
+            const o = formatTimeHHMM(todayRow.opens || todayRow.opening_time || pharm?.opening_time || '08:00');
+            const c = formatTimeHHMM(todayRow.closes || todayRow.closing_time || pharm?.closing_time || '20:00');
+            todayHours = `${o} - ${c}`;
+          }
+        }
+      }
+
+      matchMap.set(item.id, {
+        inventoryId: item.id,
+        medicineName: item.medicine_name,
+        genericName: item.generic_name ?? null,
+        brandName: item.brand_name ?? null,
+        strength: item.strength ?? '',
+        dosageForm: item.dosage_form ?? null,
+        manufacturer: item.manufacturer ?? null,
+        price: parseFloat(item.price) || 0,
+        quantity: item.quantity,
+        pharmacyId: pharm?.id ?? '',
+        pharmacyName: pharm?.name ?? 'Unknown Pharmacy',
+        pharmacyPhone: pharm?.phone ?? null,
+        latitude: pharm?.latitude,
+        longitude: pharm?.longitude,
+        isOpen: open,
+        hours: todayHours,
+      });
+    }
+
+    return Array.from(matchMap.values());
+  } catch (e: any) {
+    console.warn('Inventory search failed:', e.message);
+    return [];
+  }
 }
 
 /**

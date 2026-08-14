@@ -436,14 +436,14 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#cbd5e1',
   },
-  dropdownItemText: { fontSize: FONT_SIZE.md, fontWeight: '600' },
-  fieldLabel: { fontSize: FONT_SIZE.md, fontWeight: '700', marginBottom: 6 },
+  dropdownItemText: { fontSize: FONT_SIZE.md, fontFamily: 'Inter-SemiBold' },
+  fieldLabel: { fontSize: FONT_SIZE.md, fontFamily: 'Inter-Bold', marginBottom: 6 },
   formChip: {
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: RADIUS.pill,
     borderWidth: 1,
   },
-  formChipText: { fontSize: FONT_SIZE.sm, fontWeight: '600' },
+  formChipText: { fontSize: FONT_SIZE.sm, fontFamily: 'Inter-SemiBold' },
   rowTwo: { gap: 12 },
 });

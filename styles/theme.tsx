@@ -130,8 +130,8 @@ export const COLORS = {
 // ─── Map Pin Color Tokens & Status Resolver (Single Source of Truth) ─────────
 export const MAP_PIN_COLORS = {
   verified: '#10b981', // GREEN: PharmFindr verified partner pharmacy
-  public:   '#0284c7', // BLUE: Public directory / Google Maps pharmacy
-  closed:   '#64748b', // GREY: Closed pharmacy (verified or public)
+  public:   '#0244c7ff', // BLUE: Public directory / Google Maps pharmacy
+  closed:   '#11aee2ff', // GREY: Closed pharmacy (verified or public)
   selected: '#f59e0b', // YELLOW/GOLD: Currently selected pharmacy or dropped pin
 } as const;
 

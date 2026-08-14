@@ -176,7 +176,8 @@ export default function ReservationScreen() {
             }
           },
         },
-      ]
+      ],
+      { cancelable: true }
     );
   };
 
@@ -322,7 +323,7 @@ export default function ReservationScreen() {
                       {m.name}{m.strength ? ` ${m.strength}` : ''}
                       {m.quantity > 1 ? ` ×${m.quantity}` : ''}
                     </Text>
-                    <Text style={[styles.rowValue, { color: primaryColor, fontWeight: '700' }]}>
+                    <Text style={[styles.rowValue, { color: primaryColor, fontFamily: 'Inter-Bold' }]}>
                       GH₵{(m.price * (m.quantity || 1)).toFixed(2)}
                     </Text>
                   </View>
@@ -344,7 +345,7 @@ export default function ReservationScreen() {
           {reservation.status === 'pending' && (
             <View style={[styles.infoBanner, { backgroundColor: '#fef3c7', borderColor: '#f59e0b' }]}>
               <Ionicons name="time-outline" size={16} color="#d97706" style={{ marginRight: 8 }} />
-              <Text style={{ color: '#92400e', fontSize: FONT_SIZE.sm, flex: 1, lineHeight: 18 }}>
+              <Text style={{ color: '#92400e', fontSize: FONT_SIZE.sm, fontFamily: 'Inter-Medium', flex: 1, lineHeight: 18 }}>
                 Your reservation is being reviewed. The pharmacy will confirm shortly.
               </Text>
             </View>
@@ -352,7 +353,7 @@ export default function ReservationScreen() {
           {reservation.status === 'accepted' && (
             <View style={[styles.infoBanner, { backgroundColor: '#dcfce7', borderColor: '#16a34a' }]}>
               <Ionicons name="checkmark-circle-outline" size={16} color="#16a34a" style={{ marginRight: 8 }} />
-              <Text style={{ color: '#14532d', fontSize: FONT_SIZE.sm, flex: 1, lineHeight: 18 }}>
+              <Text style={{ color: '#14532d', fontSize: FONT_SIZE.sm, fontFamily: 'Inter-Medium', flex: 1, lineHeight: 18 }}>
                 Your medicines are ready for collection at {resPharmName}.
               </Text>
             </View>
@@ -360,7 +361,7 @@ export default function ReservationScreen() {
           {reservation.status === 'declined' && (
             <View style={[styles.infoBanner, { backgroundColor: '#fee2e2', borderColor: '#dc2626' }]}>
               <Ionicons name="close-circle-outline" size={16} color="#dc2626" style={{ marginRight: 8 }} />
-              <Text style={{ color: '#7f1d1d', fontSize: FONT_SIZE.sm, flex: 1, lineHeight: 18 }}>
+              <Text style={{ color: '#7f1d1d', fontSize: FONT_SIZE.sm, fontFamily: 'Inter-Medium', flex: 1, lineHeight: 18 }}>
                 This reservation was declined. You may search for another pharmacy.
               </Text>
             </View>
@@ -368,7 +369,7 @@ export default function ReservationScreen() {
           {reservation.status === 'cancelled' && (
             <View style={[styles.infoBanner, { backgroundColor: '#f1f5f9', borderColor: '#cbd5e1' }]}>
               <Ionicons name="close-circle-outline" size={16} color="#64748b" style={{ marginRight: 8 }} />
-              <Text style={{ color: '#475569', fontSize: FONT_SIZE.sm, flex: 1, lineHeight: 18 }}>
+              <Text style={{ color: '#475569', fontSize: FONT_SIZE.sm, fontFamily: 'Inter-Medium', flex: 1, lineHeight: 18 }}>
                 This reservation has been cancelled.
               </Text>
             </View>
@@ -412,9 +413,7 @@ export default function ReservationScreen() {
         {/* ── Top Header Section (No bag icon) ── */}
         <View style={styles.topInfoSection}>
           <Text style={[styles.pharmacyTitle, { color: theme.text.primary }]}>Confirm Reservation</Text>
-          <Text style={[styles.sub, { color: theme.textMuted }]}>
-            <Text style={{ fontWeight: '600', color: theme.text.primary }}>{pharmName}</Text> has the medicines you need. Would you like to request a reservation?
-          </Text>
+            <Text style={{ fontFamily: 'Inter-SemiBold', color: theme.text.primary }}>{pharmName}</Text>
 
           {/* Top Navigate button */}
           <Pressable
@@ -440,7 +439,7 @@ export default function ReservationScreen() {
               <View key={i}>
                 <View style={styles.row}>
                   <Text style={[styles.rowLabel, { color: theme.textMuted }]}>{m.name}{m.strength ? ` ${m.strength}` : ''}</Text>
-                  <Text style={[styles.rowValue, { color: primaryColor, fontWeight: '700' }]}>GH₵{m.price.toFixed(2)}</Text>
+                  <Text style={[styles.rowValue, { color: primaryColor, fontFamily: 'Inter-Bold' }]}>GH₵{m.price.toFixed(2)}</Text>
                 </View>
                 {i < parsedMeds.length - 1 && <View style={[styles.divider, { backgroundColor: theme.border }]} />}
               </View>
@@ -448,7 +447,7 @@ export default function ReservationScreen() {
             <View style={[styles.divider, { backgroundColor: theme.border }]} />
             <DetailRow label="Est. Total" value={`GH₵${totalCost.toFixed(2)}`} highlight highlightColor={primaryColor} theme={theme} />
             <View style={[styles.divider, { backgroundColor: theme.border }]} />
-            <DetailRow label="Ready in" value="~30 minutes" theme={theme} />
+            <DetailRow label="Ready in" value="~10 minutes" theme={theme} />
           </View>
         </View>
 
@@ -492,7 +491,7 @@ function DetailRow({
   return (
     <View style={styles.row}>
       <Text style={[styles.rowLabel, { color: theme.textMuted }]}>{label}</Text>
-      <Text style={[styles.rowValue, { color: theme.text.primary }, highlight && { color: highlightColor, fontWeight: '700' }]}>
+      <Text style={[styles.rowValue, { color: theme.text.primary }, highlight && { color: highlightColor, fontFamily: 'Inter-Bold' }]}>
         {value}
       </Text>
     </View>
@@ -514,7 +513,7 @@ const styles = StyleSheet.create({
   },
   pharmacyTitle: {
     fontSize: FONT_SIZE.hero,
-    fontWeight: '800',
+    fontFamily: 'Inter-Bold',
     textAlign: 'center',
     marginBottom: 6,
   },
@@ -529,8 +528,8 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   infoInlineText: {
-    fontSize: FONT_SIZE.sm,
-    fontWeight: '500',
+    fontSize: FONT_SIZE.md,
+    fontFamily: 'Inter-Medium',
   },
 
   topActionsRow: {
@@ -550,11 +549,11 @@ const styles = StyleSheet.create({
   topNavigateText: {
     color: '#ffffff',
     fontSize: FONT_SIZE.sm,
-    fontWeight: '700',
+    fontFamily: 'Inter-Bold',
   },
 
   sub: { fontSize: FONT_SIZE.lg, textAlign: 'center', lineHeight: 22, paddingHorizontal: SPACING.md, marginBottom: 16 },
-  dateLabel: { fontSize: FONT_SIZE.sm, textAlign: 'center' },
+  dateLabel: { fontSize: FONT_SIZE.sm, textAlign: 'center', fontFamily: 'Inter-Medium' },
 
   // Status
   statusBadge: {
@@ -564,7 +563,7 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: RADIUS.pill,
   },
-  statusText: { fontSize: FONT_SIZE.sm, fontWeight: '700' },
+  statusText: { fontSize: FONT_SIZE.sm, fontFamily: 'Inter-Bold' },
 
   // Card
   detailsCard: {
@@ -575,10 +574,10 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   row: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: SPACING.md },
-  rowLabel: { fontSize: FONT_SIZE.lg, flex: 1 },
-  rowValue: { fontSize: FONT_SIZE.lg, fontWeight: '600' },
+  rowLabel: { fontSize: FONT_SIZE.lg, fontFamily: 'Inter-Medium', flex: 1 },
+  rowValue: { fontSize: FONT_SIZE.lg, fontFamily: 'Inter-Regular' },
   divider: { height: 1 },
-  sectionLabel: { fontSize: FONT_SIZE.lg, fontWeight: '700' },
+  sectionLabel: { fontSize: FONT_SIZE.lg, fontFamily: 'Inter-Bold' },
 
   // Info banner
   infoBanner: {
@@ -601,7 +600,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  primaryBtnText: { color: '#ffffff', fontSize: FONT_SIZE.xl, fontWeight: '600' },
+  primaryBtnText: { color: '#ffffff', fontSize: FONT_SIZE.xl, fontFamily: 'Inter-SemiBold' },
   cancelBtn: {
     width: '100%',
     height: 52,
@@ -611,5 +610,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  cancelBtnText: { fontSize: FONT_SIZE.lg, fontWeight: '600' },
+  cancelBtnText: { fontSize: FONT_SIZE.lg, fontFamily: 'Inter-SemiBold' },
 });

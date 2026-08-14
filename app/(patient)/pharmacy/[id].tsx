@@ -290,22 +290,21 @@ export default function PharmacyDetail() {
         showsHorizontalScrollIndicator={false}
       >
         <View style={[styles.infoCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
-          <View style={styles.infoTitleRow}>
-            <View style={{ flex: 1, marginRight: 8, gap: 4 }}>
-              <Text style={[styles.pharmName, { color: theme.text.primary }]} numberOfLines={2}>{name}</Text>
-              {isVerified ? (
-                <View style={[styles.verifiedBadge, { backgroundColor: theme.patientSecondary }]}>
-                  <Ionicons name="shield-checkmark" size={12} color={primaryColor} />
-                  <Text style={[styles.verifiedText, { color: primaryColor }]}>Verified Partner</Text>
-                </View>
-              ) : (
-                <View style={[styles.verifiedBadge, { backgroundColor: theme.surfaceSecondary }]}>
-                  <Ionicons name="location-outline" size={12} color={theme.textMuted} />
-                  <Text style={[styles.verifiedText, { color: theme.textMuted }]}>Public Map Location</Text>
-                </View>
-              )}
+          {isVerified ? (
+            <View style={[styles.verifiedBadge, { backgroundColor: theme.patientSecondary }]}>
+              <Ionicons name="shield-checkmark" size={12} color={primaryColor} />
+              <Text style={[styles.verifiedText, { color: primaryColor }]}>Verified Partner</Text>
             </View>
-            <View
+          ) : (
+            <View style={[styles.verifiedBadge, { backgroundColor: theme.surfaceSecondary }]}>
+              <Ionicons name="location-outline" size={12} color={theme.textMuted} />
+              <Text style={[styles.verifiedText, { color: theme.textMuted }]}>Public Map Location</Text>
+            </View>
+          )}
+          <View style={styles.infoTitleRow}>
+            <View style={{ flex: 1, marginRight: 8, gap: 4, flexWrap: 'wrap', flexDirection: 'row' }}>
+              <Text style={[styles.pharmName, { color: theme.text.primary }]} numberOfLines={2}>{name}</Text>
+              <View
               style={[
                 styles.statusBadge,
                 {
@@ -331,6 +330,7 @@ export default function PharmacyDetail() {
               >
                 {isOpen ? (statusText || 'Open') : 'Closed'}
               </Text>
+            </View>
             </View>
           </View>
           <View style={styles.detailRow}>
@@ -492,10 +492,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 4,
   },
-  pharmName: {
-    fontSize: FONT_SIZE.title,
-    fontFamily: 'Inter-Bold',
-  },
   verifiedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -509,6 +505,10 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZE.xs,
     fontFamily: 'Inter-SemiBold',
   },
+  pharmName: {
+    fontSize: FONT_SIZE.title,
+    fontFamily: 'Inter-Bold',
+  },
   statusBadge: {
     paddingHorizontal: 10,
     paddingVertical: 4,
@@ -521,7 +521,7 @@ const styles = StyleSheet.create({
   },
   detailRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     gap: 8,
   },
   detailText: {

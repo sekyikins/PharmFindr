@@ -338,6 +338,7 @@ export default function AIChat() {
       'Clear Assistant Chats',
       'Are you sure you want to clear your chat history with the General AI Assistant?',
       [
+        { text: 'Cancel', style: 'cancel' },
         {
           text: 'Clear',
           style: 'destructive',
@@ -349,7 +350,6 @@ export default function AIChat() {
             }
           },
         },
-        { text: 'Cancel', style: 'cancel' },
       ],
       { cancelable: true }
     );
@@ -360,6 +360,7 @@ export default function AIChat() {
       'Delete Consultation',
       `Delete "${title}" and all its messages?`,
       [
+        { text: 'Cancel', style: 'cancel' },
         {
           text: 'Delete',
           style: 'destructive',
@@ -367,7 +368,6 @@ export default function AIChat() {
             if (userId) deleteConsultation(userId, cId);
           },
         },
-        { text: 'Cancel', style: 'cancel' },
       ],
       { cancelable: true }
     );

@@ -325,9 +325,9 @@ export default function SearchMedicines() {
                 <Pressable
                   onPress={() => {
                     Alert.alert('Clear History', 'Are you sure you want to clear your recent search history?', [
-                      { text: 'Clear All', style: 'destructive', onPress: () => clearAllRecentSearches(user?.id) },
                       { text: 'Cancel', style: 'cancel' },
-                    ]);
+                      { text: 'Clear All', style: 'destructive', onPress: () => clearAllRecentSearches(user?.id) },
+                    ], { cancelable: true });
                   }}
                 >
                   <Text style={[styles.clearText, { color: primaryColor }]}>Clear All</Text>
@@ -417,22 +417,22 @@ const styles = StyleSheet.create({
   },
 
   searchWrapper: {
-    paddingHorizontal: SPACING.lg, paddingTop: 6, paddingBottom: 10
+    paddingHorizontal: SPACING.lg, paddingVertical: SPACING.xs
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: RADIUS.xl,
+    borderRadius: RADIUS.pill,
     height: 48,
     paddingHorizontal: SPACING.lg
   },
   searchInput: {
-    fontFamily: 'Inter-Regular',
+    fontFamily: 'Inter-SemiBold',
      flex: 1, fontSize: FONT_SIZE.md
   },
 
   categoryScroll: {
-    gap: 8, paddingTop: 10
+    gap: SPACING.sm, paddingTop: SPACING.sm
   },
   categoryChip: {
     paddingHorizontal: 14,
@@ -441,7 +441,7 @@ const styles = StyleSheet.create({
     borderWidth: 1
   },
   categoryChipText: {
-    fontSize: 12, fontFamily: 'Inter-SemiBold'
+    fontSize: FONT_SIZE.md, fontFamily: 'Inter-SemiBold'
   },
 
   section: {
@@ -454,13 +454,13 @@ const styles = StyleSheet.create({
     marginBottom: 8
   },
   sectionLabel: {
-    fontSize: 11,
+    fontSize: FONT_SIZE.md,
     fontFamily: 'Inter-Bold',
     letterSpacing: 0.8,
     textTransform: 'uppercase'
   },
   clearText: {
-    fontSize: 12, fontFamily: 'Inter-SemiBold'
+    fontSize: FONT_SIZE.md, fontFamily: 'Inter-Bold'
   },
 
   recentCard: {
@@ -475,7 +475,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12
   },
   recentText: {
-    fontSize: FONT_SIZE.md, fontFamily: 'Inter-Medium'
+    fontSize: FONT_SIZE.lg, fontFamily: 'Inter-Medium'
   },
 
   popularGrid: {
@@ -497,11 +497,11 @@ const styles = StyleSheet.create({
     alignItems: 'center'
   },
   popularName: {
-    fontSize: FONT_SIZE.md, fontFamily: 'Inter-Bold'
+    fontSize: FONT_SIZE.lg, fontFamily: 'Inter-Bold'
   },
   popularSub: {
     fontFamily: 'Inter-Regular',
-     fontSize: 12, marginTop: 1
+     fontSize: FONT_SIZE.md, marginTop: 1
   },
 
   listContent: {
@@ -526,15 +526,15 @@ const styles = StyleSheet.create({
     flex: 1
   },
   medName: {
-    fontSize: FONT_SIZE.md, fontFamily: 'Inter-Bold'
+    fontSize: FONT_SIZE.lg, fontFamily: 'Inter-Bold'
   },
   medSub: {
     fontFamily: 'Inter-Regular',
-     fontSize: 12, marginTop: 2
+     fontSize: FONT_SIZE.md, marginTop: 2
   },
   brandSub: {
     fontFamily: 'Inter-Regular',
-     fontSize: 11, marginTop: 2
+     fontSize: FONT_SIZE.md, marginTop: 2
   },
 
   badgePill: {
@@ -543,7 +543,7 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.pill
   },
   badgePillText: {
-    fontSize: 10, fontFamily: 'Inter-Bold'
+    fontSize: FONT_SIZE.sm, fontFamily: 'Inter-Bold'
   },
 
   emptyContainer: {
@@ -553,11 +553,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.xl
   },
   emptyTitle: {
-    fontSize: 18, fontFamily: 'Inter-Bold', marginBottom: 6
+    fontSize: FONT_SIZE.xxl, fontFamily: 'Inter-Bold', marginBottom: 6
   },
   emptySub: {
     fontFamily: 'Inter-Regular',
-     fontSize: 13, textAlign: 'center', lineHeight: 18
+     fontSize: FONT_SIZE.md, textAlign: 'center', lineHeight: 18
   },
 
 });

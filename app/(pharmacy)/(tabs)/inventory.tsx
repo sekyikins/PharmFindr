@@ -18,6 +18,7 @@ import { COLORS,  FONT_SIZE, RADIUS, SPACING  } from '@/styles/theme';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
 import { getPharmacyForUser } from '@/lib/pharmacyService';
+import { toast } from '@/context/ToastContext';
 import Skeleton from '@/components/ui/Skeleton';
 import AppBottomSheet from '@/components/ui/AppBottomSheet';
 import { Header } from '@/components/ui/Header';
@@ -98,11 +99,12 @@ export default function Inventory() {
             if (error) throw error;
             setInventory((prev) => prev.filter((i) => i.id !== id));
           } catch (e: any) {
-            Alert.alert('Error', e.message || 'Failed to delete medicine.');
+            toast.error('Error', e.message || 'Failed to delete medicine.');
           }
         },
       },
-    ]);
+    ],
+    { cancelable: true });
   };
 
   const handleEdit = (item: any) => {
@@ -133,7 +135,7 @@ export default function Inventory() {
       setEditItem(null);
       editSheetRef.current?.dismiss?.() ?? editSheetRef.current?.close?.();
     } catch (e: any) {
-      Alert.alert('Error', e.message || 'Failed to update medicine.');
+      toast.error('Error', e.message || 'Failed to update medicine.');
     } finally {
       setSaving(false);
     }

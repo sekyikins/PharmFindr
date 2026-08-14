@@ -185,6 +185,7 @@ export default function EditAccount() {
       'Remove Profile Photo',
       'Are you sure you want to remove your profile photo?',
       [
+        { text: 'Cancel', style: 'cancel' },
         {
           text: 'Remove',
           style: 'destructive',
@@ -201,8 +202,8 @@ export default function EditAccount() {
             }
           },
         },
-        { text: 'Cancel', style: 'cancel' },
-      ]
+      ],
+      { cancelable: true }
     );
   };
 
@@ -227,9 +228,9 @@ export default function EditAccount() {
 
   const handleSignOutConfirm = () => {
     Alert.alert('Sign Out', 'Are you sure you want to sign out of PharmFindr?', [
-      { text: 'Sign Out', style: 'destructive', onPress: () => signOut() },
       { text: 'Cancel', style: 'cancel' },
-    ]);
+      { text: 'Sign Out', style: 'destructive', onPress: () => signOut() },
+    ], { cancelable: true });
   };
 
   // Secure Password Update Handler with Global Session Revocation
@@ -239,15 +240,15 @@ export default function EditAccount() {
       return;
     }
     if (!newPassword.trim()) {
-      Alert.alert('Validation Error', 'Please enter a new password.');
+      toast.error('Validation Error', 'Please enter a new password.');
       return;
     }
     if (newPassword.length < 6) {
-      Alert.alert('Validation Error', 'New password must be at least 6 characters.');
+      toast.error('Validation Error', 'New password must be at least 6 characters.');
       return;
     }
     if (newPassword !== confirmPassword) {
-      Alert.alert('Validation Error', 'New passwords do not match.');
+      toast.error('Validation Error', 'New passwords do not match.');
       return;
     }
 
@@ -271,7 +272,7 @@ export default function EditAccount() {
       setNewPassword('');
       setConfirmPassword('');
     } catch (e: any) {
-      Alert.alert('Security Error', e.message || 'Failed to change password.');
+      toast.error('Security Error', e.message || 'Failed to change password.');
     } finally {
       setChangingPassword(false);
     }
@@ -512,7 +513,7 @@ export default function EditAccount() {
             setUploadingAvatar(true);
             const { status } = await ImagePicker.requestCameraPermissionsAsync();
             if (status !== 'granted') {
-              Alert.alert('Permission needed', 'Camera permission is required.');
+              toast.error('Permission Needed', 'Camera permission is required.');
               setUploadingAvatar(false);
               return;
             }
@@ -523,10 +524,10 @@ export default function EditAccount() {
             });
             if (!result.canceled && result.assets?.[0]?.uri) {
               await uploadAvatar(result.assets[0].uri);
-              Alert.alert('Success', 'Profile photo updated!');
+              toast.success('Photo Updated', 'Profile photo updated!');
             }
           } catch (e: any) {
-            Alert.alert('Upload Error', e.message || 'Failed to upload image.');
+            toast.error('Upload Error', e.message || 'Failed to upload image.');
           } finally {
             setUploadingAvatar(false);
           }
@@ -536,7 +537,7 @@ export default function EditAccount() {
             setUploadingAvatar(true);
             const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
             if (status !== 'granted') {
-              Alert.alert('Permission needed', 'Photo library permission is required.');
+              toast.error('Permission Needed', 'Photo library permission is required.');
               setUploadingAvatar(false);
               return;
             }
@@ -548,10 +549,10 @@ export default function EditAccount() {
             });
             if (!result.canceled && result.assets?.[0]?.uri) {
               await uploadAvatar(result.assets[0].uri);
-              Alert.alert('Success', 'Profile photo updated!');
+              toast.success('Photo Updated', 'Profile photo updated!');
             }
           } catch (e: any) {
-            Alert.alert('Upload Error', e.message || 'Failed to upload image.');
+            toast.error('Upload Error', e.message || 'Failed to upload image.');
           } finally {
             setUploadingAvatar(false);
           }

@@ -5,12 +5,13 @@ import {
   View,
   ScrollView,
   Pressable,
-  Alert,
   ActivityIndicator,
   RefreshControl,
   Image,
   Switch,
+  Alert,
 } from 'react-native';
+import { toast } from '@/context/ToastContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -168,15 +169,15 @@ export default function PharmacyProfile() {
 
       if (error) throw error;
       setIsVerified(true);
-      Alert.alert('Verification Completed!', 'Your pharmacy account has been verified and fully registered on PharmFindr.');
+      toast.success('Verification Completed!', 'Your pharmacy has been fully registered on PharmFindr.');
     } catch (e: any) {
-      Alert.alert('Error', e.message || 'Failed to complete verification.');
+      toast.error('Error', e.message || 'Failed to complete verification.');
     }
   };
 
   const handleSaveInfo = async () => {
     if (!editName.trim()) {
-      Alert.alert('Required', 'Pharmacy name cannot be empty.');
+      toast.error('Required', 'Pharmacy name cannot be empty.');
       return;
     }
     setSavingEdit(true);
@@ -203,10 +204,10 @@ export default function PharmacyProfile() {
         phone: editPhone.trim(),
       });
 
-      Alert.alert('Saved', 'Pharmacy details updated successfully!');
+      toast.success('Saved', 'Pharmacy details updated successfully!');
       editSheetRef.current?.dismiss();
     } catch (e: any) {
-      Alert.alert('Error', e.message || 'Failed to save pharmacy info.');
+      toast.error('Error', e.message || 'Failed to save pharmacy info.');
     } finally {
       setSavingEdit(false);
     }
@@ -214,18 +215,18 @@ export default function PharmacyProfile() {
 
   const handleChangePassword = async () => {
     if (!newPassword.trim() || newPassword.length < 6) {
-      Alert.alert('Invalid', 'Password must be at least 6 characters.');
+      toast.error('Invalid', 'Password must be at least 6 characters.');
       return;
     }
     setSavingPwd(true);
     try {
       const { error } = await supabase.auth.updateUser({ password: newPassword.trim() });
       if (error) throw error;
-      Alert.alert('Success', 'Password changed successfully!');
+      toast.success('Success', 'Password changed successfully!');
       setNewPassword('');
       pwdSheetRef.current?.dismiss();
     } catch (e: any) {
-      Alert.alert('Error', e.message || 'Failed to change password.');
+      toast.error('Error', e.message || 'Failed to change password.');
     } finally {
       setSavingPwd(false);
     }
@@ -236,6 +237,7 @@ export default function PharmacyProfile() {
       'Sign Out',
       'Are you sure you want to sign out of your pharmacy account?',
       [
+        { text: 'Cancel', style: 'cancel' },
         {
           text: 'Sign Out',
           style: 'destructive',
@@ -244,7 +246,6 @@ export default function PharmacyProfile() {
             router.replace({ pathname: '/(auth)/login', params: { initialRole: 'pharmacy' } });
           },
         },
-        { text: 'Cancel', style: 'cancel' },
       ],
       { cancelable: true }
     );
@@ -542,7 +543,7 @@ export default function PharmacyProfile() {
         onCamera={async () => {
           const perm = await ImagePicker.requestCameraPermissionsAsync();
           if (!perm.granted) {
-            Alert.alert('Permission Denied', 'Camera permission is required.');
+            toast.error('Permission Denied', 'Camera permission is required.');
             return;
           }
           const result = await ImagePicker.launchCameraAsync({ allowsEditing: true, aspect: [1, 1], quality: 0.8 });
@@ -555,7 +556,7 @@ export default function PharmacyProfile() {
         onGallery={async () => {
           const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
           if (!perm.granted) {
-            Alert.alert('Permission Denied', 'Media library permission is required.');
+            toast.error('Permission Denied', 'Media library permission is required.');
             return;
           }
           const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.8, legacy: true });

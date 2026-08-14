@@ -95,7 +95,7 @@ export default function PharmacyReservationDetails() {
       toast.success('Status Updated', `Reservation has been ${status}.`);
       fetchReservation();
     } catch (e: any) {
-      Alert.alert('Error', e.message || 'Failed to update status.');
+      toast.error('Error', e.message || 'Failed to update status.');
     } finally {
       setUpdating(false);
     }
@@ -175,7 +175,7 @@ export default function PharmacyReservationDetails() {
 
           <View style={styles.infoRow}>
             <Text style={[styles.infoLabel, { color: theme.textMuted }]}>Est. Total</Text>
-            <Text style={[styles.infoVal, { color: PHARMACY_GREEN, fontWeight: '800' }]}>
+            <Text style={[styles.infoVal, { color: PHARMACY_GREEN, fontFamily: 'Inter-Bold' }]}>
               GHS {parseFloat(reservation.total_cost || 0).toFixed(2)}
             </Text>
           </View>
@@ -300,7 +300,7 @@ const styles = StyleSheet.create({
   },
   bannerText: {
     fontSize: FONT_SIZE.md,
-    fontWeight: '700',
+    fontFamily: 'Inter-Bold',
   },
 
   card: {
@@ -311,7 +311,7 @@ const styles = StyleSheet.create({
   },
   cardHeading: {
     fontSize: 10,
-    fontWeight: '800',
+    fontFamily: 'Inter-Bold',
     letterSpacing: 0.5,
   },
   infoRow: {
@@ -324,7 +324,7 @@ const styles = StyleSheet.create({
   },
   infoVal: {
     fontSize: FONT_SIZE.lg,
-    fontWeight: '700',
+    fontFamily: 'Inter-Bold',
   },
   phoneBtn: {
     flexDirection: 'row',
@@ -333,7 +333,7 @@ const styles = StyleSheet.create({
   },
   phoneText: {
     fontSize: FONT_SIZE.md,
-    fontWeight: '700',
+    fontFamily: 'Inter-Bold',
   },
 
   medItem: {
@@ -346,7 +346,7 @@ const styles = StyleSheet.create({
   },
   medName: {
     fontSize: FONT_SIZE.lg,
-    fontWeight: '700',
+    fontFamily: 'Inter-Bold',
   },
 
   actionCol: {
@@ -373,6 +373,6 @@ const styles = StyleSheet.create({
   btnText: {
     color: '#fff',
     fontSize: FONT_SIZE.lg,
-    fontWeight: '700',
+    fontFamily: 'Inter-Bold',
   },
 });

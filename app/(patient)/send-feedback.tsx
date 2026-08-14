@@ -62,7 +62,7 @@ export default function SendFeedbackScreen() {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission Needed', 'Photo library permission is required to attach a screenshot.');
+        toast.error('Permission Needed', 'Photo library permission is required to attach a screenshot.');
         return;
       }
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -105,7 +105,7 @@ export default function SendFeedbackScreen() {
 
   const handleSubmitFeedback = async () => {
     if (!message.trim()) {
-      Alert.alert('Required Field', 'Please enter a message describing your feedback.');
+      toast.error('Required Field', 'Please enter a message describing your feedback.');
       return;
     }
 
@@ -383,12 +383,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginBottom: 20,
   },
-  bannerTitle: { fontSize: 14, fontWeight: '700' },
+  bannerTitle: { fontSize: 14, fontFamily: 'Inter-Bold' },
   bannerSub: { fontSize: 12, marginTop: 2, lineHeight: 17 },
 
   sectionHeading: {
     fontSize: 11,
-    fontWeight: '700',
+    fontFamily: 'Inter-Bold',
     letterSpacing: 0.8,
     textTransform: 'uppercase',
     marginBottom: 10,
@@ -410,7 +410,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  catTitle: { fontSize: 14, fontWeight: '700' },
+  catTitle: { fontSize: 14, fontFamily: 'Inter-Bold' },
   catDesc: { fontSize: 12, marginTop: 1 },
 
   ratingCard: {
@@ -419,7 +419,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
   },
-  ratingLabel: { fontSize: 13, marginBottom: 10, fontWeight: '500' },
+  ratingLabel: { fontSize: 13, marginBottom: 10, fontFamily: 'Inter-Meduim' },
   starsRow: { flexDirection: 'row', gap: 8 },
 
   formCard: {
@@ -429,7 +429,7 @@ const styles = StyleSheet.create({
   },
   fieldLabel: {
     fontSize: 10,
-    fontWeight: '700',
+    fontFamily: 'Inter-Bold',
     letterSpacing: 0.5,
     marginBottom: 6,
   },
@@ -459,7 +459,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderStyle: 'dashed',
   },
-  attachBtnText: { fontSize: 13, fontWeight: '600' },
+  attachBtnText: { fontSize: 13, fontFamily: 'Inter-SemiBold' },
 
   screenshotPreviewRow: {
     flexDirection: 'row',
@@ -472,8 +472,8 @@ const styles = StyleSheet.create({
     height: 50,
     borderRadius: RADIUS.sm,
   },
-  screenshotName: { fontSize: 13, fontWeight: '600' },
-  removeScreenshotText: { fontSize: 12, fontWeight: '600', marginTop: 2 },
+  screenshotName: { fontSize: 13, fontFamily: 'Inter-SemiBold' },
+  removeScreenshotText: { fontSize: 12, fontFamily: 'Inter-SemiBold', marginTop: 2 },
 
   submitBtn: {
     height: 52,
@@ -483,7 +483,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 24,
   },
-  submitBtnText: { color: '#ffffff', fontSize: 15, fontWeight: '700' },
+  submitBtnText: { color: '#ffffff', fontSize: 15, fontFamily: 'Inter-Bold' },
 
   // Success view
   successContainer: {
@@ -500,7 +500,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 20,
   },
-  successTitle: { fontSize: 22, fontWeight: '700', textAlign: 'center', marginBottom: 10 },
+  successTitle: { fontSize: 22, fontFamily: 'Inter-Bold', textAlign: 'center', marginBottom: 10 },
   successSub: { fontSize: 14, textAlign: 'center', lineHeight: 20, marginBottom: 30 },
   doneBtn: {
     paddingHorizontal: 28,
@@ -509,5 +509,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  doneBtnText: { color: '#ffffff', fontSize: 15, fontWeight: '700' },
+  doneBtnText: { color: '#ffffff', fontSize: 15, fontFamily: 'Inter-Bold' },
 });

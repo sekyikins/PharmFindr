@@ -98,5 +98,11 @@ module.exports = ({ config }) => {
       },
     },
     owner: 'mrsekyi',
+    runtimeVersion: {
+      policy: 'appVersion',
+    },
+    updates: {
+      url: 'https://u.expo.dev/e6ea880a-486a-42e1-8be7-ca44af58f58d',
+    },
   };
 };

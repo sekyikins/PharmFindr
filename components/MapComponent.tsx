@@ -24,7 +24,7 @@ interface MapComponentProps {
   onSelectKnownPharmacy?: (pharmacy: KnownPharmacy) => void;
   initialCoords?: { latitude: number; longitude: number } | null;
   setScrollEnabled?: (enabled: boolean) => void;
-  /** Public / Google Maps pharmacies — Blue, selectable */
+  /** Public Maps pharmacies — Blue, selectable */
   knownPharmacies?: KnownPharmacy[];
   /** Verified pharmacies on PharmFindr — Green, not selectable */
   registeredPharmacies?: RegisteredPharmacy[];
@@ -129,7 +129,7 @@ function MapCanvas({
         );
       })}
 
-      {/* ── Public / Google Maps pharmacies — Blue, selectable ── */}
+      {/* ── Public Maps pharmacies — Blue, selectable ── */}
       {knownPharmacies.map((pharm) => {
         const { x, y } = coordToPixel(pharm.latitude, pharm.longitude, containerW, containerH);
         if (x < 0 || x > containerW || y < 0 || y > containerH) return null;
@@ -166,7 +166,7 @@ function MapCanvas({
 
       {/* Info bar */}
       <View style={styles.infoBar}>
-        <Text style={styles.infoText}>🟢 Verified · 🔵 Public / Google · 🟡 Selected</Text>
+        <Text style={styles.infoText}>🟢 Verified · 🔵 Public Pharmacy · 🟡 Selected</Text>
       </View>
     </Pressable>
   );
@@ -226,7 +226,7 @@ export default function MapComponent({
             </View>
             <View style={styles.legendItem}>
               <Ionicons name="location" size={16} color={MAP_PIN_COLORS.public} />
-              <Text style={styles.legendText}>Public / Google</Text>
+              <Text style={styles.legendText}>Public Pharmacy</Text>
             </View>
             <View style={styles.legendItem}>
               <Ionicons name="location" size={16} color={MAP_PIN_COLORS.selected} />

@@ -153,7 +153,8 @@ export default function UploadInventory() {
             text: 'View Inventory',
             onPress: () => router.replace('/(pharmacy)/(tabs)/inventory'),
           },
-        ]
+        ],
+        { cancelable: true }
       );
     } catch (e: any) {
       toast.error(e.message || 'Failed to import inventory batch.');

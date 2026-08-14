@@ -155,7 +155,7 @@ export default function OperatingHours() {
 
   const handleSave = async () => {
     if (!user?.id) {
-      Alert.alert('Error', 'User is not signed in.');
+      toast.error('Error', 'User is not signed in.');
       return;
     }
 
@@ -184,7 +184,7 @@ export default function OperatingHours() {
     }
 
     if (!activePharmId) {
-      Alert.alert('Error', 'Pharmacy record not found. Please log out and sign back in.');
+      toast.error('Error', 'Pharmacy record not found. Please log out and sign back in.');
       return;
     }
 
@@ -227,7 +227,7 @@ export default function OperatingHours() {
       toast.success('Operating Hours Saved', 'Operating hours saved successfully!');
       router.back();
     } catch (e: any) {
-      Alert.alert('Error', e.message || 'Failed to save operating hours.');
+      toast.error('Error', e.message || 'Failed to save operating hours.');
     } finally {
       setSaving(false);
     }

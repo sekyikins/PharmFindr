@@ -147,7 +147,7 @@ export default function FullMapComponent({
           </View>
           <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: MAP_PIN_COLORS.public }]} />
-            <Text style={styles.legendText}>Public / Google</Text>
+            <Text style={styles.legendText}>Public Pharmacy</Text>
           </View>
           <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: MAP_PIN_COLORS.closed }]} />

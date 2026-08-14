@@ -21,6 +21,7 @@ import { COLORS,  FONT_SIZE, RADIUS, SPACING  } from '@/styles/theme';
 import { supabase } from '@/lib/supabase';
 import { Header } from '@/components/ui/Header';
 import { useHardwareBack } from '@/hooks/useHardwareBack';
+import { toast } from '@/context/ToastContext';
 import type { PrescriptionMedicine } from '@/types/prescription';
 
 // ─── Confidence helpers ──────────────────────────────────────────────────────
@@ -236,7 +237,7 @@ export default function OcrResult() {
   const handleSearchPharmacies = () => {
     const validMeds = medsList.filter((m) => m.name && m.name.trim() !== '');
     if (validMeds.length === 0) {
-      Alert.alert('No Medicines', 'Please enter or confirm at least one medicine before searching.');
+      toast.error('No Medicines', 'Please enter or confirm at least one medicine before searching.');
       return;
     }
 
@@ -301,15 +302,9 @@ export default function OcrResult() {
       'Start a new consultation?',
       `Would you like to start a dedicated AI consultation for ${medNames || 'this prescription'}?`,
       [
-        {
-          text: 'Yes, Start Consultation',
-          onPress: () => handleContinueToAI(),
-        },
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-      ]
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Yes, Start Consultation', onPress: () => handleContinueToAI() },
+      ], { cancelable: true }
     );
   };
 

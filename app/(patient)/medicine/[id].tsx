@@ -187,14 +187,6 @@ export default function MedicineDetailsScreen() {
             <Ionicons name="sparkles" size={22} color={primaryColor} />
             <Text style={[styles.actionCardText, { color: theme.text.primary }]}>Ask AI</Text>
           </Pressable>
-
-          <Pressable
-            style={({ pressed }) => [styles.actionCard, { backgroundColor: theme.card, borderColor: theme.patientPrimary }, pressed && { opacity: 0.7 }]}
-            onPress={handleFindPharmacies}
-          >
-            <Ionicons name="location" size={22} color={COLORS.pharmacyPrimary} />
-            <Text style={[styles.actionCardText, { color: theme.text.primary }]}>Stock</Text>
-          </Pressable>
         </View>
 
         {/* ── Key Facts Summary Cards (Dosage, Frequency, Duration) ── */}
@@ -204,16 +196,6 @@ export default function MedicineDetailsScreen() {
           <DetailCard icon="calendar-outline" iconColor={COLORS.pharmacyPrimary} label="DURATION" value={medicine.duration} theme={theme} />
         </View>
 
-        {/* ── Regulatory & Price Info Card ── */}
-        <View style={[styles.infoBanner, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
-          <Ionicons name="shield-checkmark" size={20} color={primaryColor} />
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.bannerTitle, { color: theme.text.primary }]}>{medicine.fdaStatus}</Text>
-            <Text style={[styles.bannerSub, { color: theme.textMuted }]}>
-              Est. Price: {medicine.estimatedPriceRange || 'Varies by pharmacy'}
-            </Text>
-          </View>
-        </View>
 
         {/* ── Comprehensive Info Panels ── */}
         <InfoPanel title="Uses & Indications" content={medicine.uses} icon="information-circle-outline" theme={theme} primaryColor={primaryColor} />

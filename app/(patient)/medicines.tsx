@@ -61,9 +61,9 @@ export default function SavedMedicinesScreen() {
 
   const handleRemoveConfirm = (item: MedicineItem) => {
     Alert.alert('Remove Medicine', `Are you sure you want to remove ${item.name} from your saved list?`, [
-      { text: 'Remove', style: 'destructive', onPress: () => removeSavedMedicine(item.id) },
       { text: 'Cancel', style: 'cancel' },
-    ]);
+      { text: 'Remove', style: 'destructive', onPress: () => removeSavedMedicine(item.id) },
+    ], { cancelable: true });
   };
 
   const handleSelectMedicine = (item: MedicineItem) => {
@@ -119,9 +119,9 @@ export default function SavedMedicinesScreen() {
             <Pressable
               onPress={() => {
                 Alert.alert('Remove Saved Medicines', 'Are you sure you want to remove all saved medicines?', [
-                  { text: 'Remove All', style: 'destructive', onPress: clearAllSaved },
                   { text: 'Cancel', style: 'cancel' },
-                ]);
+                  { text: 'Remove All', style: 'destructive', onPress: clearAllSaved },
+                ], { cancelable: true });
               }}
             >
               <Text style={[styles.removeText, { color: primaryColor }]}>Remove All</Text>

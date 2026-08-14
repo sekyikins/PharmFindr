@@ -105,6 +105,7 @@ export default function Profile() {
       'Sign Out',
       'Are you sure you want to sign out of your account?',
       [
+        { text: 'Cancel', style: 'cancel' },
         {
           text: 'Sign Out',
           style: 'destructive',
@@ -113,7 +114,6 @@ export default function Profile() {
             router.replace({ pathname: '/(auth)/login', params: { initialRole: 'patient' } });
           },
         },
-        { text: 'Cancel', style: 'cancel' },
       ],
       { cancelable: true }
     );

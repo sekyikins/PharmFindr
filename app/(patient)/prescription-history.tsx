@@ -8,6 +8,7 @@ import {
   Alert,
   RefreshControl,
 } from 'react-native';
+import { toast } from '@/context/ToastContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -83,7 +84,7 @@ export default function PrescriptionHistory() {
       );
     } catch (e: any) {
       console.warn('Error loading history:', e.message);
-      Alert.alert('Error', 'Failed to load prescription history.');
+      toast.error('Error', 'Failed to load prescription history.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -127,13 +128,8 @@ export default function PrescriptionHistory() {
       'Add Prescription',
       'Choose how you would like to add a prescription:',
       [
-        {
-          text: 'Scan Paper Prescription',
-          onPress: () => router.push('/(patient)/scan'),
-        },
-        {
-          text: 'Enter Details Manually',
-          onPress: () => {
+        { text: 'Scan Prescription', onPress: () => router.push('/(patient)/scan') },
+        { text: 'Enter Details', onPress: () => {
             const blankMed = [
               {
                 name: '',
@@ -155,11 +151,8 @@ export default function PrescriptionHistory() {
             });
           },
         },
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-      ]
+        { text: 'Cancel', style: 'cancel' },
+      ], { cancelable: true }
     );
   };
 

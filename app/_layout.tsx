@@ -19,6 +19,7 @@ import {
   authenticateBiometrics,
   getBiometricsPreference,
 } from '@/lib/biometrics';
+import { initializeUpdates } from '@/lib/updates';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -48,6 +49,8 @@ export default function RootLayout() {
   useEffect(() => {
     if (loaded) {
       SplashScreen.hideAsync();
+      // Check for OTA updates after the app is visible — never blocks startup.
+      initializeUpdates();
     }
   }, [loaded]);
 
@@ -135,7 +138,7 @@ function RootLayoutNav() {
     if (securityNotice) {
       Alert.alert('Security Notice', securityNotice, [
         { text: 'OK', onPress: () => clearSecurityNotice() },
-      ]);
+      ], { cancelable: true });
     }
   }, [securityNotice, clearSecurityNotice]);
 

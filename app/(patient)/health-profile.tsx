@@ -279,7 +279,7 @@ export default function HealthProfile() {
 
       toast.success('Health parameters saved', 'Your clinical safety profile has been updated successfully.');
     } catch (e: any) {
-      Alert.alert('Error', e.message || 'Failed to update profile.');
+      toast.error('Error', e.message || 'Failed to update profile.');
     } finally {
       setSaving(false);
     }

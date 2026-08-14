@@ -167,7 +167,7 @@ export default function FullMapComponent({
         {markers.map((m) => {
           const isSelected = m.id === selectedId;
           const color = getPinColor(m, isSelected);
-          const descriptionText = `${m.isVerified ? 'Verified Partner' : 'Public / Google'}${m.isOpen === false ? ' · Closed' : m.isOpen === true ? ' · Open' : ''}`;
+          const descriptionText = `${m.isVerified ? 'Verified Partner' : 'Public Pharmacy'}${m.isOpen === false ? ' · Closed' : m.isOpen === true ? ' · Open' : ''}`;
 
           return (
             <Marker
@@ -215,7 +215,7 @@ export default function FullMapComponent({
           </View>
           <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: MAP_PIN_COLORS.public }]} />
-            <Text style={styles.legendText}>Public / Google</Text>
+            <Text style={styles.legendText}>Public Pharmacy</Text>
           </View>
           <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: MAP_PIN_COLORS.closed }]} />

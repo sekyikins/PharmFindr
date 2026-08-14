@@ -16,7 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import FullMapComponent from '@/components/FullMapComponent';
 import { useThemeContext } from '@/hooks/useThemeContext';
-import { COLORS,  RADIUS, SPACING  } from '@/styles/theme';
+import { COLORS,  FONT_SIZE,  RADIUS, SPACING  } from '@/styles/theme';
 import { getCurrentLocation, DEFAULT_COORDS, type Coords } from '@/lib/location';
 import { searchNearbyPharmacies, type OsmPharmacy } from '@/lib/osm';
 import { cleanDistanceString, cleanDurationString } from '@/lib/ors';
@@ -880,6 +880,7 @@ const styles = StyleSheet.create({
   },
   badgeRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     gap: 8
   },
@@ -889,10 +890,10 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: RADIUS.sm
+    borderRadius: RADIUS.pill
   },
   registeredText: {
-    fontSize: 11,
+    fontSize: FONT_SIZE.xs,
     fontFamily: 'Inter-Bold'
   },
   hoursBadge: {

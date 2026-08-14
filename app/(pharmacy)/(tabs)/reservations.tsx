@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { StyleSheet, Text, View, FlatList, Pressable, Alert, RefreshControl, Linking } from 'react-native';
+import { StyleSheet, Text, View, FlatList, Pressable, RefreshControl, Linking } from 'react-native';
+import { toast } from '@/context/ToastContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -102,7 +103,7 @@ export default function Reservations() {
         prev.map((r) => (r.id === id ? { ...r, status: 'accepted' } : r))
       );
     } catch (e: any) {
-      Alert.alert('Error', e.message || 'Failed to accept reservation.');
+      toast.error('Error', e.message || 'Failed to accept reservation.');
     }
   };
 
@@ -118,7 +119,7 @@ export default function Reservations() {
         prev.map((r) => (r.id === id ? { ...r, status: 'declined' } : r))
       );
     } catch (e: any) {
-      Alert.alert('Error', e.message || 'Failed to decline reservation.');
+      toast.error('Error', e.message || 'Failed to decline reservation.');
     }
   };
 

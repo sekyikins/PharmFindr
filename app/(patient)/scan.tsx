@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  Alert,
   Animated,
   StyleSheet,
   Text,
@@ -9,6 +8,7 @@ import {
   ActivityIndicator,
   Dimensions,
 } from 'react-native';
+import { toast } from '@/context/ToastContext';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';
@@ -114,11 +114,7 @@ export default function Scan() {
       });
     } catch (error: any) {
       console.error('Error processing image:', error);
-      Alert.alert(
-        'Processing Error',
-        'Could not read the image. Please try again.',
-        [{ text: 'OK', style: 'default' }]
-      );
+      toast.error('Processing Error', 'Could not read the image. Please try again.');
     } finally {
       setProcessing(false);
     }

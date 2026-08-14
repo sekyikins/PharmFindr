@@ -246,7 +246,7 @@ CREATE TABLE IF NOT EXISTS public.reservations (
   medicine_name  TEXT,
   pharmacy_name  TEXT,
   medicines      JSONB NOT NULL,
-  status         TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'declined', 'expired', 'collected')),
+  status         TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'declined', 'expired', 'collected', 'cancelled')),
   total_cost     DECIMAL(10,2) DEFAULT 0.00,
   expires_at     TIMESTAMPTZ,
   created_at     TIMESTAMPTZ DEFAULT NOW(),

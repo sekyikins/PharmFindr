@@ -69,14 +69,14 @@ export default function MapComponent({
         onTouchEnd={() => setScrollEnabled?.(true)}
         onTouchCancel={() => setScrollEnabled?.(true)}
       >
-        {/* Public / Google Maps Pharmacies (Blue — Selectable) */}
+        {/* Public Maps Pharmacies (Blue — Selectable) */}
         {knownPharmacies.map((pharm) => (
           <Marker
             key={`known-${pharm.id}`}
             coordinate={{ latitude: pharm.latitude, longitude: pharm.longitude }}
             pinColor={MAP_PIN_COLORS.public}
             title={pharm.name}
-            description="Public / Google · Tap to select this location"
+            description="Public Map Location · Tap to select this location"
             onPress={(e) => {
               e.stopPropagation();
               onSelectKnownPharmacy?.(pharm);
@@ -116,7 +116,7 @@ export default function MapComponent({
         <View style={styles.legendDivider} />
         <View style={styles.legendItem}>
           <View style={[styles.legendDot, { backgroundColor: MAP_PIN_COLORS.public }]} />
-          <Text style={styles.legendText}>Public / Google</Text>
+          <Text style={styles.legendText}>Public Pharmacy</Text>
         </View>
         <View style={styles.legendDivider} />
         <View style={styles.legendItem}>

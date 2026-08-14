@@ -72,6 +72,7 @@ export default function ActiveDevicesScreen() {
       'Revoke Device Session',
       `Are you sure you want to log out the device (${session.platform.toUpperCase()})?`,
       [
+        { text: 'Cancel', style: 'cancel' },
         {
           text: 'Revoke',
           style: 'destructive',
@@ -88,8 +89,8 @@ export default function ActiveDevicesScreen() {
             setLoading(false);
           },
         },
-        { text: 'Cancel', style: 'cancel' },
-      ]
+      ],
+      { cancelable: true }
     );
   };
 
@@ -98,6 +99,7 @@ export default function ActiveDevicesScreen() {
       'Revoke All Other Devices',
       'This will immediately log out all active sessions on other devices except this current device. Continue?',
       [
+        { text: 'Cancel', style: 'cancel' },
         {
           text: 'Revoke All Others',
           style: 'destructive',
@@ -112,8 +114,8 @@ export default function ActiveDevicesScreen() {
             });
           },
         },
-        { text: 'Cancel', style: 'cancel' },
-      ]
+      ],
+      { cancelable: true }
     );
   };
 
