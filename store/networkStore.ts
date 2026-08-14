@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Platform, Alert } from 'react-native';
+import { Platform } from 'react-native';
 import { flushOfflineSyncQueue } from '@/lib/offlineSyncQueue';
 
 interface NetworkState {
@@ -53,9 +53,10 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 4000);
 
+      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://aawmvtbnoobpndexdfxg.supabase.co';
       const anonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
       const response = await fetch(
-        `https://aawmvtbnoobpndexdfxg.supabase.co/auth/v1/health?apikey=${encodeURIComponent(anonKey)}`,
+        `${supabaseUrl}/auth/v1/health?apikey=${encodeURIComponent(anonKey)}`,
         {
           method: 'GET',
           signal: controller.signal,

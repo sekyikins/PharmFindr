@@ -1,23 +1,10 @@
-import { COLORS } from '@/styles/theme';
+import { COLORS, MAP_PIN_COLORS } from '@/styles/theme';
 import React from 'react';
-import { View, StyleSheet, Pressable, Text } from 'react-native';
-import MapView, { Marker, PROVIDER_GOOGLE, PROVIDER_DEFAULT } from 'react-native-maps';
-import { Ionicons } from '@expo/vector-icons';
+import { View, StyleSheet, Text } from 'react-native';
+import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 
-export interface KnownPharmacy {
-  id: string;
-  name: string;
-  address?: string;
-  latitude: number;
-  longitude: number;
-}
-
-export interface RegisteredPharmacy {
-  id: string;
-  name: string;
-  latitude: number;
-  longitude: number;
-}
+import { KnownPharmacy, RegisteredPharmacy } from '@/types/map';
+export type { KnownPharmacy, RegisteredPharmacy };
 
 interface MapComponentProps {
   pin: { latitude: number; longitude: number } | null;
@@ -27,6 +14,7 @@ interface MapComponentProps {
   setScrollEnabled?: (enabled: boolean) => void;
   knownPharmacies?: KnownPharmacy[];
   registeredPharmacies?: RegisteredPharmacy[];
+  onRegionChangeComplete?: (region: { latitude: number; longitude: number; latitudeDelta: number; longitudeDelta: number }) => void;
   onExpand?: () => void;
 }
 
@@ -38,7 +26,7 @@ export default function MapComponent({
   setScrollEnabled,
   knownPharmacies = [],
   registeredPharmacies = [],
-  onExpand,
+  onRegionChangeComplete,
 }: MapComponentProps) {
   const mapRef = React.useRef<MapView>(null);
   const hasFocusedRef = React.useRef(false);
@@ -75,19 +63,20 @@ export default function MapComponent({
           latitudeDelta: 0.015,
           longitudeDelta: 0.015,
         }}
+        onRegionChangeComplete={onRegionChangeComplete}
         onPress={(e) => onPressMap(e.nativeEvent.coordinate)}
         onTouchStart={() => setScrollEnabled?.(false)}
         onTouchEnd={() => setScrollEnabled?.(true)}
         onTouchCancel={() => setScrollEnabled?.(true)}
       >
-        {/* Unregistered OSM Pharmacies (Green — Selectable) */}
+        {/* Public / Google Maps Pharmacies (Blue — Selectable) */}
         {knownPharmacies.map((pharm) => (
           <Marker
             key={`known-${pharm.id}`}
             coordinate={{ latitude: pharm.latitude, longitude: pharm.longitude }}
-            pinColor={COLORS.pharmacyPrimary}
+            pinColor={MAP_PIN_COLORS.public}
             title={pharm.name}
-            description="Tap to select location"
+            description="Public / Google · Tap to select this location"
             onPress={(e) => {
               e.stopPropagation();
               onSelectKnownPharmacy?.(pharm);
@@ -95,28 +84,46 @@ export default function MapComponent({
           />
         ))}
 
-        {/* Registered Pharmacies (Brown — Info Only, Not Selectable) */}
+        {/* Verified Pharmacies on PharmFindr (Green — Info Only, Not Selectable) */}
         {registeredPharmacies.map((pharm) => (
           <Marker
             key={`reg-${pharm.id}`}
             coordinate={{ latitude: pharm.latitude, longitude: pharm.longitude }}
-            pinColor="#78350f"
-            title={`${pharm.name} (Registered)`}
-            description="Already registered on PharmFindr (Not selectable)"
+            pinColor={MAP_PIN_COLORS.verified}
+            title={`${pharm.name} (Verified)`}
+            description="Verified on PharmFindr (Not selectable)"
             onPress={(e) => e.stopPropagation()}
           />
         ))}
 
-        {/* Selected / Custom Pin (Blue) */}
+        {/* Selected / Custom Pin (Yellow/Gold) */}
         {pin && (
           <Marker
             coordinate={pin}
-            pinColor={COLORS.patientPrimary}
+            pinColor={MAP_PIN_COLORS.selected}
             title="Selected Location"
-            description="Your pharmacy position"
+            description="Your selected pharmacy location"
           />
         )}
       </MapView>
+
+      {/* Floating Legend for clear distinction */}
+      <View style={styles.legendContainer}>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendDot, { backgroundColor: MAP_PIN_COLORS.verified }]} />
+          <Text style={styles.legendText}>Verified</Text>
+        </View>
+        <View style={styles.legendDivider} />
+        <View style={styles.legendItem}>
+          <View style={[styles.legendDot, { backgroundColor: MAP_PIN_COLORS.public }]} />
+          <Text style={styles.legendText}>Public / Google</Text>
+        </View>
+        <View style={styles.legendDivider} />
+        <View style={styles.legendItem}>
+          <View style={[styles.legendDot, { backgroundColor: MAP_PIN_COLORS.selected }]} />
+          <Text style={styles.legendText}>Selected</Text>
+        </View>
+      </View>
     </View>
   );
 }
@@ -130,28 +137,43 @@ const styles = StyleSheet.create({
   map: {
     flex: 1,
   },
-  expandBtn: {
+  legendContainer: {
     position: 'absolute',
-    top: 12,
-    right: 12,
+    bottom: 10,
+    alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: COLORS.white,
+    backgroundColor: 'rgba(255, 255, 255, 0.94)',
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 6,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: COLORS.borderSlate,
-    shadowColor: COLORS.black,
+    borderColor: 'rgba(0, 0, 0, 0.08)',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.12,
     shadowRadius: 4,
     elevation: 3,
+    gap: 8,
   },
-  expandText: {
-    fontSize: 12,
-    fontFamily: 'Inter-Bold',
-    color: COLORS.surfaceDark,
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  legendDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  legendText: {
+    fontSize: 10,
+    fontFamily: 'Inter-SemiBold',
+    color: '#334155',
+  },
+  legendDivider: {
+    width: 1,
+    height: 10,
+    backgroundColor: '#cbd5e1',
   },
 });

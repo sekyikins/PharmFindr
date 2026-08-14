@@ -4,7 +4,6 @@ import {
   Text,
   View,
   ScrollView,
-  TextInput,
   Pressable,
   Alert,
   ActivityIndicator,
@@ -20,6 +19,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useThemeContext } from '@/hooks/useThemeContext';
 import { COLORS,  FONT_SIZE, RADIUS, SPACING  } from '@/styles/theme';
 import { supabase } from '@/lib/supabase';
+import { getPharmacyForUser } from '@/lib/pharmacyService';
 import Skeleton from '@/components/ui/Skeleton';
 import { BottomSheetModal, BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import AvatarPickerSheet from '@/components/ui/AvatarPickerSheet';
@@ -30,8 +30,6 @@ import {
   setBiometricsPreference,
   getBiometricType,
   getBiometricIcon,
-  isBiometricsSupported,
-  isBiometricsEnrolled,
   authenticateBiometrics,
 } from '@/lib/biometrics';
 
@@ -79,26 +77,7 @@ export default function PharmacyProfile() {
     }
     setLoading(true);
     try {
-      let { data: pharm } = await supabase
-        .from('pharmacies')
-        .select('*')
-        .eq('owner_id', user.id)
-        .maybeSingle();
-
-      if (!pharm) {
-        let query = supabase.from('pharmacies').select('*');
-        if (user.phone) {
-          query = query.eq('phone', user.phone);
-        } else if (user.email) {
-          query = query.eq('email', user.email);
-        }
-
-        const { data: fallbackPharm } = await query.maybeSingle();
-        if (fallbackPharm) {
-          pharm = fallbackPharm;
-          await supabase.from('pharmacies').update({ owner_id: user.id }).eq('id', pharm.id);
-        }
-      }
+      let pharm = await getPharmacyForUser(user);
 
       if (!pharm) {
         const defaultName = profile?.full_name || 'My Pharmacy';
@@ -110,7 +89,7 @@ export default function PharmacyProfile() {
             phone: user.phone || profile?.phone || '',
             email: user.email || null,
             address: 'Main Street',
-            verified: false,
+            is_verified: false,
           })
           .select('*')
           .single();
@@ -125,7 +104,7 @@ export default function PharmacyProfile() {
         setPhone(pharm.phone || user.phone || '');
         setOpeningTime(pharm.opening_time || '08:00');
         setClosingTime(pharm.closing_time || '20:00');
-        setIsVerified(pharm.verified ?? false);
+        setIsVerified(pharm.is_verified ?? pharm.isVerified ?? false);
 
         setEditName(pharm.name || '');
         setEditPhone(pharm.phone || '');
@@ -184,7 +163,7 @@ export default function PharmacyProfile() {
     try {
       const { error } = await supabase
         .from('pharmacies')
-        .update({ verified: true })
+        .update({ is_verified: true })
         .eq('id', pharmId);
 
       if (error) throw error;

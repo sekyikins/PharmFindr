@@ -65,7 +65,7 @@ interface ActiveSessionItem {
 /**
  * Enforce maximum concurrent active device sessions (2 for patients, 3 for pharmacies).
  */
-export async function registerDeviceSession(userId: string, role: 'patient' | 'pharmacy' | 'user' | 'both'): Promise<void> {
+export async function registerDeviceSession(_userId: string, role: 'patient' | 'pharmacy' | 'user' | 'both'): Promise<void> {
   try {
     const deviceId = await getDeviceId();
     const maxDevices = role === 'pharmacy' ? 3 : 2;

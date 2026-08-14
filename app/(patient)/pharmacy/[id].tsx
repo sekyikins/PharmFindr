@@ -16,12 +16,10 @@ import { useThemeContext } from '@/hooks/useThemeContext';
 import { useHardwareBack } from '@/hooks/useHardwareBack';
 import { COLORS, FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
 import { supabase } from '@/lib/supabase';
-import { formatTimeHHMM } from '@/lib/osm';
+import { formatTimeHHMM, haversineKm } from '@/lib/osm';
 import { getCurrentLocation, type Coords } from '@/lib/location';
 import {
   getRoute,
-  formatDistance,
-  formatDuration,
   cleanDistanceString,
   cleanDurationString,
   type RouteResult,
@@ -40,6 +38,7 @@ export default function PharmacyDetail() {
     lon?: string;
     distanceKm?: string;
     walkMinutes?: string;
+    medName?: string;
   }>();
   const { theme, primaryColor } = useThemeContext();
 
@@ -233,12 +232,20 @@ export default function PharmacyDetail() {
   const distanceKm = params.distanceKm ?? 'N/A';
   const walkMinutes = params.walkMinutes ?? 'N/A';
 
-  const distanceLabel = route
-    ? formatDistance(route.distanceMeters)
+  const liveDistKm = userCoords && !isNaN(lat) && !isNaN(lon)
+    ? haversineKm(userCoords, { latitude: lat, longitude: lon })
+    : (params.distanceKm && !isNaN(parseFloat(params.distanceKm)) ? parseFloat(params.distanceKm) : null);
+
+  const distanceLabel = liveDistKm != null
+    ? cleanDistanceString(liveDistKm)
     : cleanDistanceString(params.distanceKm);
 
-  const durationLabel = route
-    ? cleanDurationString(formatDuration(route.durationSeconds))
+  const liveWalkMinutes = liveDistKm != null
+    ? Math.max(1, Math.round((liveDistKm / 5) * 60))
+    : (params.walkMinutes && !isNaN(parseInt(params.walkMinutes)) ? parseInt(params.walkMinutes) : null);
+
+  const durationLabel = liveWalkMinutes != null
+    ? `${liveWalkMinutes} min walk`
     : cleanDurationString(params.walkMinutes);
 
   const hasValidCoords = !isNaN(lat) && !isNaN(lon);
@@ -252,6 +259,9 @@ export default function PharmacyDetail() {
   const now = new Date();
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const currentDayName = dayNames[now.getDay()];
+  const medName = params.medName?.trim() || '';
+  const hasDrugQuery = !!medName;
+  const isVerified = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(decodeURIComponent(id));
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
@@ -261,7 +271,7 @@ export default function PharmacyDetail() {
           userCoords={userCoords}
           selectedId={id}
           routeCoords={route?.coordinates}
-          markers={[{ id, name, address, latitude: lat, longitude: lon, isOpen, isRegistered: !!weeklySchedule.length }]}
+          markers={[{ id, name, address, latitude: lat, longitude: lon, isOpen, isVerified }]}
           onSelectMarker={() => {}}
           mapPadding={{ top: 20, right: 20, bottom: 20, left: 20 }}
           showLegend={false}
@@ -281,7 +291,20 @@ export default function PharmacyDetail() {
       >
         <View style={[styles.infoCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
           <View style={styles.infoTitleRow}>
-            <Text style={[styles.pharmName, { color: theme.text.primary }]} numberOfLines={2}>{name}</Text>
+            <View style={{ flex: 1, marginRight: 8, gap: 4 }}>
+              <Text style={[styles.pharmName, { color: theme.text.primary }]} numberOfLines={2}>{name}</Text>
+              {isVerified ? (
+                <View style={[styles.verifiedBadge, { backgroundColor: theme.patientSecondary }]}>
+                  <Ionicons name="shield-checkmark" size={12} color={primaryColor} />
+                  <Text style={[styles.verifiedText, { color: primaryColor }]}>Verified Partner</Text>
+                </View>
+              ) : (
+                <View style={[styles.verifiedBadge, { backgroundColor: theme.surfaceSecondary }]}>
+                  <Ionicons name="location-outline" size={12} color={theme.textMuted} />
+                  <Text style={[styles.verifiedText, { color: theme.textMuted }]}>Public Map Location</Text>
+                </View>
+              )}
+            </View>
             <View
               style={[
                 styles.statusBadge,
@@ -366,7 +389,7 @@ export default function PharmacyDetail() {
                         isToday && { fontFamily: 'Inter-Bold' },
                       ]}
                     >
-                      {s.day} {isToday && '(Today)'}
+                      {s.day}
                     </Text>
                     <Text
                       style={[
@@ -384,17 +407,19 @@ export default function PharmacyDetail() {
           </View>
         )}
 
-        <Pressable
-          style={({ pressed }) => [styles.primaryBtn, pressed && { opacity: 0.5 }, { backgroundColor: primaryColor }]}
-          onPress={() =>
-            router.push({
-              pathname: '/(patient)/reservation/[id]',
-              params: { id: encodeURIComponent(id), name, medName: '', price: '' },
-            })
-          }
-        >
-          <Text style={styles.primaryBtnText}>Reserve Medicines</Text>
-        </Pressable>
+        {hasDrugQuery && (
+          <Pressable
+            style={({ pressed }) => [styles.primaryBtn, pressed && { opacity: 0.5 }, { backgroundColor: primaryColor }]}
+            onPress={() =>
+              router.push({
+                pathname: '/(patient)/reservation/[id]',
+                params: { id: encodeURIComponent(id), name, medName, price: '' },
+              })
+            }
+          >
+            <Text style={styles.primaryBtnText}>Reserve Medicines</Text>
+          </Pressable>
+        )}
 
         <View style={styles.secondaryRow}>
           <Pressable
@@ -470,8 +495,19 @@ const styles = StyleSheet.create({
   pharmName: {
     fontSize: FONT_SIZE.title,
     fontFamily: 'Inter-Bold',
-    flex: 1,
-    marginRight: 8,
+  },
+  verifiedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: RADIUS.pill,
+  },
+  verifiedText: {
+    fontSize: FONT_SIZE.xs,
+    fontFamily: 'Inter-SemiBold',
   },
   statusBadge: {
     paddingHorizontal: 10,

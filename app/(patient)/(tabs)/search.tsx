@@ -149,7 +149,7 @@ export default function SearchMedicines() {
     }
     router.push({
       pathname: '/(patient)/medicine/[id]',
-      params: { id: med.id },
+      params: { id: med.id, name: med.name },
     });
   };
 

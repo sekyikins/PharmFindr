@@ -46,19 +46,16 @@ interface ReservationRecord {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
+const STATUS_BADGE_MAP: Record<string, { label: string; bg: string; text: string; icon: any }> = {
+  accepted:  { label: 'Accepted', bg: '#dcfce7', text: '#16a34a', icon: 'checkmark-circle' },
+  declined:  { label: 'Declined', bg: '#fee2e2', text: '#dc2626', icon: 'close-circle' },
+  collected: { label: 'Collected', bg: '#ede9fe', text: '#7c3aed', icon: 'bag-check' },
+  cancelled: { label: 'Cancelled', bg: '#f1f5f9', text: '#64748b', icon: 'close-circle-outline' },
+  pending:   { label: 'Pending', bg: '#fef3c7', text: '#d97706', icon: 'time' },
+};
+
 function getStatusBadge(status: string) {
-  switch (status) {
-    case 'accepted':
-      return { label: 'Accepted', bg: '#dcfce7', text: '#16a34a', icon: 'checkmark-circle' as const };
-    case 'declined':
-      return { label: 'Declined', bg: '#fee2e2', text: '#dc2626', icon: 'close-circle' as const };
-    case 'collected':
-      return { label: 'Collected', bg: '#ede9fe', text: '#7c3aed', icon: 'bag-check' as const };
-    case 'cancelled':
-      return { label: 'Cancelled', bg: '#f1f5f9', text: '#64748b', icon: 'close-circle-outline' as const };
-    default:
-      return { label: 'Pending', bg: '#fef3c7', text: '#d97706', icon: 'time' as const };
-  }
+  return STATUS_BADGE_MAP[status] || STATUS_BADGE_MAP.pending;
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────

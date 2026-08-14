@@ -69,7 +69,7 @@ export default function SavedMedicinesScreen() {
   const handleSelectMedicine = (item: MedicineItem) => {
     router.push({
       pathname: '/(patient)/medicine/[id]',
-      params: { id: item.id },
+      params: { id: item.id, name: item.name },
     });
   };
 

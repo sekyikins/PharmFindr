@@ -196,7 +196,14 @@ export default function Navigate() {
             }}
             userCoords={userCoords}
             selectedId={params.id ?? ''}
-            markers={[{ id: params.id ?? '', name: pharmName, address: '', latitude: pharmLat, longitude: pharmLon }]}
+            markers={[{
+              id: params.id ?? '',
+              name: pharmName,
+              address: '',
+              latitude: pharmLat,
+              longitude: pharmLon,
+              isVerified: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(decodeURIComponent(params.id ?? '')),
+            }]}
             onSelectMarker={() => {}}
             routeCoords={route?.coordinates}
             mapPadding={{ top: (insets.top || 20) + 70, right: 24, bottom: 180, left: 24 }}

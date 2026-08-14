@@ -30,6 +30,10 @@ export interface InventoryMatch {
   pharmacyId: string;
   pharmacyName: string;
   pharmacyPhone: string | null;
+  latitude?: number;
+  longitude?: number;
+  isOpen?: boolean;
+  hours?: string;
 }
 
 /** A pharmacy grouped with all the prescribed medicines it stocks. */
@@ -46,4 +50,6 @@ export interface PharmacyWithMedicines {
   longitude?: number;
   isOpen?: boolean;
   hours?: string;
+  distanceKm?: number;
+  walkMinutes?: number;
 }

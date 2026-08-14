@@ -11,7 +11,7 @@ import {
   PanResponder,
   ActivityIndicator,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import FullMapComponent from '@/components/FullMapComponent';
@@ -19,6 +19,7 @@ import { useThemeContext } from '@/hooks/useThemeContext';
 import { COLORS,  RADIUS, SPACING  } from '@/styles/theme';
 import { getCurrentLocation, DEFAULT_COORDS, type Coords } from '@/lib/location';
 import { searchNearbyPharmacies, type OsmPharmacy } from '@/lib/osm';
+import { cleanDistanceString, cleanDurationString } from '@/lib/ors';
 import { usePharmacyStore } from '@/store/pharmacyStore';
 import AppBottomSheet from '@/components/ui/AppBottomSheet';
 import { Header } from '@/components/ui/Header';
@@ -264,6 +265,7 @@ export default function Pharmacies() {
               longitude: data.longitude || (userCoords?.longitude ?? -0.187),
               distanceKm: 0.5,
               walkMinutes: 6,
+              isVerified: true,
             });
           }
         });
@@ -287,11 +289,10 @@ export default function Pharmacies() {
     return pharmacies.filter((p) => {
       const q = searchQuery.toLowerCase().trim();
       const matchesSearch = !q || p.name.toLowerCase().includes(q) || (p.address && p.address.toLowerCase().includes(q));
-      const isVerifiedPartner = p.isRegistered === true || p.verified === true;
-      // All pharmacies (registered or not) outside the user filter distance (e.g. 5km) must not show
+      // All pharmacies (verified or not) outside the user filter distance (e.g. 5km) must not show
       const matchesDistance = p.distanceKm <= maxDistanceKm;
       const matchesOpen = !onlyOpen || p.isOpen !== false;
-      const matchesVerified = !onlyVerified || isVerifiedPartner;
+      const matchesVerified = !onlyVerified || p.isVerified;
       return matchesSearch && matchesDistance && matchesOpen && matchesVerified;
     });
   }, [pharmacies, searchQuery, maxDistanceKm, onlyOpen, onlyVerified]);
@@ -324,6 +325,7 @@ export default function Pharmacies() {
 
   // Navigate to full pharmacy profile & weekly operating hours schedule
   const handleViewDetails = (pharmacy: OsmPharmacy) => {
+    const medQuery = routeQuery.trim() || searchQuery.trim() || undefined;
     router.push({
       pathname: '/(patient)/pharmacy/[id]',
       params: {
@@ -338,6 +340,7 @@ export default function Pharmacies() {
         userLon: userCoords ? String(userCoords.longitude) : undefined,
         distanceKm: String(pharmacy.distanceKm),
         walkMinutes: String(pharmacy.walkMinutes),
+        medName: medQuery,
       },
     });
   };
@@ -492,10 +495,10 @@ export default function Pharmacies() {
                   {selectedPharmacy.name}
                 </Text>
                 <View style={styles.badgeRow}>
-                  {selectedPharmacy.isRegistered ? (
+                  {selectedPharmacy.isVerified ? (
                     <View style={[styles.registeredBadge, { backgroundColor: theme.patientSecondary }]}>
                       <Ionicons name="shield-checkmark" size={12} color={primaryColor} />
-                      <Text style={[styles.registeredText, { color: primaryColor }]}>Registered Partner</Text>
+                      <Text style={[styles.registeredText, { color: primaryColor }]}>Verified Partner</Text>
                     </View>
                   ) : (
                     <View style={[styles.registeredBadge, { backgroundColor: theme.surfaceSecondary }]}>
@@ -561,12 +564,12 @@ export default function Pharmacies() {
             <View style={styles.metaRow}>
               <Ionicons name="navigate-outline" size={14} color={theme.textMuted} />
               <Text style={[styles.metaText, { color: theme.textMuted }]}>
-                {selectedPharmacy.distanceKm} km away
+                {cleanDistanceString(selectedPharmacy.distanceKm)} away
               </Text>
               <Text style={[styles.metaDot, { color: theme.textDim }]}>·</Text>
               <Ionicons name="walk-outline" size={14} color={theme.textMuted} />
               <Text style={[styles.metaText, { color: theme.textMuted }]}>
-                {selectedPharmacy.walkMinutes} min walk
+                {cleanDurationString(selectedPharmacy.walkMinutes)}
               </Text>
             </View>
 
@@ -594,7 +597,7 @@ export default function Pharmacies() {
 
             {/* Drug Stock status check */}
             {hasDrugQuery ? (
-              selectedPharmacy.isRegistered ? (
+              selectedPharmacy.isVerified ? (
                 <View style={[styles.stockCheckBanner, { backgroundColor: theme.successBg }]}>
                   <Ionicons name="checkmark-circle" size={16} color={theme.success} />
                   <Text style={[styles.stockCheckText, { color: theme.successText }]}>
@@ -605,7 +608,7 @@ export default function Pharmacies() {
                 <View style={[styles.stockCheckBanner, { backgroundColor: '#fef3c7', borderColor: '#fde68a', borderWidth: 1 }]}>
                   <Ionicons name="information-circle-outline" size={16} color="#b45309" />
                   <Text style={[styles.stockCheckText, { color: '#92400e' }]}>
-                    Availability unknown — pharmacy not registered on PharmFindr
+                    Availability unknown — pharmacy not verified on PharmFindr
                   </Text>
                 </View>
               )
@@ -640,22 +643,6 @@ export default function Pharmacies() {
                 <Ionicons name="navigate-outline" size={18} color={primaryColor} />
                 <Text style={[styles.actionBtnText, { color: primaryColor }]}>Navigate</Text>
               </Pressable>
-
-              {/* Call -> Only if phone exists */}
-              {hasPhone && (
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.actionBtn,
-                    styles.secondaryActionBtn,
-                    pressed && { opacity: 0.7 },
-                    { borderColor: primaryColor, backgroundColor: theme.card },
-                  ]}
-                  onPress={() => handleCallPharmacy(selectedPharmacy.phone)}
-                >
-                  <Ionicons name="call-outline" size={18} color={primaryColor} />
-                  <Text style={[styles.actionBtnText, { color: primaryColor }]}>Call</Text>
-                </Pressable>
-              )}
 
               {/* Reserve Button — Only rendered if there is an active medicine query */}
               {hasDrugQuery && (

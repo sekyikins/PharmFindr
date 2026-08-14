@@ -13,22 +13,15 @@ interface BadgeProps {
 export function Badge({ label, status = 'default', style, textStyle }: BadgeProps) {
   const { theme } = useThemeContext();
 
-  const getColors = () => {
-    switch (status) {
-      case 'success':
-        return { bg: theme.successBg, text: theme.successText, border: theme.successBorder };
-      case 'warning':
-        return { bg: theme.pendingBg, text: theme.pendingText, border: theme.pendingBorder };
-      case 'error':
-        return { bg: theme.errorBg, text: theme.errorText, border: theme.errorBorder };
-      case 'info':
-        return { bg: theme.patientSecondary, text: theme.patientPrimary, border: theme.patientPrimary + '40' };
-      default:
-        return { bg: theme.surfaceSecondary, text: theme.textMuted, border: theme.border };
-    }
+  const colorMap: Record<string, { bg: string; text: string; border: string }> = {
+    success: { bg: theme.successBg, text: theme.successText, border: theme.successBorder },
+    warning: { bg: theme.pendingBg, text: theme.pendingText, border: theme.pendingBorder },
+    error: { bg: theme.errorBg, text: theme.errorText, border: theme.errorBorder },
+    info: { bg: theme.patientSecondary, text: theme.patientPrimary, border: theme.patientPrimary + '40' },
+    default: { bg: theme.surfaceSecondary, text: theme.textMuted, border: theme.border },
   };
 
-  const c = getColors();
+  const c = colorMap[status] || colorMap.default;
 
   return (
     <View style={[styles.badge, { backgroundColor: c.bg, borderColor: c.border }, style]}>
@@ -39,8 +32,6 @@ export function Badge({ label, status = 'default', style, textStyle }: BadgeProp
 
 const styles = StyleSheet.create({
   badge: {
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 3,
     borderRadius: RADIUS.pill,
     borderWidth: 1,
     alignSelf: 'flex-start',

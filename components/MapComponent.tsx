@@ -1,16 +1,4 @@
-import { COLORS } from '@/styles/theme';
-/**
- * MapComponent.tsx
- *
- * A simulated map grid used during pharmacy registration (Step 4).
- *
- * Pin types:
- *  🟢 Green  — OSM-recognised pharmacies NOT yet registered in PharmFindr (selectable)
- *  🟤 Brown  — Already registered in PharmFindr (not selectable — shown for awareness)
- *  🔵 Blue   — Custom dropped pin (user tapped an empty spot)
- *
- * The component can be expanded to full-screen via the expand button.
- */
+import { COLORS, MAP_PIN_COLORS } from '@/styles/theme';
 import React, { useState } from 'react';
 import {
   View,
@@ -25,35 +13,22 @@ import { Ionicons } from '@expo/vector-icons';
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-export interface KnownPharmacy {
-  id: string;
-  name: string;
-  address?: string;
-  latitude: number;
-  longitude: number;
-}
-
-export interface RegisteredPharmacy {
-  id: string;
-  name: string;
-  latitude: number;
-  longitude: number;
-}
+import { KnownPharmacy, RegisteredPharmacy } from '@/types/map';
+export type { KnownPharmacy, RegisteredPharmacy };
 
 interface MapComponentProps {
   pin: { latitude: number; longitude: number } | null;
-  /** Called when user taps an empty map area (blue custom pin) */
+  /** Called when user taps an empty map area (custom pin) */
   onPressMap: (coordinate: { latitude: number; longitude: number }) => void;
-  /** Called when user taps a known (green) pharmacy pin to claim it */
+  /** Called when user taps a public/Google (blue) pharmacy pin to select it */
   onSelectKnownPharmacy?: (pharmacy: KnownPharmacy) => void;
   initialCoords?: { latitude: number; longitude: number } | null;
   setScrollEnabled?: (enabled: boolean) => void;
-  /** OSM pharmacies not yet in PharmFindr — green, selectable */
+  /** Public / Google Maps pharmacies — Blue, selectable */
   knownPharmacies?: KnownPharmacy[];
-  /** Already registered in PharmFindr — brown, not selectable */
+  /** Verified pharmacies on PharmFindr — Green, not selectable */
   registeredPharmacies?: RegisteredPharmacy[];
+  onRegionChangeComplete?: (region: { latitude: number; longitude: number; latitudeDelta: number; longitudeDelta: number }) => void;
   onExpand?: () => void;
 }
 
@@ -136,7 +111,7 @@ function MapCanvas({
         ))}
       </View>
 
-      {/* ── Already-registered pharmacies (brown — not selectable) ── */}
+      {/* ── Verified pharmacies on PharmFindr (Green — not selectable) ── */}
       {registeredPharmacies.map((pharm) => {
         const { x, y } = coordToPixel(pharm.latitude, pharm.longitude, containerW, containerH);
         if (x < 0 || x > containerW || y < 0 || y > containerH) return null;
@@ -146,15 +121,15 @@ function MapCanvas({
             style={[styles.pinWrapper, { left: x - 12, top: y - 28 }]}
             pointerEvents="none"
           >
-            <Ionicons name="location" size={26} color="#92400e" />
-            <View style={styles.registeredLabel}>
-              <Text style={styles.registeredLabelText} numberOfLines={1}>{pharm.name}</Text>
+            <Ionicons name="location" size={26} color={MAP_PIN_COLORS.verified} />
+            <View style={[styles.registeredLabel, { backgroundColor: COLORS.pharmacyBgLight }]}>
+              <Text style={styles.registeredLabelText} numberOfLines={1}>{pharm.name} (Verified)</Text>
             </View>
           </View>
         );
       })}
 
-      {/* ── Known (OSM) pharmacies — green, selectable ── */}
+      {/* ── Public / Google Maps pharmacies — Blue, selectable ── */}
       {knownPharmacies.map((pharm) => {
         const { x, y } = coordToPixel(pharm.latitude, pharm.longitude, containerW, containerH);
         if (x < 0 || x > containerW || y < 0 || y > containerH) return null;
@@ -168,7 +143,7 @@ function MapCanvas({
             }}
             hitSlop={10}
           >
-            <Ionicons name="location" size={28} color={COLORS.pharmacyPrimary} />
+            <Ionicons name="location" size={28} color={MAP_PIN_COLORS.public} />
             <View style={styles.knownLabel}>
               <Text style={styles.knownLabelText} numberOfLines={1}>{pharm.name}</Text>
             </View>
@@ -176,14 +151,14 @@ function MapCanvas({
         );
       })}
 
-      {/* ── Dropped / custom pin (blue) ── */}
+      {/* ── Selected / Custom Pin (Yellow/Gold) ── */}
       {pin && (() => {
         const { x, y } = coordToPixel(pin.latitude, pin.longitude, containerW, containerH);
         return (
           <View style={[styles.pinWrapper, { left: x - 16, top: y - 32 }]} pointerEvents="none">
-            <Ionicons name="location" size={34} color={COLORS.patientPrimary} />
+            <Ionicons name="location" size={34} color={MAP_PIN_COLORS.selected} />
             <View style={styles.customLabel}>
-              <Text style={styles.customLabelText}>Your Pharmacy</Text>
+              <Text style={styles.customLabelText}>Selected Location</Text>
             </View>
           </View>
         );
@@ -191,8 +166,7 @@ function MapCanvas({
 
       {/* Info bar */}
       <View style={styles.infoBar}>
-        <Ionicons name="information-circle-outline" size={13} color={COLORS.textMuted} />
-        <Text style={styles.infoText}>Tap green pin to claim · tap map for custom pin</Text>
+        <Text style={styles.infoText}>🟢 Verified · 🔵 Public / Google · 🟡 Selected</Text>
       </View>
     </Pressable>
   );
@@ -204,8 +178,6 @@ export default function MapComponent({
   pin,
   onPressMap,
   onSelectKnownPharmacy,
-  initialCoords,
-  setScrollEnabled,
   knownPharmacies = [],
   registeredPharmacies = [],
 }: MapComponentProps) {
@@ -249,16 +221,16 @@ export default function MapComponent({
           {/* Legend */}
           <View style={styles.modalLegend}>
             <View style={styles.legendItem}>
-              <Ionicons name="location" size={16} color={COLORS.pharmacyPrimary} />
-              <Text style={styles.legendText}>Available (tap to claim)</Text>
+              <Ionicons name="location" size={16} color={MAP_PIN_COLORS.verified} />
+              <Text style={styles.legendText}>Verified</Text>
             </View>
             <View style={styles.legendItem}>
-              <Ionicons name="location" size={16} color="#92400e" />
-              <Text style={styles.legendText}>Already registered</Text>
+              <Ionicons name="location" size={16} color={MAP_PIN_COLORS.public} />
+              <Text style={styles.legendText}>Public / Google</Text>
             </View>
             <View style={styles.legendItem}>
-              <Ionicons name="location" size={16} color={COLORS.patientPrimary} />
-              <Text style={styles.legendText}>Custom pin</Text>
+              <Ionicons name="location" size={16} color={MAP_PIN_COLORS.selected} />
+              <Text style={styles.legendText}>Selected</Text>
             </View>
           </View>
 
@@ -335,7 +307,7 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   knownLabel: {
-    backgroundColor: COLORS.successBg,
+    backgroundColor: COLORS.infoBg,
     borderRadius: 6,
     paddingHorizontal: 5,
     paddingVertical: 2,
@@ -345,11 +317,11 @@ const styles = StyleSheet.create({
   knownLabelText: {
     fontSize: 9,
     fontFamily: 'Inter-Bold',
-    color: COLORS.pharmacyText,
+    color: COLORS.infoText,
     textAlign: 'center',
   },
   registeredLabel: {
-    backgroundColor: COLORS.pendingBg,
+    backgroundColor: COLORS.pharmacyBgLight,
     borderRadius: 6,
     paddingHorizontal: 5,
     paddingVertical: 2,
@@ -359,11 +331,11 @@ const styles = StyleSheet.create({
   registeredLabelText: {
     fontSize: 9,
     fontFamily: 'Inter-SemiBold',
-    color: COLORS.pendingText,
+    color: COLORS.pharmacyText,
     textAlign: 'center',
   },
   customLabel: {
-    backgroundColor: COLORS.infoBg,
+    backgroundColor: COLORS.pendingBg,
     borderRadius: 6,
     paddingHorizontal: 6,
     paddingVertical: 2,
@@ -372,7 +344,7 @@ const styles = StyleSheet.create({
   customLabelText: {
     fontSize: 9,
     fontFamily: 'Inter-Bold',
-    color: COLORS.patientTextDark,
+    color: COLORS.pendingText,
     textAlign: 'center',
   },
   infoBar: {

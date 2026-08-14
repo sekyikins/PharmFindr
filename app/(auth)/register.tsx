@@ -9,7 +9,6 @@ import {
   TextInput,
   useWindowDimensions,
   ActivityIndicator,
-  KeyboardTypeOptions,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';

@@ -17,6 +17,7 @@ import { useThemeContext } from '@/hooks/useThemeContext';
 import { COLORS,  FONT_SIZE, RADIUS, SPACING  } from '@/styles/theme';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
+import { getPharmacyForUser } from '@/lib/pharmacyService';
 import Skeleton from '@/components/ui/Skeleton';
 import AppBottomSheet from '@/components/ui/AppBottomSheet';
 import { Header } from '@/components/ui/Header';
@@ -31,54 +32,24 @@ export default function Inventory() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [showAddForm, setShowAddForm] = useState(false);
   const [editItem, setEditItem] = useState<any>(null);
   const editSheetRef = useRef<any>(null);
-
-  // New medicine form state
-  const [newName, setNewName] = useState('');
-  const [newStrength, setNewStrength] = useState('');
-  const [newQty, setNewQty] = useState('');
-  const [newPrice, setNewPrice] = useState('');
   const [saving, setSaving] = useState(false);
 
   const fetchInventory = useCallback(async () => {
     if (!user) return;
     try {
       // 1. Get pharmacy owned by current user
-      let pharmId: string | null = null;
+      const pharm = await getPharmacyForUser(user);
 
-      const { data: pharm } = await supabase
-        .from('pharmacies')
-        .select('id')
-        .eq('owner_id', user.id)
-        .maybeSingle();
-
-      if (pharm?.id) {
-        pharmId = pharm.id;
-      } else {
-        // Fallback match by phone or email
-        let query = supabase.from('pharmacies').select('id');
-        if (user.phone) {
-          query = query.eq('phone', user.phone);
-        } else if (user.email) {
-          query = query.eq('email', user.email);
-        }
-
-        const { data: fallbackPharm } = await query.maybeSingle();
-        if (fallbackPharm?.id) {
-          pharmId = fallbackPharm.id;
-          await supabase.from('pharmacies').update({ owner_id: user.id }).eq('id', pharmId);
-        }
-      }
-
-      if (!pharmId) {
+      if (!pharm?.id) {
         setInventory([]);
         setLoading(false);
         setRefreshing(false);
         return;
       }
 
+      const pharmId = pharm.id;
       setPharmacyId(pharmId);
 
       // 2. Get inventory
@@ -113,50 +84,6 @@ export default function Inventory() {
   const handleRefresh = () => {
     setRefreshing(true);
     fetchInventory();
-  };
-
-  const handleAddMedicine = async () => {
-    if (!newName.trim() || !newQty.trim() || !newPrice.trim()) {
-      Alert.alert('Missing Fields', 'Please fill in Medicine Name, Quantity, and Price.');
-      return;
-    }
-    if (!pharmacyId) return;
-
-    setSaving(true);
-    try {
-      const { data, error } = await supabase
-        .from('inventory')
-        .insert({
-          pharmacy_id: pharmacyId,
-          medicine_name: newName.trim(),
-          strength: newStrength.trim() || null,
-          quantity: parseInt(newQty, 10) || 0,
-          price: parseFloat(newPrice) || 0.0,
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      const newItem = {
-        id: data.id,
-        name: data.medicine_name,
-        strength: data.strength || '',
-        quantity: data.quantity,
-        price: parseFloat(data.price),
-      };
-
-      setInventory((prev) => [newItem, ...prev]);
-      setNewName('');
-      setNewStrength('');
-      setNewQty('');
-      setNewPrice('');
-      setShowAddForm(false);
-    } catch (e: any) {
-      Alert.alert('Error', e.message || 'Failed to add medicine.');
-    } finally {
-      setSaving(false);
-    }
   };
 
   const handleDelete = (id: string, name: string) => {
@@ -524,63 +451,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: SPACING.xl,
-    paddingVertical: SPACING.md,
-    borderBottomWidth: 1
-  },
-  headerLeft: {
-    flexDirection: 'row', alignItems: 'center', gap: 12
-  },
-  backBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: RADIUS.pill,
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
-  headerTitle: {
-    fontSize: FONT_SIZE.xxl, fontFamily: 'Inter-Bold'
-  },
   fabSmall: {
     width: 36,
     height: 36,
     borderRadius: RADIUS.md,
     justifyContent: 'center',
     alignItems: 'center'
-  },
-
-  addForm: {
-    padding: SPACING.lg, borderBottomWidth: 1, gap: 10
-  },
-  addFormTitle: {
-    fontSize: FONT_SIZE.lg, fontFamily: 'Inter-Bold'
-  },
-  addFormRow: {
-    flexDirection: 'row', gap: 10
-  },
-  addInput: {
-    fontFamily: 'Inter-Regular',
-    
-    flex: 1,
-    height: 40,
-    borderWidth: 1,
-    borderRadius: RADIUS.md,
-    paddingHorizontal: 12,
-    fontSize: FONT_SIZE.lg
-  },
-  addBtn: {
-    height: 40,
-    borderRadius: RADIUS.md,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 4
-  },
-  addBtnText: {
-    color: COLORS.white, fontFamily: 'Inter-SemiBold', fontSize: FONT_SIZE.lg
   },
 
   searchRow: {

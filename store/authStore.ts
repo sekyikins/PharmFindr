@@ -37,6 +37,8 @@ function base64ToArrayBuffer(base64: string): ArrayBuffer {
   return bytes.buffer;
 }
 
+export const PHARMACY_PASS = 'PharmacyPass123!';
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 /** Lightweight role record — one row per auth.users account */

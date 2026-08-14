@@ -1,18 +1,10 @@
-import { COLORS } from '@/styles/theme';
+import { COLORS, MAP_PIN_COLORS, getPharmacyPinColor } from '@/styles/theme';
 import React from 'react';
 import { StyleSheet, View, Text, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-export interface MarkerData {
-  id: string;
-  name: string;
-  address: string;
-  latitude: number;
-  longitude: number;
-  isRegistered?: boolean;
-  isOpen?: boolean;
-  hours?: string;
-}
+import { MarkerData } from '@/types/map';
+export type { MarkerData };
 
 interface FullMapComponentProps {
   initialRegion?: {
@@ -33,10 +25,12 @@ interface FullMapComponentProps {
 }
 
 export function getPinColor(m: MarkerData, isSelected: boolean): string {
-  if (isSelected) return '#f59e0b'; // Amber / Gold for active selected pin
-  if (m.isOpen === false) return '#64748b'; // Slate Gray for ALL closed pharmacies (registered & public)
-  if (m.isRegistered) return '#10b981'; // Emerald Green for open registered database pharmacies
-  return '#0284c7'; // Royal Blue for open public map pharmacies
+  return getPharmacyPinColor({
+    isVerified: m.isVerified,
+    isOpen: m.isOpen,
+    isSelected,
+    showClosed: true,
+  });
 }
 
 export default function FullMapComponent({
@@ -109,7 +103,7 @@ export default function FullMapComponent({
                 ]}
               >
                 <Ionicons
-                  name={m.isRegistered ? 'medkit' : 'location'}
+                  name={m.isVerified ? 'medkit' : 'location'}
                   size={isSelected ? 16 : 13}
                   color={COLORS.white}
                 />
@@ -148,16 +142,20 @@ export default function FullMapComponent({
       {showLegend && (
         <View style={styles.legendContainer}>
           <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: '#10b981' }]} />
-            <Text style={styles.legendText}>Partner (Open)</Text>
+            <View style={[styles.legendDot, { backgroundColor: MAP_PIN_COLORS.verified }]} />
+            <Text style={styles.legendText}>Verified</Text>
           </View>
           <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: '#0284c7' }]} />
-            <Text style={styles.legendText}>Public (Open)</Text>
+            <View style={[styles.legendDot, { backgroundColor: MAP_PIN_COLORS.public }]} />
+            <Text style={styles.legendText}>Public / Google</Text>
           </View>
           <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: '#64748b' }]} />
+            <View style={[styles.legendDot, { backgroundColor: MAP_PIN_COLORS.closed }]} />
             <Text style={styles.legendText}>Closed</Text>
+          </View>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: MAP_PIN_COLORS.selected }]} />
+            <Text style={styles.legendText}>Selected</Text>
           </View>
         </View>
       )}

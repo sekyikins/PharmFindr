@@ -17,8 +17,7 @@ import { useRouter } from 'expo-router';
 import { useThemeContext } from '@/hooks/useThemeContext';
 import { COLORS,  FONT_SIZE, RADIUS, SPACING  } from '@/styles/theme';
 import { Header, HeaderIconBtn } from '@/components/ui/Header';
-import { TERMS_OF_SERVICE } from '@/constants/termsOfService';
-import { PRIVACY_POLICY } from '@/constants/privacyPolicy';
+import { TERMS_OF_SERVICE, PRIVACY_POLICY } from '@/constants/legal';
 import { useHardwareBack } from '@/hooks/useHardwareBack';
 
 interface FaqItem {

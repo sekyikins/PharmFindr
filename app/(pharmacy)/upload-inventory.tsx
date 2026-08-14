@@ -19,6 +19,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as XLSX from 'xlsx';
 import { supabase } from '@/lib/supabase';
+import { getPharmacyForUser } from '@/lib/pharmacyService';
 import { COLORS, FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
 import { useHardwareBack } from '@/hooks/useHardwareBack';
 import { toast } from '@/context/ToastContext';
@@ -127,24 +128,8 @@ export default function UploadInventory() {
 
     try {
       // Fetch pharmacy ID owned by user
-      let pharmId: string | null = null;
-      const { data: pharm } = await supabase
-        .from('pharmacies')
-        .select('id')
-        .eq('owner_id', user.id)
-        .maybeSingle();
-
-      if (pharm?.id) {
-        pharmId = pharm.id;
-      } else {
-        // Fallback check by phone/email
-        let query = supabase.from('pharmacies').select('id');
-        if (user.phone) query = query.eq('phone', user.phone);
-        else if (user.email) query = query.eq('email', user.email);
-
-        const { data: fallbackPharm } = await query.maybeSingle();
-        if (fallbackPharm?.id) pharmId = fallbackPharm.id;
-      }
+      const pharm = await getPharmacyForUser(user);
+      const pharmId = pharm?.id;
 
       if (!pharmId) throw new Error('Pharmacy account not found.');
 

@@ -7,6 +7,7 @@ import { useThemeContext } from '@/hooks/useThemeContext';
 import { COLORS,  FONT_SIZE, RADIUS, SPACING  } from '@/styles/theme';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
+import { getPharmacyForUser } from '@/lib/pharmacyService';
 import Skeleton from '@/components/ui/Skeleton';
 import { Header } from '@/components/ui/Header';
 
@@ -26,36 +27,16 @@ export default function Reservations() {
     }
     try {
       // 1. Get pharmacy owned by current user
-      let pharmId: string | null = null;
-      const { data: pharm } = await supabase
-        .from('pharmacies')
-        .select('id')
-        .eq('owner_id', user.id)
-        .maybeSingle();
+      const pharm = await getPharmacyForUser(user);
 
-      if (pharm?.id) {
-        pharmId = pharm.id;
-      } else {
-        let query = supabase.from('pharmacies').select('id');
-        if (user.phone) {
-          query = query.eq('phone', user.phone);
-        } else if (user.email) {
-          query = query.eq('email', user.email);
-        }
-
-        const { data: fallbackPharm } = await query.maybeSingle();
-        if (fallbackPharm?.id) {
-          pharmId = fallbackPharm.id;
-          await supabase.from('pharmacies').update({ owner_id: user.id }).eq('id', pharmId);
-        }
-      }
-
-      if (!pharmId) {
+      if (!pharm?.id) {
         setReservations([]);
         setLoading(false);
         setRefreshing(false);
         return;
       }
+
+      const pharmId = pharm.id;
 
       // 2. Get reservations with profile details
       const { data: resData, error: resErr } = await supabase

@@ -123,10 +123,15 @@ export default function PharmacyReservationDetails() {
   const items = reservation.medicines || [];
   const isPending = reservation.status === 'pending';
   const isAccepted = reservation.status === 'accepted';
-  const isDeclined = reservation.status === 'declined';
-  const isCollected = reservation.status === 'collected';
-
   const refCode = `RES-${(id || '').substring(0, 6).toUpperCase()}`;
+
+  const bannerConfig: Record<string, { bg: string; border: string; color: string; icon: any; text: string }> = {
+    pending:   { bg: '#fff7ed', border: '#ffd6a8', color: '#ca3500', icon: 'time-outline', text: 'Awaiting your response' },
+    accepted:  { bg: '#ecfdf5', border: '#a7f3d0', color: '#047857', icon: 'checkmark-circle-outline', text: 'Accepted — Ready for pickup' },
+    declined:  { bg: '#fef2f2', border: '#fecaca', color: '#b91c1c', icon: 'close-circle-outline', text: 'Declined' },
+    collected: { bg: '#eff6ff', border: '#bfdbfe', color: '#1d4ed8', icon: 'gift-outline', text: 'Collected by patient' },
+  };
+  const banner = bannerConfig[reservation.status];
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
@@ -145,28 +150,10 @@ export default function PharmacyReservationDetails() {
         }
       >
         {/* Status Banner */}
-        {isPending && (
-          <View style={[styles.banner, { backgroundColor: '#fff7ed', borderColor: '#ffd6a8' }]}>
-            <Ionicons name="time-outline" size={18} color="#ca3500" />
-            <Text style={[styles.bannerText, { color: '#ca3500' }]}>Awaiting your response</Text>
-          </View>
-        )}
-        {isAccepted && (
-          <View style={[styles.banner, { backgroundColor: '#ecfdf5', borderColor: '#a7f3d0' }]}>
-            <Ionicons name="checkmark-circle-outline" size={18} color="#047857" />
-            <Text style={[styles.bannerText, { color: '#047857' }]}>Accepted — Ready for pickup</Text>
-          </View>
-        )}
-        {isDeclined && (
-          <View style={[styles.banner, { backgroundColor: '#fef2f2', borderColor: '#fecaca' }]}>
-            <Ionicons name="close-circle-outline" size={18} color="#b91c1c" />
-            <Text style={[styles.bannerText, { color: '#b91c1c' }]}>Declined</Text>
-          </View>
-        )}
-        {isCollected && (
-          <View style={[styles.banner, { backgroundColor: '#eff6ff', borderColor: '#bfdbfe' }]}>
-            <Ionicons name="gift-outline" size={18} color="#1d4ed8" />
-            <Text style={[styles.bannerText, { color: '#1d4ed8' }]}>Collected by patient</Text>
+        {banner && (
+          <View style={[styles.banner, { backgroundColor: banner.bg, borderColor: banner.border }]}>
+            <Ionicons name={banner.icon} size={18} color={banner.color} />
+            <Text style={[styles.bannerText, { color: banner.color }]}>{banner.text}</Text>
           </View>
         )}
 

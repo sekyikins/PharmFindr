@@ -90,7 +90,7 @@ CREATE TABLE IF NOT EXISTS public.pharmacies (
   opening_time    TIME,
   closing_time    TIME,
   operating_hours JSONB,
-  verified        BOOLEAN DEFAULT FALSE,
+  is_verified     BOOLEAN DEFAULT FALSE,
   created_at      TIMESTAMPTZ DEFAULT NOW()
 );
 

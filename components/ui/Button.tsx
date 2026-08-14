@@ -31,46 +31,35 @@ export function Button({
 }: ButtonProps) {
   const { primaryColor, secondaryColor } = useThemeContext();
 
-  const getStyles = () => {
-    switch (variant) {
-      case 'secondary':
-        return {
-          container: [styles.base, { backgroundColor: secondaryColor }, style],
-          text:      [styles.text, { color: primaryColor }, textStyle],
-        };
-      case 'outline':
-        return {
-          container: [styles.base, { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: primaryColor }, style],
-          text:      [styles.text, { color: primaryColor }, textStyle],
-        };
-      case 'ghost':
-        return {
-          container: [styles.base, { backgroundColor: 'transparent' }, style],
-          text:      [styles.text, { color: primaryColor }, textStyle],
-        };
-      default: // primary
-        return {
-          container: [styles.base, { backgroundColor: primaryColor }, style],
-          text:      [styles.text, { color: COLORS.white }, textStyle],
-        };
-    }
+  const variantConfigs: Record<string, { bg: string; text: string; border?: string }> = {
+    primary:   { bg: primaryColor, text: COLORS.white },
+    secondary: { bg: secondaryColor, text: primaryColor },
+    outline:   { bg: 'transparent', text: primaryColor, border: primaryColor },
+    ghost:     { bg: 'transparent', text: primaryColor },
   };
 
-  const s = getStyles();
+  const cfg = variantConfigs[variant] || variantConfigs.primary;
+  const containerStyle: StyleProp<ViewStyle> = [
+    styles.base,
+    { backgroundColor: cfg.bg, ...(cfg.border ? { borderWidth: 1.5, borderColor: cfg.border } : {}) },
+    style,
+  ];
+  const labelStyle: StyleProp<TextStyle> = [styles.text, { color: cfg.text }, textStyle];
 
   return (
     <Pressable
       style={({ pressed }) => [
-        s.container,
+        containerStyle,
         (pressed || disabled || loading) && styles.pressed,
       ]}
       disabled={disabled || loading}
       {...props}
     >
-      {loading
-        ? <ActivityIndicator color={variant === 'primary' ? COLORS.white : primaryColor} size="small" />
-        : <Text style={s.text}>{title}</Text>
-      }
+      {loading ? (
+        <ActivityIndicator color={variant === 'primary' ? COLORS.white : primaryColor} size="small" />
+      ) : (
+        <Text style={labelStyle}>{title}</Text>
+      )}
     </Pressable>
   );
 }
@@ -81,7 +70,7 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.pill,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 20
+    paddingHorizontal: 20,
   },
   text: {
     fontSize: FONT_SIZE.xl,

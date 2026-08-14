@@ -22,13 +22,16 @@ const { width } = Dimensions.get('window');
 
 export default function MedicineDetailsScreen() {
   const router = useRouter();
-  const { id, query } = useLocalSearchParams<{ id?: string; query?: string }>();
+  const { id, query, name } = useLocalSearchParams<{ id?: string; query?: string; name?: string }>();
   const { theme, primaryColor } = useThemeContext();
 
   const { isSaved, toggleSaveMedicine, loadSavedMedicines } = useSavedMedicinesStore();
 
   const lookupKey = id || query || 'paracetamol-500mg';
-  const [medicine, setMedicine] = useState<MedicineItem>(getMedicineByIdOrName(lookupKey));
+  const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(lookupKey) || /^[0-9a-f-]{20,}$/i.test(lookupKey);
+  const initialName = name || (isUUID ? '' : lookupKey.replace(/[-_]/g, ' '));
+
+  const [medicine, setMedicine] = useState<MedicineItem>(getMedicineByIdOrName(lookupKey, initialName || undefined));
   const [saved, setSaved] = useState(false);
 
   // Wire hardware back button
@@ -46,7 +49,7 @@ export default function MedicineDetailsScreen() {
     let cancelled = false;
 
     // 1. Initial instant load from synchronous lookup
-    const initialItem = getMedicineByIdOrName(lookupKey);
+    const initialItem = getMedicineByIdOrName(lookupKey, initialName || undefined);
     setMedicine(initialItem);
     setSaved(isSaved(initialItem.id));
 
@@ -61,7 +64,7 @@ export default function MedicineDetailsScreen() {
     return () => {
       cancelled = true;
     };
-  }, [lookupKey]);
+  }, [lookupKey, initialName]);
 
   const handleToggleSave = async () => {
     const newStatus = await toggleSaveMedicine(medicine);
@@ -88,6 +91,26 @@ export default function MedicineDetailsScreen() {
       pathname: '/(patient)/pharmacies',
       params: {
         query: medicine.genericName || medicine.name,
+      },
+    });
+  };
+
+  const handleFindPrescriptionPharmacies = () => {
+    const med = [{
+      name: medicine.name,
+      strength: medicine.strength || null,
+      dosage: null,
+      frequency: null,
+      duration: null,
+      route: null,
+      instructions: null,
+      confidence: 100,
+    }];
+    router.push({
+      pathname: '/(patient)/prescription-pharmacies',
+      params: {
+        medicines: JSON.stringify(med),
+        title: 'Found Pharmacies',
       },
     });
   };
@@ -121,13 +144,21 @@ export default function MedicineDetailsScreen() {
               <Ionicons name="medkit" size={28} color={primaryColor} />
             </View>
             <View style={styles.heroTextCol}>
-              <Text style={styles.medName}>{medicine.name}</Text>
-              <Text style={styles.medSub}>
-                {medicine.strength} · {medicine.category}
+              <Text style={styles.medName}>
+                {medicine.name && !/^[0-9a-f-]{20,}$/i.test(medicine.name)
+                  ? medicine.name
+                  : initialName || 'Loading...'}
               </Text>
-              {medicine.genericName !== medicine.name && (
-                <Text style={styles.genericSub}>Generic: {medicine.genericName}</Text>
-              )}
+              <Text style={styles.medSub}>
+                {medicine.strength && medicine.strength !== '—'
+                  ? `${medicine.strength} · ${medicine.category}`
+                  : medicine.category || 'Medicine Details'}
+              </Text>
+              {medicine.genericName &&
+                medicine.genericName !== medicine.name &&
+                !/^[0-9a-f-]{20,}$/i.test(medicine.genericName) && (
+                  <Text style={styles.genericSub}>Generic: {medicine.genericName}</Text>
+                )}
             </View>
           </View>
         </View>
@@ -223,13 +254,22 @@ export default function MedicineDetailsScreen() {
           </View>
         )}
 
+        {/* ── Pharmacies Carrying Prescription Button ── */}
+        <Pressable
+          style={({ pressed }) => [styles.prescriptionPharmBtn, pressed && { opacity: 0.7 }, { backgroundColor: primaryColor + '15', borderColor: primaryColor }]}
+          onPress={handleFindPrescriptionPharmacies}
+        >
+          <Ionicons name="medical-outline" size={18} color={primaryColor} style={{ marginRight: 8 }} />
+          <Text style={[styles.prescriptionPharmBtnText, { color: primaryColor }]}>Pharmacies Carrying Prescription</Text>
+        </Pressable>
+
         {/* ── Primary Action Button: Find Pharmacies ── */}
         <Pressable
-          style={({ pressed }) => [styles.findBtn, pressed && { opacity: 0.7 }, { backgroundColor: primaryColor }]}
+          style={({ pressed }) => [styles.findBtn, pressed && { opacity: 0.7 }, { backgroundColor: theme.card, borderColor: primaryColor, borderWidth: 1 }]}
           onPress={handleFindPharmacies}
         >
-          <Ionicons name="search" size={18} color={COLORS.white} style={{ marginRight: 8 }} />
-          <Text style={styles.findBtnText}>Find Pharmacies Carrying This Drug</Text>
+          <Ionicons name="map" size={18} color={primaryColor} style={{ marginRight: 8 }} />
+          <Text style={[styles.findBtnText, { color: primaryColor }]}>Check It Out On Map</Text>
         </Pressable>
 
       </ScrollView>
@@ -405,7 +445,7 @@ const styles = StyleSheet.create({
 
   findBtn: {
     marginHorizontal: SPACING.xl,
-    marginVertical: 10,
+    marginVertical: 6,
     height: 52,
     borderRadius: RADIUS.pill,
     flexDirection: 'row',
@@ -416,6 +456,22 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     fontSize: 12,
     fontFamily: 'Inter-Bold'
+  },
+
+  prescriptionPharmBtn: {
+    marginHorizontal: SPACING.xl,
+    marginTop: 10,
+    marginBottom: 4,
+    height: 52,
+    borderRadius: RADIUS.pill,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.lg,
+  },
+  prescriptionPharmBtnText: {
+    fontSize: 13,
+    fontFamily: 'Inter-Bold',
   },
 
 });

@@ -20,6 +20,7 @@ import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
 import { Header } from '@/components/ui/Header';
 import { toast } from '@/context/ToastContext';
 import { supabase } from '@/lib/supabase';
+import { getPharmacyForUser } from '@/lib/pharmacyService';
 import { formatTimeHHMM } from '@/lib/osm';
 import { useAuthStore } from '@/store/authStore';
 import { useHardwareBack } from '@/hooks/useHardwareBack';
@@ -69,36 +70,8 @@ export default function OperatingHours() {
     if (!user?.id) return;
     setLoading(true);
     try {
-      // 1. Fetch pharmacy record (primary owner_id lookup)
-      let { data: pharm } = await supabase
-        .from('pharmacies')
-        .select('id, opening_time, closing_time')
-        .eq('owner_id', user.id)
-        .maybeSingle();
-
-      // Fallback: phone or email lookup if owner_id not linked yet
-      if (!pharm) {
-        if (user.phone) {
-          const { data: pByPhone } = await supabase
-            .from('pharmacies')
-            .select('id, opening_time, closing_time')
-            .eq('phone', user.phone)
-            .maybeSingle();
-          if (pByPhone) pharm = pByPhone;
-        }
-        if (!pharm && user.email) {
-          const { data: pByEmail } = await supabase
-            .from('pharmacies')
-            .select('id, opening_time, closing_time')
-            .eq('email', user.email)
-            .maybeSingle();
-          if (pByEmail) pharm = pByEmail;
-        }
-
-        if (pharm) {
-          await supabase.from('pharmacies').update({ owner_id: user.id }).eq('id', pharm.id);
-        }
-      }
+      // 1. Fetch pharmacy record
+      const pharm = await getPharmacyForUser(user);
 
       if (pharm) {
         setPharmId(pharm.id);

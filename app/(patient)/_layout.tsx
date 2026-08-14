@@ -17,6 +17,7 @@ export default function PatientLayout() {
       <Stack.Screen name="medicine/[id]" />
       <Stack.Screen name="scan" options={{ presentation: 'card' }} />
       <Stack.Screen name="ocr-result" />
+      <Stack.Screen name="prescription-pharmacies" />
       <Stack.Screen name="reservation/[id]" />
       <Stack.Screen name="pharmacies" />
       <Stack.Screen name="pharmacy/[id]" />

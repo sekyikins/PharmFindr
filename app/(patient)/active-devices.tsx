@@ -13,7 +13,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useThemeContext } from '@/hooks/useThemeContext';
-import { useAuthStore } from '@/store/authStore';
 import { Header } from '@/components/ui/Header';
 import { getDeviceId, revokeSpecificDeviceSession, revokeAllOtherSessions } from '@/lib/deviceSession';
 import { logAuditEvent } from '@/lib/auditLogger';
@@ -30,7 +29,6 @@ interface SessionItem {
 export default function ActiveDevicesScreen() {
   const router = useRouter();
   const { theme, primaryColor } = useThemeContext();
-  const { user } = useAuthStore();
 
   const handleGoBack = () => {
     if (router.canGoBack()) {

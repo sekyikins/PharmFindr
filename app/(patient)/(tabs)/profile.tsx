@@ -494,16 +494,6 @@ const styles = StyleSheet.create({
   menuLabel: {
     flex: 1, fontSize: FONT_SIZE.lg, fontFamily: 'Inter-SemiBold'
   },
-  itemBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: RADIUS.pill,
-    borderWidth: 1,
-    marginRight: 8
-  },
-  itemBadgeText: {
-    fontSize: 10, fontFamily: 'Inter-Bold'
-  },
 
   // Sign Out
   signOutBtn: {

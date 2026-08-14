@@ -17,6 +17,7 @@ import { COLORS,  FONT_SIZE, RADIUS, SPACING  } from '@/styles/theme';
 import Svg, { Path } from 'react-native-svg';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
+import { getPharmacyForUser } from '@/lib/pharmacyService';
 import Skeleton from '@/components/ui/Skeleton';
 
 const PHARMACY_GREEN = '#10b981';
@@ -28,7 +29,6 @@ export default function Dashboard() {
   const { width } = useWindowDimensions();
 
   const [pharmacyName, setPharmacyName] = useState('My Pharmacy');
-  const [hours, setHours] = useState('8:00 AM – 10:00 PM');
   const [isVerified, setIsVerified] = useState(false);
 
   const [stats, setStats] = useState({
@@ -49,30 +49,7 @@ export default function Dashboard() {
     setLoading(true);
     try {
       // 1. Fetch pharmacy info
-      let pharm: any = null;
-
-      const { data: directPharm } = await supabase
-        .from('pharmacies')
-        .select('*')
-        .eq('owner_id', user.id)
-        .maybeSingle();
-
-      if (directPharm) {
-        pharm = directPharm;
-      } else {
-        let query = supabase.from('pharmacies').select('*');
-        if (user.phone) {
-          query = query.eq('phone', user.phone);
-        } else if (user.email) {
-          query = query.eq('email', user.email);
-        }
-
-        const { data: fallbackPharm } = await query.maybeSingle();
-        if (fallbackPharm) {
-          pharm = fallbackPharm;
-          await supabase.from('pharmacies').update({ owner_id: user.id }).eq('id', pharm.id);
-        }
-      }
+      const pharm = await getPharmacyForUser(user);
 
       if (!pharm) {
         setPharmacyName('My Pharmacy');
@@ -81,18 +58,7 @@ export default function Dashboard() {
       }
 
       setPharmacyName(pharm.name);
-      setIsVerified(pharm.verified ?? false);
-
-      if (pharm.opening_time && pharm.closing_time) {
-        const formatTime = (tStr: string) => {
-          const [h, m] = tStr.split(':');
-          const hr = parseInt(h, 10);
-          const ampm = hr >= 12 ? 'PM' : 'AM';
-          const displayHr = hr % 12 || 12;
-          return `${displayHr}:${m} ${ampm}`;
-        };
-        setHours(`Open ${formatTime(pharm.opening_time)} – ${formatTime(pharm.closing_time)}`);
-      }
+      setIsVerified(pharm.isVerified ?? false);
 
       // 2. Fetch inventory count & reservations concurrently in parallel
       const [{ count: medCount }, { data: resData }] = await Promise.all([

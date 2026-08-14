@@ -142,22 +142,6 @@ export async function sendSms(
   }
 }
 
-/**
- * Send an OTP SMS using plain SMS (legacy — prefer sendArkeselOtp instead).
- * @deprecated Use sendArkeselOtp() which uses Arkesel's managed OTP service.
- */
-export function generateOtp(): string {
-  return Math.floor(100000 + Math.random() * 900000).toString();
-}
-
-/** @deprecated Use sendArkeselOtp() */
-export async function sendOtpSms(
-  phone: string,
-  code: string,
-): Promise<{ success: boolean; error?: string }> {
-  const msg = `Your PharmFindr verification code is: ${code}. Valid for 10 minutes. Do not share this code.`;
-  return await sendSms(phone, msg);
-}
 
 // ─── Arkesel Managed OTP Service ─────────────────────────────────────────────
 

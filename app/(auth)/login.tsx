@@ -16,11 +16,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import Svg, { Path } from 'react-native-svg';
-import { useAuthStore } from '@/store/authStore';
+import { useAuthStore, PHARMACY_PASS } from '@/store/authStore';
 import { useThemeContext } from '@/hooks/useThemeContext';
 import { sendArkeselOtp, verifyArkeselOtp, validateGhanaPhone } from '@/lib/arkeselSms';
 import { supabase } from '@/lib/supabase';
-import { PHARMACY_PASS } from '@/lib/authConstants';
 import OtpInput, { type OtpInputHandle } from '@/components/ui/OtpInput';
 import { toast } from '@/context/ToastContext';
 

@@ -4,16 +4,6 @@
  * All design tokens, palette, typography, and common styles live here.
  * Screens get these via `useTheme()` — never import hex strings directly.
  */
-import React, { createContext, useContext } from 'react';
-
-// ─── AsyncStorage (lazy, graceful fallback) ───────────────────────────────────
-let _AsyncStorage: {
-  getItem(k: string): Promise<string | null>;
-  setItem(k: string, v: string): Promise<void>;
-} | null = null;
-try {
-  _AsyncStorage = require('@react-native-async-storage/async-storage').default;
-} catch { /* not installed — theme resets on launch */ }
 
 // ─── Spacing ──────────────────────────────────────────────────────────────────
 export const SPACING = {
@@ -136,6 +126,45 @@ export const COLORS = {
   black:       '#000000',
   transparent: 'transparent',
 } as const;
+
+// ─── Map Pin Color Tokens & Status Resolver (Single Source of Truth) ─────────
+export const MAP_PIN_COLORS = {
+  verified: '#10b981', // GREEN: PharmFindr verified partner pharmacy
+  public:   '#0284c7', // BLUE: Public directory / Google Maps pharmacy
+  closed:   '#64748b', // GREY: Closed pharmacy (verified or public)
+  selected: '#f59e0b', // YELLOW/GOLD: Currently selected pharmacy or dropped pin
+} as const;
+
+export type PharmacyPinStatus = 'verified' | 'public' | 'closed';
+
+export interface GetPharmacyPinColorOptions {
+  isVerified?: boolean;
+  isOpen?: boolean;
+  isSelected?: boolean;
+  showClosed?: boolean; // true for patient side; false for pharmacy side
+}
+
+/**
+ * Resolves the displayed map pin color following the priority rules:
+ *   selected > closed (if showClosed) > verified > public
+ */
+export function getPharmacyPinColor({
+  isVerified = false,
+  isOpen,
+  isSelected = false,
+  showClosed = true,
+}: GetPharmacyPinColorOptions): string {
+  if (isSelected) {
+    return MAP_PIN_COLORS.selected;
+  }
+  if (showClosed && isOpen === false) {
+    return MAP_PIN_COLORS.closed;
+  }
+  if (isVerified) {
+    return MAP_PIN_COLORS.verified;
+  }
+  return MAP_PIN_COLORS.public;
+}
 
 const _makePalette = () => {
   return {
@@ -265,31 +294,3 @@ export function buildCommonStyles(c: ThemeColors) {
   };
 }
 
-// ─── Context ──────────────────────────────────────────────────────────────────
-interface ThemeContextValue {
-  colors: ThemeColors;
-  typography: ReturnType<typeof buildTypography>;
-  commonStyles: ReturnType<typeof buildCommonStyles>;
-}
-
-const ThemeContext = createContext<ThemeContextValue | null>(null);
-
-// ─── Provider ─────────────────────────────────────────────────────────────────
-export function ThemeProvider({ children }: { children: React.ReactNode }): React.JSX.Element {
-  const colors = _makePalette();
-  const typography = buildTypography(colors);
-  const commonStyles = buildCommonStyles(colors);
-
-  return (
-    <ThemeContext.Provider value={{ colors, typography, commonStyles }}>
-      {children}
-    </ThemeContext.Provider>
-  );
-}
-
-// ─── Hook ─────────────────────────────────────────────────────────────────────
-export function useTheme(): ThemeContextValue {
-  const ctx = useContext(ThemeContext);
-  if (!ctx) throw new Error('useTheme must be used inside <ThemeProvider>');
-  return ctx;
-}

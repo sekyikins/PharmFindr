@@ -17,15 +17,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import Svg, { Path } from 'react-native-svg';
 import OtpInput, { type OtpInputHandle } from '@/components/ui/OtpInput';
-import MapComponent, { type KnownPharmacy } from '@/components/MapComponent';
+import MapComponent from '@/components/MapComponent';
+import { type KnownPharmacy, type RegisteredPharmacy } from '@/types/map';
 import { sendArkeselOtp, verifyArkeselOtp, validateGhanaPhone } from '@/lib/arkeselSms';
-import { useAuthStore } from '@/store/authStore';
-import { PHARMACY_PASS } from '@/lib/authConstants';
+import { useAuthStore, PHARMACY_PASS } from '@/store/authStore';
 import { supabase } from '@/lib/supabase';
-import { COLORS,  RADIUS  } from '@/styles/theme';
+import { COLORS, RADIUS } from '@/styles/theme';
 import * as Location from 'expo-location';
-import { searchNearbyPharmacies } from '@/lib/osm';
-import { fetchAddressForCoords } from '@/lib/googlePlaces';
+import { fetchAddressForCoords, fetchGoogleMapsPharmaciesForRegistration } from '@/lib/googlePlaces';
 import { useHardwareBack } from '@/hooks/useHardwareBack';
 import { toast } from '@/context/ToastContext';
 
@@ -172,9 +171,8 @@ const f = StyleSheet.create({
   },
   input: {
     fontFamily: 'Inter-Regular',
-     flex: 1, fontSize: 14, color: TEXT_PRIMARY, height: '100%'
+    flex: 1, fontSize: 14, color: TEXT_PRIMARY, height: '100%'
   },
-
 });
 
 const btn = StyleSheet.create({
@@ -184,36 +182,33 @@ const btn = StyleSheet.create({
   text: {
     color: COLORS.white, fontSize: 15, fontFamily: 'Inter-Bold'
   },
-
 });
 
-// ══ STEP 1: Details (Name + Email) ══════════════════════════════════════
+// ══ STEP 1: Pharmacy Name, Email ══════════════════════════════════════════
 function Step1Details({
+  name,
   email,
-  pharmName,
   onNext,
   onBack,
 }: {
+  name: string;
   email: string;
-  pharmName: string;
-  onNext: (e: string, n: string) => void;
+  onNext: (name: string, email: string) => void;
   onBack: () => void;
 }) {
+  const [valName, setValName] = useState(name);
   const [valEmail, setValEmail] = useState(email);
-  const [valName, setValName] = useState(pharmName);
 
-  const pharmNameRef = useRef<TextInput>(null);
-
-  const handleContinue = () => {
-    if (!valEmail.trim() || !valName.trim()) {
-      toast.error('Please fill in your pharmacy email and registered business name.');
+  const handleNext = () => {
+    if (!valName.trim()) {
+      toast.error('Please enter your pharmacy business name.');
       return;
     }
-    if (!valEmail.includes('@')) {
+    if (valEmail.trim() && !/\S+@\S+\.\S+/.test(valEmail.trim())) {
       toast.error('Please enter a valid email address.');
       return;
     }
-    onNext(valEmail.trim(), valName.trim());
+    onNext(valName.trim(), valEmail.trim());
   };
 
   return (
@@ -221,40 +216,38 @@ function Step1Details({
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <Hero step={1} onBack={onBack} />
         <View style={s.form}>
-          <Text style={s.secSub}>Enter your pharmacy email and registered pharmacy name.</Text>
-
-          <FieldLabel>PHARMACY EMAIL ADDRESS</FieldLabel>
-          <InputRow
-            icon="mail-outline"
-            placeholder="pharmacy@example.com"
-            value={valEmail}
-            onChange={(text) => setValEmail(text)}
-            keyboard="email-address"
-            returnKeyType="next"
-            onSubmitEditing={() => pharmNameRef.current?.focus()}
-          />
-
-          <View style={{ marginBottom: 16 }} />
+          <Text style={s.secSub}>Register your pharmacy to manage stock and connect with local customers.</Text>
 
           <FieldLabel>PHARMACY NAME</FieldLabel>
           <InputRow
-            inputRef={pharmNameRef}
-            icon="shield-checkmark-outline"
-            placeholder="e.g. City Care Pharmacy"
+            icon="business-outline"
+            placeholder="e.g. HealthPlus Pharmacy"
             value={valName}
             onChange={(text) => setValName(text)}
-            returnKeyType="done"
-            onSubmitEditing={handleContinue}
+            returnKeyType="next"
           />
 
-          <PrimaryBtn label="Continue to Select Location" onPress={handleContinue} />
+          <View style={{ marginTop: 14 }}>
+            <FieldLabel>CONTACT EMAIL (OPTIONAL)</FieldLabel>
+            <InputRow
+              icon="mail-outline"
+              placeholder="pharmacy@example.com"
+              value={valEmail}
+              onChange={(text) => setValEmail(text)}
+              keyboard="email-address"
+              returnKeyType="done"
+              onSubmitEditing={handleNext}
+            />
+          </View>
+
+          <PrimaryBtn label="Continue to Map Setup" onPress={handleNext} />
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
-// ══ STEP 2: Location Map Selection & Physical Address ═════════════════════
+// ══ STEP 2: Interactive Location Map Picker ══════════════════════════════
 function Step2Location({
   pharmName,
   pharmAddress,
@@ -273,14 +266,49 @@ function Step2Location({
   const [isAddressFetching, setIsAddressFetching] = useState(false);
   const [selectedKnownPharmacy, setSelectedKnownPharmacy] = useState<KnownPharmacy | null>(null);
   const [knownPharmacies, setKnownPharmacies] = useState<KnownPharmacy[]>([]);
-  const [registeredPharmacies, setRegisteredPharmacies] = useState<KnownPharmacy[]>([]);
+  const [registeredPharmacies, setRegisteredPharmacies] = useState<RegisteredPharmacy[]>([]);
   const [initialCoords, setInitialCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const [mapDataLoading, setMapDataLoading] = useState(true);
-
   const [isMapExpanded, setIsMapExpanded] = useState(false);
 
+  const regionDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const fetchPharmaciesForArea = async (lat: number, lon: number, radiusMeters = 10000) => {
+    try {
+      const gList = await fetchGoogleMapsPharmaciesForRegistration({ latitude: lat, longitude: lon }, radiusMeters);
+      if (gList && gList.length > 0) {
+        const regIds = new Set(registeredPharmacies.map((r) => r.id));
+        const newKnown: KnownPharmacy[] = gList
+          .filter((p) => !regIds.has(p.id))
+          .map((p) => ({
+            id: p.id,
+            name: p.name,
+            address: p.address,
+            latitude: p.latitude,
+            longitude: p.longitude,
+          }));
+
+        setKnownPharmacies((prev) => {
+          const existingIds = new Set(prev.map((k) => k.id));
+          const toAdd = newKnown.filter((k) => !existingIds.has(k.id));
+          return toAdd.length > 0 ? [...prev, ...toAdd] : prev;
+        });
+      }
+    } catch (e: any) {
+      console.warn('Google Maps pharmacy fetch notice:', e.message);
+    }
+  };
+
+  const handleRegionChangeComplete = (region: { latitude: number; longitude: number; latitudeDelta: number; longitudeDelta: number }) => {
+    if (regionDebounceRef.current) clearTimeout(regionDebounceRef.current);
+    regionDebounceRef.current = setTimeout(() => {
+      const radiusMeters = Math.min(Math.max((region.latitudeDelta || 0.05) * 111000 / 2, 5000), 50000);
+      fetchPharmaciesForArea(region.latitude, region.longitude, radiusMeters);
+    }, 400);
+  };
+
   const updateAddressForPin = async (coords: { latitude: number; longitude: number }, knownAddr?: string) => {
-    if (knownAddr && knownAddr !== 'Public Map Address' && knownAddr !== 'Address registered in database') {
+    if (knownAddr && knownAddr !== 'Public Map Address' && knownAddr !== 'Address registered in database' && knownAddr !== 'Google Maps Location') {
       setValAddress(knownAddr);
       return;
     }
@@ -322,9 +350,15 @@ function Step2Location({
           }
         }
 
-        const [osmList, dbPharmacies] = await Promise.all([
-          searchNearbyPharmacies({ latitude: centerLat, longitude: centerLon }, 5000),
-          supabase.from('pharmacies').select('id, name, latitude, longitude, address').limit(100),
+        // Fetch all registered PharmFindr pharmacies worldwide + Google Maps pharmacies for area
+        const [gList, dbPharmacies] = await Promise.all([
+          fetchGoogleMapsPharmaciesForRegistration({ latitude: centerLat, longitude: centerLon }, 10000),
+          supabase
+            .from('pharmacies')
+            .select('id, name, latitude, longitude, address')
+            .not('latitude', 'is', null)
+            .not('longitude', 'is', null)
+            .limit(10000),
         ]);
 
         if (!isMounted) return;
@@ -334,19 +368,22 @@ function Step2Location({
           .map((p: any) => ({
             id: p.id,
             name: p.name || 'Pharmacy',
-            address: p.address || 'Address registered in database',
+            address: p.address || 'Registered on PharmFindr',
             latitude: Number(p.latitude),
             longitude: Number(p.longitude),
           }));
         setRegisteredPharmacies(regList);
 
-        const knownList: KnownPharmacy[] = (osmList || []).map((p) => ({
-          id: String(p.id),
-          name: p.name || 'Public Pharmacy',
-          address: p.address || 'Public Map Address',
-          latitude: p.latitude,
-          longitude: p.longitude,
-        }));
+        const regIds = new Set(regList.map((r) => r.id));
+        const knownList: KnownPharmacy[] = (gList || [])
+          .filter((p) => !regIds.has(p.id))
+          .map((p) => ({
+            id: p.id,
+            name: p.name || 'Pharmacy',
+            address: p.address || 'Google Maps Location',
+            latitude: p.latitude,
+            longitude: p.longitude,
+          }));
         setKnownPharmacies(knownList);
       } catch (e: any) {
         console.warn('Map initialization notice:', e.message);
@@ -357,6 +394,7 @@ function Step2Location({
 
     return () => {
       isMounted = false;
+      if (regionDebounceRef.current) clearTimeout(regionDebounceRef.current);
     };
   }, []);
 
@@ -371,6 +409,7 @@ function Step2Location({
           setInitialCoords(coords);
           setSelectedKnownPharmacy(null);
           updateAddressForPin(coords);
+          fetchPharmaciesForArea(coords.latitude, coords.longitude);
         }
       }
     } catch (e: any) {
@@ -436,7 +475,7 @@ function Step2Location({
         <Hero step={2} onBack={onBack} />
         <View style={s.form}>
           <Text style={s.secSub}>
-            Tap an existing pharmacy pin or tap anywhere on the map to set your location. The physical address will be auto-detected below.
+            Tap an existing pharmacy pin or tap anywhere on the map to set your location
           </Text>
 
           {/* Map Preview Card */}
@@ -477,10 +516,12 @@ function Step2Location({
                   setPin(coords);
                   setSelectedKnownPharmacy(null);
                   updateAddressForPin(coords);
+                  fetchPharmaciesForArea(coords.latitude, coords.longitude);
                 }}
                 onSelectKnownPharmacy={(pharm) => {
                   handleSelectKnownPharmacy(pharm);
                 }}
+                onRegionChangeComplete={handleRegionChangeComplete}
                 initialCoords={initialCoords}
                 knownPharmacies={knownPharmacies}
                 registeredPharmacies={registeredPharmacies}
@@ -509,9 +550,6 @@ function Step2Location({
               returnKeyType="done"
               onSubmitEditing={handleConfirm}
             />
-            <Text style={{ fontSize: 11, fontFamily: 'Inter-Regular', color: LABEL_COLOR, marginTop: 6, marginLeft: 2 }}>
-              You can edit or refine the address.
-            </Text>
           </View>
 
           <PrimaryBtn label="Confirm Location & Continue" onPress={handleConfirm} />
@@ -545,8 +583,10 @@ function Step2Location({
                 setPin(coords);
                 setSelectedKnownPharmacy(null);
                 updateAddressForPin(coords);
+                fetchPharmaciesForArea(coords.latitude, coords.longitude);
               }}
               onSelectKnownPharmacy={handleSelectKnownPharmacy}
+              onRegionChangeComplete={handleRegionChangeComplete}
               initialCoords={initialCoords}
               knownPharmacies={knownPharmacies}
               registeredPharmacies={registeredPharmacies}
@@ -972,9 +1012,6 @@ const locStyles = StyleSheet.create({
   modalCloseBtn: {
     padding: 6, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.2)'
   },
-  modalTitle: {
-    color: COLORS.white, fontSize: 16, fontFamily: 'Inter-Bold'
-  },
   modalDoneBtn: {
     paddingHorizontal: 12, paddingVertical: 6, borderRadius: RADIUS.pill, backgroundColor: COLORS.white
   },
@@ -1095,11 +1132,11 @@ export default function PharmacyRegister() {
 
   return (
     <Step1Details
+      name={pharmName}
       email={email}
-      pharmName={pharmName}
-      onNext={(e, n) => {
-        setEmail(e);
+      onNext={(n, e) => {
         setPharmName(n);
+        setEmail(e);
         setStep(2);
       }}
       onBack={goBack}

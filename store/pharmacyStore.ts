@@ -58,7 +58,7 @@ export const usePharmacyStore = create<PharmacyState>((set, get) => ({
       const radiusMeters = Math.min(Math.max(get().maxDistanceKm * 1000, 1000), 50000);
       const foundMap = new Map<string, OsmPharmacy>();
 
-      await searchNearbyPharmacies(
+      const allPharmacies = await searchNearbyPharmacies(
         coords,
         radiusMeters,
         (pharmacy) => {
@@ -71,6 +71,9 @@ export const usePharmacyStore = create<PharmacyState>((set, get) => ({
         },
         signal
       );
+      if (!signal?.aborted && allPharmacies.length > 0) {
+        set({ pharmacies: allPharmacies });
+      }
     } catch (e: any) {
       if (e?.message !== 'Aborted' && !signal?.aborted) {
         set({ error: e?.message ?? 'Could not load pharmacies.' });

@@ -409,19 +409,22 @@ export async function fetchMedicineDetails(identifier: string): Promise<Medicine
 /**
  * Dynamic fallback factory retrieving a medicine structure by ID or Name.
  */
-export function getMedicineByIdOrName(identifier: string): MedicineItem {
+export function getMedicineByIdOrName(identifier: string, defaultName?: string): MedicineItem {
+  const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(identifier) || /^[0-9a-f-]{20,}$/i.test(identifier);
+  const displayName = defaultName || (isUUID ? '' : identifier.replace(/[-_]/g, ' '));
+
   return {
     id: identifier,
-    name: identifier,
-    genericName: identifier,
-    brandNames: [],
+    name: displayName,
+    genericName: displayName,
+    brandNames: displayName ? [displayName] : [],
     strength: 'Standard Dosage',
     category: 'Essential Medicine',
     dosageForm: 'Tablet/Capsule',
     dosage: '1 Unit',
     frequency: 'As directed by physician',
     duration: 'As prescribed',
-    uses: `Medical details for ${identifier}. Always consult a registered pharmacist or physician for exact usage and dosage guidelines.`,
+    uses: displayName ? `Medical details for ${displayName}. Always consult a registered pharmacist or physician for exact usage and dosage guidelines.` : 'Loading medicine details...',
     howToTake: 'Follow dosage instructions provided on the packaging or by your healthcare provider.',
     sideEffects: 'Consult your prescribing physician or pharmacist for potential side effects.',
     warnings: 'Store out of reach of children.',

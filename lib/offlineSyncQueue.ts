@@ -65,16 +65,7 @@ export async function flushOfflineSyncQueue(): Promise<{ syncedCount: number }> 
         let success = false;
 
         switch (item.type) {
-          case 'UPDATE_PROFILE': {
-            const { error } = await supabase.from('app_users').upsert({
-              id: item.userId,
-              ...item.payload,
-              updated_at: new Date().toISOString(),
-            });
-            if (!error) success = true;
-            break;
-          }
-
+          case 'UPDATE_PROFILE':
           case 'UPDATE_APP_USER': {
             const { error } = await supabase.from('app_users').upsert({
               id: item.userId,

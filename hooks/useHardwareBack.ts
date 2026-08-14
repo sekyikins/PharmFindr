@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useCallback } from 'react';
 import { BackHandler } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 

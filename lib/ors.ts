@@ -80,6 +80,7 @@ export function cleanDistanceString(val?: string | number | null): string {
   if (s.endsWith('km') || s.endsWith('m')) return s;
   const num = parseFloat(s);
   if (isNaN(num)) return s;
+  if (num < 1) return `${Math.round(num * 1000)} m`;
   return `${num.toFixed(1)} km`;
 }
 

@@ -199,9 +199,11 @@ export function formatGoogleTodayHours(
   const nextCloseTime = currentOpeningHours?.nextCloseTime || regularOpeningHours?.nextCloseTime;
   const nextOpenTime = currentOpeningHours?.nextOpenTime || regularOpeningHours?.nextOpenTime;
 
-  const now = new Date();
+  const targetNow = utcOffsetMinutes !== undefined
+    ? new Date(Date.now() + (utcOffsetMinutes + new Date().getTimezoneOffset()) * 60000)
+    : new Date();
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  const currentDayName = dayNames[now.getDay()];
+  const currentDayName = dayNames[targetNow.getDay()];
 
   let todayHoursStr: string | undefined;
 
@@ -219,7 +221,7 @@ export function formatGoogleTodayHours(
   }
 
   if (!todayHoursStr && hoursObj.periods && hoursObj.periods.length > 0) {
-    const todayPeriod = hoursObj.periods.find((p: any) => p.open?.day === now.getDay());
+    const todayPeriod = hoursObj.periods.find((p: any) => p.open?.day === targetNow.getDay());
     if (todayPeriod) {
       if (todayPeriod.open?.hour === 0 && todayPeriod.close?.hour === 23) {
         todayHoursStr = 'Open 24 hours';
@@ -324,10 +326,10 @@ export async function searchGoogleNearbyPharmacies(
           statusText: hoursData.statusText,
           nextCloseTime: hoursData.nextCloseTime,
           nextOpenTime: hoursData.nextOpenTime,
-          distanceKm: Math.round(distanceKm * 10) / 10,
-          walkMinutes: Math.round((distanceKm / 5) * 60),
-          isRegistered: false,
-          isOpen: hoursData.isOpen !== undefined ? hoursData.isOpen : true,
+          distanceKm: Math.round(distanceKm * 1000) / 1000,
+          walkMinutes: Math.max(1, Math.round((distanceKm / 5) * 60)),
+          isVerified: false,
+          isOpen: hoursData.isOpen,
         };
       });
   } catch (err: any) {
@@ -453,5 +455,112 @@ export async function fetchAddressForCoords(
     }
   }
   return null;
+}
+
+export interface GoogleMapPharmacyItem {
+  id: string;
+  name: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+  phone?: string;
+}
+
+/**
+ * Dedicated Google Maps fetcher for pharmacy registration.
+ * Fetches all pharmacies in any region worldwide via Google Places API.
+ */
+export async function fetchGoogleMapsPharmaciesForRegistration(
+  coords: Coords,
+  radiusMeters = 10000,
+  signal?: AbortSignal
+): Promise<GoogleMapPharmacyItem[]> {
+  const radius = Math.min(Math.max(radiusMeters, 1000), 50000);
+  const results: GoogleMapPharmacyItem[] = [];
+  const seenIds = new Set<string>();
+
+  const processPlaces = (places: any[]) => {
+    for (const p of places || []) {
+      if (p.location?.latitude && p.location?.longitude) {
+        const id = `gplace-${p.id}`;
+        if (!seenIds.has(id)) {
+          seenIds.add(id);
+          results.push({
+            id,
+            name: p.displayName?.text || 'Pharmacy',
+            address: p.formattedAddress || 'Google Maps Location',
+            latitude: p.location.latitude,
+            longitude: p.location.longitude,
+            phone: p.nationalPhoneNumber || p.internationalPhoneNumber || undefined,
+          });
+        }
+      }
+    }
+  };
+
+  // Run nearby search + multilingual text search simultaneously for comprehensive worldwide results
+  const fetchNearby = async () => {
+    const nearbyRes = await fetch('https://places.googleapis.com/v1/places:searchNearby', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Goog-Api-Key': GOOGLE_MAPS_API_KEY,
+        'X-Goog-FieldMask':
+          'places.id,places.displayName,places.formattedAddress,places.location,places.nationalPhoneNumber,places.internationalPhoneNumber',
+      },
+      body: JSON.stringify({
+        includedTypes: ['pharmacy', 'drugstore'],
+        maxResultCount: 20,
+        locationRestriction: {
+          circle: {
+            center: {
+              latitude: coords.latitude,
+              longitude: coords.longitude,
+            },
+            radius,
+          },
+        },
+      }),
+      signal,
+    });
+    if (nearbyRes.ok) {
+      const data = await nearbyRes.json();
+      processPlaces(data.places);
+    }
+  };
+
+  const fetchText = async () => {
+    const textRes = await fetch('https://places.googleapis.com/v1/places:searchText', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Goog-Api-Key': GOOGLE_MAPS_API_KEY,
+        'X-Goog-FieldMask':
+          'places.id,places.displayName,places.formattedAddress,places.location,places.nationalPhoneNumber,places.internationalPhoneNumber',
+      },
+      body: JSON.stringify({
+        textQuery: 'pharmacie OR pharmacy OR صيدلية',
+        locationBias: {
+          circle: {
+            center: {
+              latitude: coords.latitude,
+              longitude: coords.longitude,
+            },
+            radius,
+          },
+        },
+        maxResultCount: 20,
+      }),
+      signal,
+    });
+    if (textRes.ok) {
+      const data = await textRes.json();
+      processPlaces(data.places);
+    }
+  };
+
+  await Promise.allSettled([fetchNearby(), fetchText()]);
+
+  return results;
 }
 

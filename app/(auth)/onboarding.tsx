@@ -437,10 +437,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center'
   },
-  backBtnPlaceholder: {
-    width: 48,
-    height: 52
-  },
   button: {
     flex: 1,
     height: 52,

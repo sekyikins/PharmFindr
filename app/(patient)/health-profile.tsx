@@ -8,7 +8,6 @@ import {
   Pressable,
   Alert,
   ActivityIndicator,
-  BackHandler,
   KeyboardAvoidingView,
   Platform,
   RefreshControl,
@@ -64,7 +63,7 @@ const CONDITIONS_DB = [
 export default function HealthProfile() {
   const router = useRouter();
   const { theme, primaryColor } = useThemeContext();
-  const { appUser, fetchAppUser, updateAppUser, user } = useAuthStore();
+  const { appUser, fetchAppUser, updateAppUser } = useAuthStore();
 
   const handleGoBack = () => {
     if (router.canGoBack()) {

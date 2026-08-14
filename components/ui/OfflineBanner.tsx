@@ -4,11 +4,9 @@ import { StyleSheet, Text, View, Animated, PanResponder } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNetworkStore } from '@/store/networkStore';
-import { useThemeContext } from '@/hooks/useThemeContext';
 
 export default function OfflineBanner() {
   const insets = useSafeAreaInsets();
-  const { theme } = useThemeContext();
   const { isConnected, isPoorConnection, wasOffline, isBannerDismissed, dismissBanner, checkConnection } =
     useNetworkStore();
 

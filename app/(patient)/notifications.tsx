@@ -251,25 +251,6 @@ const styles = StyleSheet.create({
     flex: 1
   },
 
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: SPACING.xl,
-    paddingVertical: SPACING.md,
-    borderBottomWidth: 1
-  },
-  iconBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: RADIUS.pill,
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
-  headerTitle: {
-    fontSize: FONT_SIZE.xxl, fontFamily: 'Inter-Bold'
-  },
-
   listContent: {
     padding: SPACING.lg, gap: 12
   },

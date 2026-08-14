@@ -10,13 +10,12 @@ import {
   Alert,
   ActivityIndicator,
   Switch,
-  BackHandler,
   PanResponder,
   Animated,
   Platform,
   KeyboardAvoidingView,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
@@ -35,14 +34,11 @@ import {
   setBiometricsPreference,
   getBiometricType,
   getBiometricIcon,
-  isBiometricsSupported,
-  isBiometricsEnrolled,
   authenticateBiometrics,
 } from '@/lib/biometrics';
 
 export default function EditAccount() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const { user, profile, updateProfile, uploadAvatar, updatePasswordAndRevokeOtherSessions, signOut } = useAuthStore();
   const { theme, primaryColor } = useThemeContext();
 

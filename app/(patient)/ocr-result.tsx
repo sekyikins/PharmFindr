@@ -8,7 +8,6 @@ import {
   TextInput,
   Alert,
   ActivityIndicator,
-  Linking,
   Platform,
   KeyboardAvoidingView,
 } from 'react-native';
@@ -21,12 +20,8 @@ import { useThemeContext } from '@/hooks/useThemeContext';
 import { COLORS,  FONT_SIZE, RADIUS, SPACING  } from '@/styles/theme';
 import { supabase } from '@/lib/supabase';
 import { Header } from '@/components/ui/Header';
-import { searchPharmaciesForPrescription } from '@/lib/inventorySearch';
 import { useHardwareBack } from '@/hooks/useHardwareBack';
-import type {
-  PrescriptionMedicine,
-  PharmacyWithMedicines,
-} from '@/types/prescription';
+import type { PrescriptionMedicine } from '@/types/prescription';
 
 // ─── Confidence helpers ──────────────────────────────────────────────────────
 
@@ -115,11 +110,7 @@ export default function OcrResult() {
   })();
 
   const [medsList, setMedsList] = useState<PrescriptionMedicine[]>(initialMeds);
-
-  // Pharmacy search state
-  const [pharmacyResults, setPharmacyResults] = useState<PharmacyWithMedicines[]>([]);
   const [searching, setSearching] = useState(false);
-  const [hasSearched, setHasSearched] = useState(false);
 
   // Existing consultation state
   const [existingConsultationId, setExistingConsultationId] = useState<string | null>(null);
@@ -161,11 +152,6 @@ export default function OcrResult() {
 
   const handleDeleteMed = (index: number) => {
     setMedsList(medsList.filter((_, i) => i !== index));
-    // Reset search if medicines changed
-    if (hasSearched) {
-      setHasSearched(false);
-      setPharmacyResults([]);
-    }
   };
 
   // Keep ref of latest medsList for cleanup/leave handlers
@@ -245,28 +231,27 @@ export default function OcrResult() {
     return unsubscribe;
   }, [navigation, user?.id, savedPrescriptionId, prescriptionId, isManualEntry]);
 
-  // ─── Search pharmacies ────────────────────────────────────────────────────
+  // ─── Search pharmacies (opens dedicated screen) ───────────────────────────
 
-  const handleSearchPharmacies = async () => {
-    if (medsList.length === 0) {
-      Alert.alert('No Medicines', 'There are no medicines to search for.');
+  const handleSearchPharmacies = () => {
+    const validMeds = medsList.filter((m) => m.name && m.name.trim() !== '');
+    if (validMeds.length === 0) {
+      Alert.alert('No Medicines', 'Please enter or confirm at least one medicine before searching.');
       return;
     }
 
-    setSearching(true);
-    try {
-      const results = await searchPharmaciesForPrescription(medsList);
-      setPharmacyResults(results);
-      setHasSearched(true);
-      setTimeout(() => {
-        scrollViewRef.current?.scrollToEnd({ animated: true });
-      }, 150);
-    } catch (e: any) {
-      console.warn('Pharmacy search error:', e.message);
-      Alert.alert('Search Error', 'Could not search for pharmacies. Please try again.');
-    } finally {
-      setSearching(false);
-    }
+    // Navigate immediately — save in background, don't block the user
+    const existingId = savedPrescriptionId || prescriptionId;
+    savePrescription(validMeds).catch((e) => console.warn('Background save error:', e?.message));
+
+    router.push({
+      pathname: '/(patient)/prescription-pharmacies',
+      params: {
+        medicines: JSON.stringify(validMeds),
+        prescriptionId: existingId || undefined,
+        title: isManualEntry ? 'Prescription Pharmacies' : 'Found Pharmacies',
+      },
+    });
   };
 
   // ─── AI consultation ──────────────────────────────────────────────────────
@@ -306,31 +291,7 @@ export default function OcrResult() {
     router.replace('/(patient)/(tabs)/chat');
   };
 
-  // ─── Reserve from pharmacy ────────────────────────────────────────────────
 
-  const handleReserve = async (pharmacy: PharmacyWithMedicines) => {
-    await savePrescription(medsList);
-
-    const medsParam = pharmacy.medicines.map((m) => ({
-      name: m.medicineName,
-      strength: m.strength,
-      price: m.price,
-      quantity: 1,
-    }));
-
-    const totalCost = medsParam.reduce((sum, m) => sum + m.price, 0);
-
-    router.push({
-      pathname: '/(patient)/reservation/[id]',
-      params: {
-        id: pharmacy.pharmacyId,
-        name: pharmacy.pharmacyName,
-        medName: pharmacy.medicines.map((m) => `${m.medicineName} ${m.strength}`).join(', '),
-        price: `GH₵${totalCost.toFixed(2)}`,
-        medicinesJson: JSON.stringify(medsParam),
-      },
-    });
-  };
 
   // ─── Prompt before AI consultation ────────────────────────────────────────
 
@@ -420,7 +381,6 @@ export default function OcrResult() {
         <>
         {/* ── Success Banner / Hero Card ── */}
         <View style={[styles.banner, { backgroundColor: theme.card, borderColor: theme.border }]}>
-          <View style={styles.bannerTopRow}>
             <View style={[styles.bannerBadge, { backgroundColor: isManualEntry ? '#0284c715' : '#10b98115' }]}>
               <Ionicons
                 name={isManualEntry ? 'create-outline' : 'checkmark-circle'}
@@ -434,10 +394,6 @@ export default function OcrResult() {
             <Text style={[styles.bannerCountText, { color: theme.textDim }]}>
               {medsList.length} medicine{medsList.length !== 1 ? 's' : ''}
             </Text>
-          </View>
-          <Text style={[styles.bannerTitle, { color: theme.text.primary }]}>
-            {isManualEntry ? 'Prescription Medicines & Dosage' : 'Extracted Medicines & Dosage'}
-          </Text>
         </View>
 
         {/* ── Low-confidence warning ── */}
@@ -548,20 +504,12 @@ export default function OcrResult() {
         <View style={styles.actionContainer}>
           {/* Primary: Find Medicines Nearby */}
           <Pressable
-            style={({ pressed }) => [styles.primaryBtn, pressed && { opacity: 0.5 }, { backgroundColor: primaryColor }]}
+            style={({ pressed }) => [styles.primaryBtn, pressed && { opacity: 0.7 }, { backgroundColor: primaryColor + '15', borderColor: primaryColor, borderWidth: 1 }]}
             onPress={handleSearchPharmacies}
             disabled={searching}
           >
-            {searching ? (
-              <ActivityIndicator color={COLORS.white} />
-            ) : (
-              <>
-                <Ionicons name="search-outline" size={20} color={COLORS.white} style={{ marginRight: 8 }} />
-                <Text style={styles.primaryBtnText}>
-                  {hasSearched ? 'Search Again' : 'Find Medicines Nearby'}
-                </Text>
-              </>
-            )}
+            <Ionicons name="medical-outline" size={20} color={primaryColor} style={{ marginRight: 8 }} />
+            <Text style={[styles.primaryBtnText, { color: primaryColor }]}>Pharmacies Carrying Prescription</Text>
           </Pressable>
 
           {/* Secondary: Ask AI / Continue Chat */}
@@ -576,122 +524,10 @@ export default function OcrResult() {
               style={{ marginRight: 8 }}
             />
             <Text style={[styles.secondaryBtnText, { color: primaryColor }]}>
-              {existingConsultationId ? 'Continue Chat' : 'Ask AI About These'}
+              {existingConsultationId ? 'Continue Chat' : 'Consult PharmFindr Chat'}
             </Text>
           </Pressable>
         </View>
-
-        {/* ── Pharmacy Results ── */}
-        {hasSearched && (
-          <View style={styles.pharmacySection}>
-            <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>
-              {pharmacyResults.length > 0
-                ? `${pharmacyResults.length} Pharmac${pharmacyResults.length === 1 ? 'y' : 'ies'} Found`
-                : 'No Pharmacies Found'}
-            </Text>
-
-            {pharmacyResults.length === 0 && (
-              <Text style={[styles.emptyText, { color: theme.textMuted }]}>
-                Could not find any nearby pharmacies that stock these medicines. Try asking AI for alternatives.
-              </Text>
-            )}
-
-            {pharmacyResults.map((pharmacy) => (
-              <View
-                key={pharmacy.pharmacyId}
-                style={[styles.pharmacyCard, { backgroundColor: theme.card, borderColor: theme.border }]}
-              >
-                {/* Pharmacy header */}
-                <View style={styles.pharmacyHeader}>
-                  <View style={[styles.pharmacyIconCircle, { backgroundColor: theme.patientSecondary }]}>
-                    <Ionicons name="storefront" size={18} color={primaryColor} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.pharmacyName, { color: theme.text.primary }]}>{pharmacy.pharmacyName}</Text>
-                    <Text style={[styles.pharmacyMeta, { color: theme.textMuted }]}>
-                      {pharmacy.matchCount}/{pharmacy.totalPrescribed} medicines available
-                    </Text>
-                  </View>
-                  {/* Match percentage badge */}
-                  <View style={[
-                    styles.matchBadge,
-                    {
-                      backgroundColor: pharmacy.matchCount === pharmacy.totalPrescribed
-                        ? '#dcfce7'
-                        : '#fef9c3',
-                    },
-                  ]}>
-                    <Text style={[
-                      styles.matchBadgeText,
-                      {
-                        color: pharmacy.matchCount === pharmacy.totalPrescribed
-                          ? '#16a34a'
-                          : '#a16207',
-                      },
-                    ]}>
-                      {Math.round((pharmacy.matchCount / pharmacy.totalPrescribed) * 100)}%
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Medicine list in this pharmacy */}
-                <View style={styles.pharmacyMedsList}>
-                  {pharmacy.medicines.map((m, mIdx) => (
-                    <View key={mIdx} style={[styles.pharmacyMedRow, { borderTopColor: theme.border }]}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={[styles.pharmacyMedName, { color: theme.text.primary }]}>
-                          {m.medicineName}
-                        </Text>
-                        <Text style={[styles.pharmacyMedStrength, { color: theme.textMuted }]}>
-                          {m.strength}
-                        </Text>
-                      </View>
-                      <Text style={[styles.pharmacyMedPrice, { color: primaryColor }]}>
-                        GH₵{m.price.toFixed(2)}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-
-                {/* Actions: Reserve + Navigate */}
-                <View style={{ flexDirection: 'row', gap: 10, marginTop: SPACING.md }}>
-                  <Pressable
-                    style={({ pressed }) => [
-                      styles.reserveBtn,
-                      { flex: 1 },
-                      pressed && { opacity: 0.5 },
-                      { backgroundColor: primaryColor },
-                    ]}
-                    onPress={() => handleReserve(pharmacy)}
-                  >
-                    <Ionicons name="bag-handle-outline" size={16} color={COLORS.white} style={{ marginRight: 6 }} />
-                    <Text style={styles.reserveBtnText}>Reserve</Text>
-                  </Pressable>
-                  <Pressable
-                    style={({ pressed }) => [
-                      styles.secondaryBtn,
-                      { paddingHorizontal: 16, height: 44, borderRadius: RADIUS.lg, borderColor: primaryColor, backgroundColor: theme.card },
-                      pressed && { opacity: 0.5 },
-                    ]}
-                    onPress={() => {
-                      router.push({
-                        pathname: '/(patient)/pharmacy/[id]/navigate',
-                        params: {
-                          id: encodeURIComponent(pharmacy.pharmacyId),
-                          name: pharmacy.pharmacyName,
-                          lat: String(pharmacy.latitude ?? 5.6037),
-                          lon: String(pharmacy.longitude ?? -0.187),
-                        },
-                      });
-                    }}
-                  >
-                    <Ionicons name="navigate-outline" size={18} color={primaryColor} />
-                  </Pressable>
-                </View>
-              </View>
-            ))}
-          </View>
-        )}
         </>
         )}
       </ScrollView>
@@ -713,16 +549,13 @@ const styles = StyleSheet.create({
 
   // ── Banners ──
   banner: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     borderRadius: RADIUS.xl,
     borderWidth: 1.2,
-    padding: SPACING.lg,
+    padding: SPACING.md,
     marginBottom: SPACING.md
-  },
-  bannerTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 6
   },
   bannerBadge: {
     flexDirection: 'row',
@@ -739,11 +572,6 @@ const styles = StyleSheet.create({
   bannerCountText: {
     fontSize: 12,
     fontFamily: 'Inter-SemiBold'
-  },
-  bannerTitle: {
-    fontSize: FONT_SIZE.title,
-    fontFamily: 'Inter-Bold',
-    marginBottom: 4
   },
   bannerSub: {
     fontFamily: 'Inter-Regular',
@@ -895,7 +723,7 @@ const styles = StyleSheet.create({
     alignItems: 'center'
   },
   primaryBtnText: {
-    color: COLORS.white, fontSize: FONT_SIZE.xl, fontFamily: 'Inter-SemiBold'
+    color: COLORS.white, fontSize: FONT_SIZE.lg, fontFamily: 'Inter-SemiBold'
   },
   secondaryBtn: {
     height: 52,

@@ -17,6 +17,7 @@ import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { toast } from '@/context/ToastContext';
 import { supabase } from '@/lib/supabase';
+import { getPharmacyForUser } from '@/lib/pharmacyService';
 import { useThemeContext } from '@/hooks/useThemeContext';
 import { useHardwareBack } from '@/hooks/useHardwareBack';
 import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
@@ -68,7 +69,6 @@ export default function AddMedicine() {
   const [selectedGenericId, setSelectedGenericId] = useState<string | null>(null);
 
   const [brandName, setBrandName] = useState(params.name || '');
-  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
 
   const [strength, setStrength] = useState(params.strength || '');
   const [dosageForm, setDosageForm] = useState<DosageForm>('Tablet');
@@ -168,7 +168,6 @@ export default function AddMedicine() {
 
   const handleSelectBrand = (item: ProductOption) => {
     setBrandName(item.brand_name);
-    setSelectedProductId(item.id);
     setStrength(item.strength);
     if (item.manufacturer) setManufacturer(item.manufacturer);
     setShowBrandDropdown(false);
@@ -205,14 +204,8 @@ export default function AddMedicine() {
     try {
       if (!user) throw new Error('User authentication lost.');
 
-      let pharmId: string | null = null;
-      const { data: pharm } = await supabase
-        .from('pharmacies')
-        .select('id')
-        .eq('owner_id', user.id)
-        .maybeSingle();
-
-      if (pharm) pharmId = pharm.id;
+      const pharm = await getPharmacyForUser(user);
+      const pharmId = pharm?.id;
 
       if (!pharmId) throw new Error('No registered pharmacy found for your account.');
 
@@ -308,7 +301,6 @@ export default function AddMedicine() {
             value={brandName}
             onChangeText={(text) => {
               setBrandName(text);
-              setSelectedProductId(null);
               fetchBrandSuggestions(text);
             }}
           />

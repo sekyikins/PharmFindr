@@ -18,10 +18,11 @@ import { supabase } from '@/lib/supabase';
 import Skeleton from '@/components/ui/Skeleton';
 import { useNotificationStore } from '@/store/notificationStore';
 import { Header } from '@/components/ui/Header';
+import { cleanDistanceString, cleanDurationString } from '@/lib/ors';
 
 export default function Home() {
   const router = useRouter();
-  const { profile, user, appUser, refreshProfile, fetchAppUser } = useAuthStore();
+  const { profile, user, refreshProfile, fetchAppUser } = useAuthStore();
   const { theme, primaryColor } = useThemeContext();
   const firstName = profile?.full_name?.split(' ')[0] ?? 'there';
 
@@ -301,7 +302,7 @@ export default function Home() {
             <View style={[styles.emptyCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
               <Ionicons name="location-outline" size={28} color={theme.textDim} />
               <Text style={[styles.emptyText, { color: theme.textMuted }]}>
-                No registered pharmacies found nearby. Tap below to search across Ghana.
+                No verified pharmacies found nearby. Tap below to search across Ghana.
               </Text>
               <Pressable
                 style={({ pressed }) => [styles.scanLinkBtn, pressed && { opacity: 0.8 }, { backgroundColor: primaryColor }]}
@@ -334,15 +335,15 @@ export default function Home() {
                     <Text style={[styles.pharmacyName, { color: theme.text.primary, flexShrink: 1 }]} numberOfLines={1}>
                       {p.name}
                     </Text>
-                    {(p.isRegistered || p.verified) && (
+                    {p.isVerified && (
                       <Ionicons name="checkmark-circle" size={14} color={COLORS.pharmacyPrimary} />
                     )}
                   </View>
                   <View style={styles.pharmacyMeta}>
                     <Ionicons name="navigate-outline" size={12} color={theme.textMuted} />
-                    <Text style={[styles.distance, { color: theme.textMuted }]}>{p.distanceKm} km</Text>
+                    <Text style={[styles.distance, { color: theme.textMuted }]}>{cleanDistanceString(p.distanceKm)}</Text>
                     <Text style={[styles.distance, { color: theme.textDim }]}>·</Text>
-                    <Text style={[styles.distance, { color: theme.textMuted }]}>{p.walkMinutes} min walk</Text>
+                    <Text style={[styles.distance, { color: theme.textMuted }]}>{cleanDurationString(p.walkMinutes)}</Text>
                   </View>
                 </View>
                 <Ionicons name="chevron-forward" size={16} color={theme.textDim} />

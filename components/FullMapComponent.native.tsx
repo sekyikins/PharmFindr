@@ -1,20 +1,12 @@
-import { COLORS } from '@/styles/theme';
+import { COLORS, MAP_PIN_COLORS, getPharmacyPinColor } from '@/styles/theme';
 import React, { useEffect, useRef, useCallback } from 'react';
 import { StyleSheet, View, Text, Pressable } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE, EdgePadding } from 'react-native-maps';
 import type { MapMarker } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 
-export interface MarkerData {
-  id: string;
-  name: string;
-  address: string;
-  latitude: number;
-  longitude: number;
-  isRegistered?: boolean;
-  isOpen?: boolean;
-  hours?: string;
-}
+import { MarkerData } from '@/types/map';
+export type { MarkerData };
 
 interface FullMapComponentProps {
   initialRegion?: {
@@ -35,10 +27,12 @@ interface FullMapComponentProps {
 }
 
 export function getPinColor(m: MarkerData, isSelected: boolean): string {
-  if (isSelected) return '#f59e0b'; // Amber / Gold for active selected pin
-  if (m.isOpen === false) return '#64748b'; // Slate Gray for ALL closed pharmacies (registered & public)
-  if (m.isRegistered) return '#10b981'; // Emerald Green for open registered database pharmacies
-  return '#0284c7'; // Royal Blue for open public map pharmacies
+  return getPharmacyPinColor({
+    isVerified: m.isVerified,
+    isOpen: m.isOpen,
+    isSelected,
+    showClosed: true,
+  });
 }
 
 export default function FullMapComponent({
@@ -173,17 +167,17 @@ export default function FullMapComponent({
         {markers.map((m) => {
           const isSelected = m.id === selectedId;
           const color = getPinColor(m, isSelected);
-          const descriptionText = `${m.isRegistered ? 'Verified Partner' : 'Public Directory'}${m.isOpen === false ? ' · Closed' : ' · Open'}`;
+          const descriptionText = `${m.isVerified ? 'Verified Partner' : 'Public / Google'}${m.isOpen === false ? ' · Closed' : m.isOpen === true ? ' · Open' : ''}`;
 
           return (
             <Marker
-              key={`${m.id}-${isSelected ? 'sel' : 'nor'}`}
+              key={`${m.id}-${isSelected ? 'sel' : 'nor'}-${color}`}
               ref={(ref) => { markerRefs.current[m.id] = ref; }}
               coordinate={{ latitude: m.latitude, longitude: m.longitude }}
               title={m.name}
               description={descriptionText}
               pinColor={color}
-              zIndex={isSelected ? 50 : m.isRegistered ? 20 : 10}
+              zIndex={isSelected ? 50 : m.isVerified ? 20 : 10}
               onPress={() => onSelectMarker(m.id)}
             />
           );
@@ -216,19 +210,19 @@ export default function FullMapComponent({
       {showLegend && (
         <View style={styles.legendBar} pointerEvents="box-none">
           <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: COLORS.pharmacyPrimary }]} />
+            <View style={[styles.legendDot, { backgroundColor: MAP_PIN_COLORS.verified }]} />
             <Text style={styles.legendText}>Verified</Text>
           </View>
           <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: '#0284c7' }]} />
-            <Text style={styles.legendText}>Public</Text>
+            <View style={[styles.legendDot, { backgroundColor: MAP_PIN_COLORS.public }]} />
+            <Text style={styles.legendText}>Public / Google</Text>
           </View>
           <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: COLORS.textMuted }]} />
+            <View style={[styles.legendDot, { backgroundColor: MAP_PIN_COLORS.closed }]} />
             <Text style={styles.legendText}>Closed</Text>
           </View>
           <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: COLORS.warning }]} />
+            <View style={[styles.legendDot, { backgroundColor: MAP_PIN_COLORS.selected }]} />
             <Text style={styles.legendText}>Selected</Text>
           </View>
         </View>
