@@ -113,73 +113,127 @@ interface AuthState {
 
 // ─── Role + profile resolution ───────────────────────────────────────────────
 
+// ─── Profile Caching & Timeout Helpers ────────────────────────────────────────
+
+const CACHED_PROFILE_PREFIX = 'PharmFindr_cached_profile_';
+
+export async function getCachedProfile(userId: string): Promise<Profile | null> {
+  try {
+    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+    const json = await AsyncStorage.getItem(CACHED_PROFILE_PREFIX + userId);
+    return json ? JSON.parse(json) : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+export async function saveCachedProfile(userId: string, profile: Profile | null) {
+  try {
+    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+    if (profile) {
+      await AsyncStorage.setItem(CACHED_PROFILE_PREFIX + userId, JSON.stringify(profile));
+    } else {
+      await AsyncStorage.removeItem(CACHED_PROFILE_PREFIX + userId);
+    }
+  } catch (_) {}
+}
+
 /**
  * Single-query role lookup via user_roles table, then fetch matching identity row.
  * Returns a unified Profile object ready for the rest of the app.
  */
 async function resolveProfile(userId: string): Promise<Profile | null> {
-  // 1. Fast role lookup (1 row, indexed PK)
-  const { data: roleRow } = await supabase
-    .from('user_roles')
-    .select('id, role')
-    .eq('id', userId)
-    .single();
+  try {
+    // 1. Fast role lookup (1 row, indexed PK)
+    const { data: roleRow } = await supabase
+      .from('user_roles')
+      .select('id, role')
+      .eq('id', userId)
+      .single();
 
-  let role: 'user' | 'pharmacy' | 'both' = (roleRow?.role as any) || 'user';
+    let role: 'user' | 'pharmacy' | 'both' = (roleRow?.role as any) || 'user';
 
-  // Fallback: Check if user is an owner in pharmacies table
-  if (!roleRow || role === 'user') {
-    const { data: pharm } = await supabase
-      .from('pharmacies')
-      .select('id, name, phone, created_at')
-      .eq('owner_id', userId)
-      .maybeSingle();
+    // Fallback: Check if user is an owner in pharmacies table
+    if (!roleRow || role === 'user') {
+      const { data: pharm } = await supabase
+        .from('pharmacies')
+        .select('id, name, phone, created_at')
+        .eq('owner_id', userId)
+        .maybeSingle();
 
-    if (pharm) {
-      role = 'pharmacy';
-      return {
+      if (pharm) {
+        role = 'pharmacy';
+        const p: Profile = {
+          id: userId,
+          role: 'pharmacy',
+          full_name: pharm.name ?? 'Pharmacy Manager',
+          phone: pharm.phone ?? null,
+          avatar_url: null,
+          created_at: pharm.created_at ?? new Date().toISOString(),
+        };
+        saveCachedProfile(userId, p);
+        return p;
+      }
+    }
+
+    let p: Profile;
+    // For 'user' and 'both': identity lives in app_users
+    if (role === 'user' || role === 'both') {
+      const { data: appUser } = await supabase
+        .from('app_users')
+        .select('id, full_name, phone, avatar_url, created_at')
+        .eq('id', userId)
+        .maybeSingle();
+
+      p = {
+        id: userId,
+        role,
+        full_name: appUser?.full_name ?? null,
+        phone: appUser?.phone ?? null,
+        avatar_url: appUser?.avatar_url ?? null,
+        created_at: appUser?.created_at ?? new Date().toISOString(),
+      };
+    } else {
+      // 'pharmacy' only — identity comes from pharmacies table
+      const { data: pharmacy } = await supabase
+        .from('pharmacies')
+        .select('name, phone, created_at')
+        .eq('owner_id', userId)
+        .maybeSingle();
+
+      p = {
         id: userId,
         role: 'pharmacy',
-        full_name: pharm.name ?? 'Pharmacy Manager',
-        phone: pharm.phone ?? null,
+        full_name: pharmacy?.name ?? 'Pharmacy Manager',
+        phone: pharmacy?.phone ?? null,
         avatar_url: null,
-        created_at: pharm.created_at ?? new Date().toISOString(),
+        created_at: pharmacy?.created_at ?? new Date().toISOString(),
       };
     }
+    saveCachedProfile(userId, p);
+    return p;
+  } catch (err) {
+    console.warn('resolveProfile network error, using cached profile:', err);
+    return getCachedProfile(userId);
   }
+}
 
-  // For 'user' and 'both': identity lives in app_users
-  if (role === 'user' || role === 'both') {
-    const { data: appUser } = await supabase
-      .from('app_users')
-      .select('id, full_name, phone, avatar_url, created_at')
-      .eq('id', userId)
-      .maybeSingle();
+/**
+ * Resolves profile with a maximum timeout (default 3.5s) so poor network connections never hang startup.
+ */
+async function resolveProfileWithTimeout(userId: string, timeoutMs = 3500): Promise<Profile | null> {
+  const cached = await getCachedProfile(userId);
 
-    return {
-      id: userId,
-      role,
-      full_name: appUser?.full_name ?? null,
-      phone: appUser?.phone ?? null,
-      avatar_url: appUser?.avatar_url ?? null,
-      created_at: appUser?.created_at ?? new Date().toISOString(),
-    };
-  } else {
-    // 'pharmacy' only — identity comes from pharmacies table
-    const { data: pharmacy } = await supabase
-      .from('pharmacies')
-      .select('name, phone, created_at')
-      .eq('owner_id', userId)
-      .maybeSingle();
+  const fetchPromise = resolveProfile(userId);
+  const timeoutPromise = new Promise<Profile | null>((res) => {
+    setTimeout(() => res(cached), timeoutMs);
+  });
 
-    return {
-      id: userId,
-      role: 'pharmacy',
-      full_name: pharmacy?.name ?? 'Pharmacy Manager',
-      phone: pharmacy?.phone ?? null,
-      avatar_url: null,
-      created_at: pharmacy?.created_at ?? new Date().toISOString(),
-    };
+  try {
+    const result = await Promise.race([fetchPromise, timeoutPromise]);
+    return result || cached;
+  } catch (_) {
+    return cached;
   }
 }
 
@@ -187,18 +241,31 @@ async function resolveProfile(userId: string): Promise<Profile | null> {
 
 export const useAuthStore = create<AuthState>((set, get) => {
   // Listen to Supabase auth state changes
-  supabase.auth.onAuthStateChange(async (event, session) => {
+  supabase.auth.onAuthStateChange((event, session) => {
     if (session) {
-      set({ session, user: session.user, loading: true });
-      try {
-        const profile = await resolveProfile(session.user.id);
-        set({ profile });
-        await updateLastActiveTimestamp();
-      } catch (e) {
-        console.error('Error resolving profile in auth state change:', e);
-      } finally {
-        set({ loading: false });
-      }
+      getCachedProfile(session.user.id).then((cached) => {
+        const metaRole = session.user.user_metadata?.role || 'user';
+        const initialProfile: Profile = cached || {
+          id: session.user.id,
+          role: metaRole === 'pharmacy' ? 'pharmacy' : 'user',
+          full_name: session.user.user_metadata?.full_name || null,
+          phone: session.user.user_metadata?.phone || null,
+          avatar_url: null,
+          created_at: session.user.created_at,
+        };
+
+        // Set session & profile instantly — NEVER block UI with loading: true
+        set({ session, user: session.user, profile: initialProfile, loading: false });
+
+        // Background network profile sync
+        resolveProfile(session.user.id)
+          .then((fresh) => {
+            if (fresh) set({ profile: fresh });
+          })
+          .catch(() => {});
+
+        updateLastActiveTimestamp().catch(() => {});
+      });
     } else {
       set({ session: null, user: null, profile: null, appUser: null, loading: false });
     }
@@ -298,6 +365,10 @@ export const useAuthStore = create<AuthState>((set, get) => {
     // ── Sign Out ─────────────────────────────────────────────────────────────
     signOut: async () => {
       set({ loading: true });
+      const currentUserId = get().user?.id;
+      if (currentUserId) {
+        saveCachedProfile(currentUserId, null);
+      }
       const { error } = await supabase.auth.signOut();
       if (error) {
         set({ loading: false });
@@ -317,33 +388,58 @@ export const useAuthStore = create<AuthState>((set, get) => {
     // ── Initialize (cold start with 7-day inactivity check) ────────────────
     initialize: async () => {
       if (get().initialized) return;
-      set({ loading: true });
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (session) {
-          const isExpired = await checkInactivityTimeout();
-          if (isExpired) {
-            console.info('Session expired due to 7 days of inactivity.');
-            await supabase.auth.signOut();
-            set({
-              session: null,
-              user: null,
-              profile: null,
-              appUser: null,
-              securityNotice: 'You have been logged out due to 7 days of inactivity for account security.',
-            });
-            return;
+          const cachedProfile = await getCachedProfile(session.user.id);
+          const metaRole = session.user.user_metadata?.role || 'user';
+          const initialProfile: Profile = cachedProfile || {
+            id: session.user.id,
+            role: metaRole === 'pharmacy' ? 'pharmacy' : 'user',
+            full_name: session.user.user_metadata?.full_name || null,
+            phone: session.user.user_metadata?.phone || null,
+            avatar_url: null,
+            created_at: session.user.created_at,
+          };
+
+          // SET SESSION & PROFILE IMMEDIATELY — INSTANT UI RESOLUTION!
+          set({
+            session,
+            user: session.user,
+            profile: initialProfile,
+            initialized: true,
+            loading: false,
+          });
+
+          // All network checks performed non-blockingly in the background
+          resolveProfile(session.user.id)
+            .then((fresh) => {
+              if (fresh) set({ profile: fresh });
+            })
+            .catch(() => {});
+
+          checkInactivityTimeout()
+            .then(async (isExpired) => {
+              if (isExpired) {
+                console.info('Session expired due to 7 days of inactivity.');
+                await supabase.auth.signOut();
+                await saveCachedProfile(session.user.id, null);
+                set({
+                  session: null,
+                  user: null,
+                  profile: null,
+                  appUser: null,
+                  securityNotice: 'You have been logged out due to 7 days of inactivity for account security.',
+                });
+              }
+            })
+            .catch(() => {});
+
+          registerDeviceSession(session.user.id, initialProfile.role === 'pharmacy' ? 'pharmacy' : 'patient').catch(() => {});
+          if (initialProfile.role === 'user') {
+            get().fetchAppUser().catch(() => {});
           }
-
-          const profile = await resolveProfile(session.user.id);
-          set({ session, user: session.user, profile });
-
-          const userRole = profile?.role === 'pharmacy' ? 'pharmacy' : 'patient';
-          await registerDeviceSession(session.user.id, userRole);
-
-          if (profile?.role === 'user') {
-            get().fetchAppUser();
-          }
+          return;
         }
       } catch (e) {
         console.warn('Error during auth initialization:', e);

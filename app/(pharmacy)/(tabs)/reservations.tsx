@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { StyleSheet, Text, View, FlatList, Pressable, RefreshControl, Linking } from 'react-native';
 import { toast } from '@/context/ToastContext';
+import { getFriendlyErrorMessage } from '@/lib/errorUtils';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -151,7 +152,7 @@ export default function Reservations() {
         prev.map((r) => (r.id === id ? { ...r, status: 'accepted' } : r))
       );
     } catch (e: any) {
-      toast.error('Error', e.message || 'Failed to accept reservation.');
+      toast.error('Action Failed', getFriendlyErrorMessage(e, 'Failed to accept reservation. Please try again.'));
     }
   };
 
@@ -167,7 +168,7 @@ export default function Reservations() {
         prev.map((r) => (r.id === id ? { ...r, status: 'declined' } : r))
       );
     } catch (e: any) {
-      toast.error('Error', e.message || 'Failed to decline reservation.');
+      toast.error('Action Failed', getFriendlyErrorMessage(e, 'Failed to decline reservation. Please try again.'));
     }
   };
 
@@ -287,7 +288,6 @@ export default function Reservations() {
           />
         }
       />
-
 
       {/* Filter Tabs */}
       <View style={styles.filterRow}>

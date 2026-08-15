@@ -18,6 +18,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
 import { Header } from '@/components/ui/Header';
 import { toast } from '@/context/ToastContext';
+import { getFriendlyErrorMessage } from '@/lib/errorUtils';
 import Skeleton from '@/components/ui/Skeleton';
 import { logAuditEvent } from '@/lib/auditLogger';
 import { useHardwareBack } from '@/hooks/useHardwareBack';
@@ -170,7 +171,7 @@ export default function ReservationScreen() {
               setReservation((prev) => (prev ? { ...prev, status: 'cancelled' } : null));
               toast.info('Reservation Cancelled', 'Your reservation has been cancelled.');
             } catch (e: any) {
-              Alert.alert('Error', e.message || 'Failed to cancel reservation.');
+              Alert.alert('Unable to Cancel', getFriendlyErrorMessage(e, 'Failed to cancel reservation. Please try again.'));
             } finally {
               setCancelling(false);
             }
@@ -218,7 +219,7 @@ export default function ReservationScreen() {
       toast.success('Reservation Requested', `Your request has been sent to ${pharmName}.`);
       router.replace('/(patient)/reservations-history');
     } catch (e: any) {
-      Alert.alert('Error', e.message || 'Failed to place reservation request.');
+      Alert.alert('Reservation Failed', getFriendlyErrorMessage(e, 'Failed to place reservation request. Please try again.'));
     } finally {
       setSubmitting(false);
     }

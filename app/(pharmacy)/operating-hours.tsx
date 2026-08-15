@@ -19,6 +19,7 @@ import { useThemeContext } from '@/hooks/useThemeContext';
 import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
 import { Header } from '@/components/ui/Header';
 import { toast } from '@/context/ToastContext';
+import { getFriendlyErrorMessage } from '@/lib/errorUtils';
 import { supabase } from '@/lib/supabase';
 import { getPharmacyForUser } from '@/lib/pharmacyService';
 import { formatTimeHHMM } from '@/lib/osm';
@@ -227,7 +228,7 @@ export default function OperatingHours() {
       toast.success('Operating Hours Saved', 'Operating hours saved successfully!');
       router.back();
     } catch (e: any) {
-      toast.error('Error', e.message || 'Failed to save operating hours.');
+      toast.error('Save Failed', getFriendlyErrorMessage(e, 'Failed to save operating hours. Please try again.'));
     } finally {
       setSaving(false);
     }

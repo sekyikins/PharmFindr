@@ -23,23 +23,10 @@ import { supabase } from '@/lib/supabase';
 import OtpInput, { type OtpInputHandle } from '@/components/ui/OtpInput';
 import { toast } from '@/context/ToastContext';
 
+import { getFriendlyErrorMessage } from '@/lib/errorUtils';
+
 function getFriendlyAuthErrorMessage(err: any, defaultMsg = 'Authentication failed.'): string {
-  const message = err?.message || String(err || '');
-  if (!message) return defaultMsg;
-
-  if (/network|fetch|connect|timeout|offline|internet|getaddrinfo|econnrefused/i.test(message)) {
-    return 'Login failed due to poor connectivity. Please check your internet connection.';
-  }
-
-  if (/invalid login credentials|invalid email or password|user not found/i.test(message)) {
-    return 'Invalid email or password. Please check your credentials and try again.';
-  }
-
-  if (/rate limit|too many requests/i.test(message)) {
-    return 'Too many login attempts. Please wait a moment before trying again.';
-  }
-
-  return message;
+  return getFriendlyErrorMessage(err, defaultMsg);
 }
 
 export default function Login() {
@@ -129,11 +116,7 @@ export default function Login() {
     setLoading(false);
 
     if (!result.success) {
-      const isNetwork = /network|fetch|connect|timeout/i.test(result.error || '');
-      const msg = isNetwork
-        ? 'Failed to send OTP due to poor connectivity. Please check your internet.'
-        : (result.error || 'Failed to send OTP. Please try again.');
-      toast.error(msg);
+      toast.error(getFriendlyErrorMessage(result.error, 'Failed to send OTP. Please try again.'));
       return;
     }
 
@@ -148,11 +131,7 @@ export default function Login() {
     setLoading(false);
 
     if (!result.success) {
-      const isNetwork = /network|fetch|connect|timeout/i.test(result.error || '');
-      const msg = isNetwork
-        ? 'Failed to resend OTP due to poor connectivity.'
-        : (result.error || 'Failed to resend OTP. Please try again.');
-      toast.error(msg);
+      toast.error(getFriendlyErrorMessage(result.error, 'Failed to resend OTP. Please try again.'));
       return;
     }
 

@@ -12,6 +12,7 @@ import {
   Alert,
 } from 'react-native';
 import { toast } from '@/context/ToastContext';
+import { getFriendlyErrorMessage } from '@/lib/errorUtils';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -171,7 +172,7 @@ export default function PharmacyProfile() {
       setIsVerified(true);
       toast.success('Verification Completed!', 'Your pharmacy has been fully registered on PharmFindr.');
     } catch (e: any) {
-      toast.error('Error', e.message || 'Failed to complete verification.');
+      toast.error('Verification Failed', getFriendlyErrorMessage(e, 'Failed to complete verification. Please try again.'));
     }
   };
 
@@ -207,7 +208,7 @@ export default function PharmacyProfile() {
       toast.success('Saved', 'Pharmacy details updated successfully!');
       editSheetRef.current?.dismiss();
     } catch (e: any) {
-      toast.error('Error', e.message || 'Failed to save pharmacy info.');
+      toast.error('Save Failed', getFriendlyErrorMessage(e, 'Failed to save pharmacy info. Please try again.'));
     } finally {
       setSavingEdit(false);
     }
@@ -226,7 +227,7 @@ export default function PharmacyProfile() {
       setNewPassword('');
       pwdSheetRef.current?.dismiss();
     } catch (e: any) {
-      toast.error('Error', e.message || 'Failed to change password.');
+      toast.error('Password Update Failed', getFriendlyErrorMessage(e, 'Failed to change password. Please try again.'));
     } finally {
       setSavingPwd(false);
     }

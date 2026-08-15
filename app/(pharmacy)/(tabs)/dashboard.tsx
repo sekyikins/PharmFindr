@@ -18,7 +18,6 @@ import Svg, { Path } from 'react-native-svg';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
 import { getPharmacyForUser } from '@/lib/pharmacyService';
-import Skeleton from '@/components/ui/Skeleton';
 import { useNotificationStore } from '@/store/notificationStore';
 
 const PHARMACY_GREEN = '#10b981';
@@ -135,7 +134,7 @@ export default function Dashboard() {
           </View>
 
           {/* Right: Notification Bell + Verified Badge */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <View style={{ flexDirection: 'column', alignItems: 'center', gap: 8 }}>
             {/* Bell Icon */}
             <Pressable
               style={({ pressed }) => [styles.bellBtn, pressed && { opacity: 0.7 }]}
@@ -144,36 +143,36 @@ export default function Dashboard() {
               <Ionicons name="notifications-outline" size={20} color={COLORS.white} />
               {unreadCount > 0 && (
                 <View style={styles.bellBadge}>
-                  <Text style={styles.bellBadgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
+                  <Text style={styles.bellBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
                 </View>
               )}
             </Pressable>
 
-            {/* Verified Badge */}
-            <Pressable
-              style={({ pressed }) => [
-                styles.verifiedBadge,
-                pressed && { opacity: 0.8 },
-                isVerified
-                  ? { backgroundColor: 'rgba(255, 255, 255, 0.25)' }
-                  : { backgroundColor: '#fffbeb', borderColor: COLORS.pendingBg },
-              ]}
-              onPress={() => router.push('/(pharmacy)/(tabs)/profile')}
-            >
-              <Ionicons
-                name={isVerified ? 'shield-checkmark' : 'alert-circle-outline'}
-                size={12}
-                color={isVerified ? COLORS.white : '#b45309'}
-              />
-              <Text
-                style={[
-                  styles.verifiedText,
-                  { color: isVerified ? COLORS.white : '#b45309' },
+            {/* NotVerified Badge */}
+            {!isVerified && (
+              <Pressable
+                style={({ pressed }) => [
+                  styles.verifiedBadge,
+                  pressed && { opacity: 0.8 }, 
+                  { backgroundColor: '#fffbeb', borderColor: COLORS.pendingBg },
                 ]}
+                onPress={() => router.push('/(pharmacy)/(tabs)/profile')}
               >
-                {isVerified ? 'VERIFIED' : 'NOT VERIFIED'}
-              </Text>
-            </Pressable>
+                <Ionicons
+                  name='alert-circle-outline'
+                  size={12}
+                  color='#b45309'
+                />
+                <Text
+                  style={[
+                    styles.verifiedText,
+                    { color: '#b45309' },
+                  ]}
+                >
+                  NOT VERIFIED
+                </Text>
+              </Pressable>
+            )}
           </View>
         </View>
 
@@ -523,9 +522,9 @@ const styles = StyleSheet.create({
   },
 
   bellBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: 'rgba(255,255,255,0.2)',
     justifyContent: 'center',
     alignItems: 'center',

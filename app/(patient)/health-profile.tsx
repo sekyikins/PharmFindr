@@ -21,6 +21,7 @@ import { COLORS,  FONT_SIZE, RADIUS, SPACING  } from '@/styles/theme';
 import AppBottomSheet from '@/components/ui/AppBottomSheet';
 import { Header } from '@/components/ui/Header';
 import { toast } from '@/context/ToastContext';
+import { getFriendlyErrorMessage } from '@/lib/errorUtils';
 import { useHardwareBack } from '@/hooks/useHardwareBack';
 import { supabase } from '@/lib/supabase';
 
@@ -279,7 +280,7 @@ export default function HealthProfile() {
 
       toast.success('Health parameters saved', 'Your clinical safety profile has been updated successfully.');
     } catch (e: any) {
-      toast.error('Error', e.message || 'Failed to update profile.');
+      toast.error('Save Failed', getFriendlyErrorMessage(e, 'Failed to update profile. Please try again.'));
     } finally {
       setSaving(false);
     }

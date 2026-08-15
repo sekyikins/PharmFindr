@@ -270,11 +270,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.xl,
   },
   emptyTitle: {
-    fontSize: FONT_SIZE.xl,
+    fontSize: FONT_SIZE.xxl,
     fontFamily: 'Inter-Bold',
   },
   emptySub: {
-    fontSize: FONT_SIZE.md,
+    fontSize: FONT_SIZE.lg,
     fontFamily: 'Inter-Regular',
     textAlign: 'center',
     lineHeight: 20,

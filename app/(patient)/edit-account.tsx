@@ -27,6 +27,7 @@ import { BottomSheetModal, BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import AppBottomSheet from '@/components/ui/AppBottomSheet';
 import AvatarPickerSheet from '@/components/ui/AvatarPickerSheet';
 import { toast } from '@/context/ToastContext';
+import { getFriendlyErrorMessage } from '@/lib/errorUtils';
 import { Header } from '@/components/ui/Header';
 import { useHardwareBack } from '@/hooks/useHardwareBack';
 import {
@@ -220,7 +221,7 @@ export default function EditAccount() {
       });
       toast.success('Account Updated', 'Account details updated successfully!');
     } catch (e: any) {
-      Alert.alert('Error', e.message || 'Failed to update account.');
+      Alert.alert('Update Failed', getFriendlyErrorMessage(e, 'Failed to update account. Please try again.'));
     } finally {
       setSaving(false);
     }
@@ -272,7 +273,7 @@ export default function EditAccount() {
       setNewPassword('');
       setConfirmPassword('');
     } catch (e: any) {
-      toast.error('Security Error', e.message || 'Failed to change password.');
+      toast.error('Password Update Failed', getFriendlyErrorMessage(e, 'Failed to change password. Please try again.'));
     } finally {
       setChangingPassword(false);
     }

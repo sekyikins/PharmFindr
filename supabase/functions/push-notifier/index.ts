@@ -1,20 +1,4 @@
 // @ts-nocheck
-// ============================================================
-// PharmFindr — Supabase Edge Function: push-notifier v2
-//
-// Called by Supabase Database Webhooks on:
-//   • reservations INSERT  → notify pharmacy owner
-//   • reservations UPDATE  → notify patient (+ pharmacy if cancelled)
-//   • prescriptions INSERT → notify patient
-//
-// Also accepts direct invoke() calls from the app for:
-//   • inventory upload success / failure (pharmacy self-notification)
-//
-// Payload shapes:
-//   Webhook:  { type, table, record, old_record, schema }
-//   Direct:   { direct: true, user_id, title, body, notif_type, data }
-// ============================================================
-
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 

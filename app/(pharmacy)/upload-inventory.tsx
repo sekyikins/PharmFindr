@@ -24,6 +24,8 @@ import { COLORS, FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
 import { useHardwareBack } from '@/hooks/useHardwareBack';
 import { toast } from '@/context/ToastContext';
 
+import { getFriendlyErrorMessage } from '@/lib/errorUtils';
+
 const PHARMACY_GREEN = '#10b981';
 
 export default function UploadInventory() {
@@ -115,7 +117,7 @@ export default function UploadInventory() {
         setParsedItems(items);
       }
     } catch (e: any) {
-      toast.error(e.message || 'Failed to read file.');
+      toast.error(getFriendlyErrorMessage(e, 'Failed to read file.'));
       setParsedItems([]);
     } finally {
       setLoading(false);
@@ -178,13 +180,13 @@ export default function UploadInventory() {
             direct: true,
             user_id: user.id,
             title: '❌ Inventory Import Failed',
-            body: e.message || 'Your inventory import failed. Please try again.',
+            body: getFriendlyErrorMessage(e, 'Your inventory import failed. Please try again.'),
             notif_type: 'pharmacy_action',
             data: {},
           },
         });
       } catch (_) { /* non-critical */ }
-      toast.error(e.message || 'Failed to import inventory batch.');
+      toast.error(getFriendlyErrorMessage(e, 'Failed to import inventory batch.'));
     } finally {
       setUploading(false);
     }

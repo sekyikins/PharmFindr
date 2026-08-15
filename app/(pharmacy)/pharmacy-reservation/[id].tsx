@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useThemeContext } from '@/hooks/useThemeContext';
 import { Header } from '@/components/ui/Header';
 import { toast } from '@/context/ToastContext';
+import { getFriendlyErrorMessage } from '@/lib/errorUtils';
 import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
 import { supabase } from '@/lib/supabase';
 import { useHardwareBack } from '@/hooks/useHardwareBack';
@@ -95,7 +96,7 @@ export default function PharmacyReservationDetails() {
       toast.success('Status Updated', `Reservation has been ${status}.`);
       fetchReservation();
     } catch (e: any) {
-      toast.error('Error', e.message || 'Failed to update status.');
+      toast.error('Update Failed', getFriendlyErrorMessage(e, 'Failed to update status. Please try again.'));
     } finally {
       setUpdating(false);
     }

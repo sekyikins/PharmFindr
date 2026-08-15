@@ -19,6 +19,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
 import { getPharmacyForUser } from '@/lib/pharmacyService';
 import { toast } from '@/context/ToastContext';
+import { getFriendlyErrorMessage } from '@/lib/errorUtils';
 import Skeleton from '@/components/ui/Skeleton';
 import AppBottomSheet from '@/components/ui/AppBottomSheet';
 import { Header } from '@/components/ui/Header';
@@ -99,7 +100,7 @@ export default function Inventory() {
             if (error) throw error;
             setInventory((prev) => prev.filter((i) => i.id !== id));
           } catch (e: any) {
-            toast.error('Error', e.message || 'Failed to delete medicine.');
+            toast.error('Delete Failed', getFriendlyErrorMessage(e, 'Failed to delete medicine item.'));
           }
         },
       },
@@ -135,7 +136,7 @@ export default function Inventory() {
       setEditItem(null);
       editSheetRef.current?.dismiss?.() ?? editSheetRef.current?.close?.();
     } catch (e: any) {
-      toast.error('Error', e.message || 'Failed to update medicine.');
+      toast.error('Update Failed', getFriendlyErrorMessage(e, 'Failed to update medicine details.'));
     } finally {
       setSaving(false);
     }
@@ -487,19 +488,19 @@ const styles = StyleSheet.create({
 
   chipRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     paddingHorizontal: SPACING.lg,
     paddingBottom: SPACING.sm,
-    gap: 8
+    gap: SPACING.sm
   },
   chip: {
-    flex: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
     borderRadius: RADIUS.pill,
-    borderWidth: 1.2
+    borderWidth: 1
   },
   chipText: {
-    fontSize: 12,
+    fontSize: SPACING.md,
     fontFamily: 'Inter-Bold'
   },
 
@@ -507,7 +508,7 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.xl,
     padding: SPACING.lg,
     borderWidth: 1.5,
-    gap: 12
+    gap: SPACING.md
   },
   itemHeader: {
     flexDirection: 'row',
@@ -520,13 +521,13 @@ const styles = StyleSheet.create({
   },
   strengthChip: {
     alignSelf: 'flex-start',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs,
     borderRadius: RADIUS.pill,
-    marginTop: 4
+    marginTop: SPACING.xs
   },
   strengthText: {
-    fontSize: 11,
+    fontSize: FONT_SIZE.md,
     fontFamily: 'Inter-SemiBold'
   },
   itemRight: {
@@ -546,45 +547,45 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: 8,
+    paddingTop: SPACING.sm,
     borderTopWidth: 1,
     borderTopColor: 'rgba(0,0,0,0.04)'
   },
   statusPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    gap: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs,
     borderRadius: RADIUS.pill
   },
   statusDot: {
     width: 6,
     height: 6,
-    borderRadius: 3
+    borderRadius: RADIUS.sm
   },
   statusPillText: {
-    fontSize: 11,
+    fontSize: FONT_SIZE.md,
     fontFamily: 'Inter-Bold'
   },
   editBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
+    gap: SPACING.xs,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs,
     borderRadius: RADIUS.pill,
     borderWidth: 1.2
   },
   editBtnText: {
-    fontSize: 12,
+    fontSize: FONT_SIZE.md,
     fontFamily: 'Inter-Bold'
   },
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 60,
-    gap: 8
+    gap: SPACING.sm
   },
   emptyTitle: {
     fontSize: FONT_SIZE.xl,
@@ -609,10 +610,10 @@ const styles = StyleSheet.create({
   editSheetContent: {
     paddingHorizontal: SPACING.xl,
     paddingTop: SPACING.sm,
-    gap: 12
+    gap: SPACING.md
   },
   fieldLabel: {
-    fontSize: 11,
+    fontSize: FONT_SIZE.md,
     fontFamily: 'Inter-Bold',
     letterSpacing: 0.5
   },
@@ -622,11 +623,11 @@ const styles = StyleSheet.create({
     height: 48,
     borderWidth: 1,
     borderRadius: RADIUS.md,
-    paddingHorizontal: 14,
+    paddingHorizontal: SPACING.md,
     fontSize: FONT_SIZE.lg
   },
   modalActions: {
-    flexDirection: 'row', gap: 10, marginTop: 10
+    flexDirection: 'row', gap: SPACING.md, marginTop: SPACING.sm
   },
   modalBtn: {
     flex: 1,

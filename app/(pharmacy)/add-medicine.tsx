@@ -16,6 +16,7 @@ import { Header } from '@/components/ui/Header';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { toast } from '@/context/ToastContext';
+import { getFriendlyErrorMessage } from '@/lib/errorUtils';
 import { supabase } from '@/lib/supabase';
 import { getPharmacyForUser } from '@/lib/pharmacyService';
 import { useThemeContext } from '@/hooks/useThemeContext';
@@ -239,7 +240,7 @@ export default function AddMedicine() {
         router.back();
       }
     } catch (e: any) {
-      toast.error(e.message || 'Failed to save inventory stock.');
+      toast.error(getFriendlyErrorMessage(e, 'Failed to save inventory stock. Please try again.'));
     } finally {
       setLoading(false);
     }
