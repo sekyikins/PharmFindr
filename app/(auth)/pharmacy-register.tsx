@@ -34,19 +34,14 @@ const TEXT_PRIMARY = '#0f172a';
 const LABEL_COLOR = '#64748b';
 const PLACEHOLDER_COLOR = '#94a3b8';
 
+import { getFriendlyErrorMessage } from '@/lib/errorUtils';
+
 function getFriendlyPharmacyErrorMessage(err: any, defaultMsg = 'Operation failed.'): string {
   const message = err?.message || String(err || '');
-  if (!message) return defaultMsg;
-
-  if (/network|fetch|connect|timeout|offline|internet|getaddrinfo|econnrefused/i.test(message)) {
-    return 'Registration failed due to poor connectivity. Please check your internet connection.';
-  }
-
   if (/already registered|already exists|unique constraint|duplicate/i.test(message)) {
     return 'A pharmacy account already exists with these details. Please login instead.';
   }
-
-  return message;
+  return getFriendlyErrorMessage(err, defaultMsg);
 }
 
 // ── Shared Hero header ────────────────────────────────────────────────────

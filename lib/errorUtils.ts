@@ -7,36 +7,64 @@ export function getFriendlyErrorMessage(
 ): string {
   if (!err) return fallbackMessage;
 
-  const rawMessage = typeof err === 'string'
-    ? err
-    : err?.message || err?.error_description || String(err);
+  // Extract all text fields from err object to catch nested exceptions
+  const fullText = [
+    typeof err === 'string' ? err : '',
+    err?.message,
+    err?.error_description,
+    err?.error,
+    err?.details,
+    err?.hint,
+    err?.cause?.message,
+    err?.originalError?.message,
+    String(err || ''),
+  ]
+    .filter(Boolean)
+    .join(' ');
 
-  if (!rawMessage || rawMessage === '[object Object]') return fallbackMessage;
+  if (!fullText || fullText.trim() === '[object Object]') return fallbackMessage;
 
-  // 1. Network / Offline / Timeout Errors
-  if (/network request failed|failed to fetch|econnrefused|timeout|getaddrinfo|offline|internet|connection|net::/i.test(rawMessage)) {
+  // 1. Network / Offline / Timeout / Fetch Errors
+  if (
+    /network|offline|connection|internet|failed to fetch|econnrefused|timeout|getaddrinfo|net::/i.test(
+      fullText
+    )
+  ) {
     return "You're offline. Check your internet connection.";
   }
 
-  // 2. Authentication & Authorization Errors
-  if (/invalid login credentials|invalid email or password|invalid credentials|user not found/i.test(rawMessage)) {
-    return 'Invalid credentials. Please check your details and try again.';
+  // 2. Authentication & Credentials Errors
+  if (
+    /invalid login credentials|invalid email or password|invalid credentials|user not found/i.test(
+      fullText
+    )
+  ) {
+    return 'Invalid email or password. Please check your credentials and try again.';
   }
-  if (/jwt expired|session expired|invalid token|unauthorized/i.test(rawMessage)) {
+  if (/jwt expired|session expired|invalid token|unauthorized/i.test(fullText)) {
     return 'Your session has expired. Please sign in again.';
   }
-  if (/rate limit|too many requests/i.test(rawMessage)) {
+  if (/rate limit|too many requests/i.test(fullText)) {
     return 'Too many attempts. Please wait a moment before trying again.';
   }
 
   // 3. Database / Supabase technical codes (PGRST, SQL constraints, etc.)
-  if (/PGRST|postgres|constraint|violates|foreign key|syntax error|TypeError|ReferenceError/i.test(rawMessage)) {
+  if (
+    /PGRST|postgres|constraint|violates|foreign key|syntax error|TypeError|ReferenceError/i.test(
+      fullText
+    )
+  ) {
     return fallbackMessage;
   }
 
-  // 4. Return raw message if it's already concise and user-friendly, otherwise fallback
-  if (rawMessage.length < 120 && !/error|exception|stack|undefined|null/i.test(rawMessage)) {
-    return rawMessage;
+  // 4. Return primary message if it's already short and user-friendly, otherwise fallback
+  const primaryMsg = typeof err === 'string' ? err : err?.message || '';
+  if (
+    primaryMsg &&
+    primaryMsg.length < 120 &&
+    !/error|exception|stack|undefined|null/i.test(primaryMsg)
+  ) {
+    return primaryMsg;
   }
 
   return fallbackMessage;

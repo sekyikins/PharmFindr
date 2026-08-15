@@ -528,7 +528,7 @@ export default function EditAccount() {
               toast.success('Photo Updated', 'Profile photo updated!');
             }
           } catch (e: any) {
-            toast.error('Upload Error', e.message || 'Failed to upload image.');
+            toast.error('Upload Failed', getFriendlyErrorMessage(e, 'Failed to upload image. Please try again.'));
           } finally {
             setUploadingAvatar(false);
           }
@@ -553,7 +553,7 @@ export default function EditAccount() {
               toast.success('Photo Updated', 'Profile photo updated!');
             }
           } catch (e: any) {
-            toast.error('Upload Error', e.message || 'Failed to upload image.');
+            toast.error('Upload Failed', getFriendlyErrorMessage(e, 'Failed to upload image. Please try again.'));
           } finally {
             setUploadingAvatar(false);
           }

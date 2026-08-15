@@ -22,6 +22,9 @@ import { useHardwareBack } from '@/hooks/useHardwareBack';
 import { toast } from '@/context/ToastContext';
 
 const GREEN = '#10b981';
+import { getFriendlyErrorMessage } from '@/lib/errorUtils';
+
+const BLUE = '#3b82f6';
 const INPUT_BG = '#f8fafc';
 const TEXT_PRIMARY = '#0f172a';
 const LABEL_COLOR = '#64748b';
@@ -29,21 +32,10 @@ const PLACEHOLDER_COLOR = '#94a3b8';
 
 function getFriendlyRegisterErrorMessage(err: any, defaultMsg = 'Registration failed.'): string {
   const message = err?.message || String(err || '');
-  if (!message) return defaultMsg;
-
-  if (/network|fetch|connect|timeout|offline|internet|getaddrinfo|econnrefused/i.test(message)) {
-    return 'Registration failed due to poor connectivity. Please check your internet connection.';
-  }
-
   if (/already registered|already in use|unique constraint|user already exists/i.test(message)) {
     return 'An account with this email already exists. Please login instead.';
   }
-
-  if (/password.*least 6/i.test(message)) {
-    return 'Password must be at least 6 characters long.';
-  }
-
-  return message;
+  return getFriendlyErrorMessage(err, defaultMsg);
 }
 
 export default function Register() {
