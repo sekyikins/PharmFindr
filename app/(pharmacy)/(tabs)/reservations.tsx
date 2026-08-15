@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { StyleSheet, Text, View, FlatList, Pressable, RefreshControl, Linking } from 'react-native';
 import { toast } from '@/context/ToastContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -10,7 +10,8 @@ import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
 import { getPharmacyForUser } from '@/lib/pharmacyService';
 import Skeleton from '@/components/ui/Skeleton';
-import { Header } from '@/components/ui/Header';
+import { Header, HeaderIconBtn } from '@/components/ui/Header';
+import { useNotificationStore } from '@/store/notificationStore';
 
 export default function Reservations() {
   const router = useRouter();
@@ -20,6 +21,9 @@ export default function Reservations() {
   const [reservations, setReservations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const pharmIdRef = useRef<string | null>(null);
+
+  const { unreadCount, fetchNotifications, subscribe, unsubscribe } = useNotificationStore();
 
   const fetchReservations = useCallback(async () => {
     if (!user) {
@@ -82,9 +86,53 @@ export default function Reservations() {
     }
   }, [user]);
 
+  // Initial fetch
   useEffect(() => {
     fetchReservations();
   }, [fetchReservations]);
+
+  // Fetch notifications badge + subscribe for pharmacy user
+  useEffect(() => {
+    if (!user) return;
+    fetchNotifications(user.id);
+    subscribe(user.id);
+    return () => unsubscribe();
+  }, [user?.id]);
+
+  // Realtime subscription: update list when new reservation arrives for this pharmacy
+  useEffect(() => {
+    if (!user) return;
+
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+
+    const setup = async () => {
+      const pharm = await getPharmacyForUser(user);
+      if (!pharm?.id) return;
+      pharmIdRef.current = pharm.id;
+
+      channel = supabase
+        .channel(`pharmacy-reservations:${pharm.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'reservations',
+            filter: `pharmacy_id=eq.${pharm.id}`,
+          },
+          () => {
+            // Re-fetch the full list on any change to this pharmacy's reservations
+            fetchReservations();
+          }
+        )
+        .subscribe();
+    };
+
+    setup();
+    return () => {
+      if (channel) supabase.removeChannel(channel);
+    };
+  }, [user]);
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -229,7 +277,17 @@ export default function Reservations() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
       {/* Header */}
-      <Header title="Reservations" />
+      <Header
+        title="Reservations"
+        right={
+          <HeaderIconBtn
+            icon="notifications-outline"
+            badge={unreadCount > 0 ? unreadCount : undefined}
+            onPress={() => router.push('/(pharmacy)/notifications' as any)}
+          />
+        }
+      />
+
 
       {/* Filter Tabs */}
       <View style={styles.filterRow}>

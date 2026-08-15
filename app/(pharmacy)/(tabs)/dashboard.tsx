@@ -19,6 +19,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
 import { getPharmacyForUser } from '@/lib/pharmacyService';
 import Skeleton from '@/components/ui/Skeleton';
+import { useNotificationStore } from '@/store/notificationStore';
 
 const PHARMACY_GREEN = '#10b981';
 
@@ -43,6 +44,15 @@ export default function Dashboard() {
   const [recentReservations, setRecentReservations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  const { unreadCount, fetchNotifications, subscribe, unsubscribe } = useNotificationStore();
+
+  useEffect(() => {
+    if (!user) return;
+    fetchNotifications(user.id);
+    subscribe(user.id);
+    return () => unsubscribe();
+  }, [user?.id]);
 
   const fetchDashboardData = useCallback(async () => {
     if (!user) return;
@@ -124,31 +134,49 @@ export default function Dashboard() {
             </View>
           </View>
 
-          <Pressable
-            style={({ pressed }) => [
-              styles.verifiedBadge,
-              pressed && { opacity: 0.8 },
-              isVerified
-                ? { backgroundColor: 'rgba(255, 255, 255, 0.25)' }
-                : { backgroundColor: '#fffbeb', borderColor: COLORS.pendingBg },
-            ]}
-            onPress={() => router.push('/(pharmacy)/(tabs)/profile')}
-          >
-            <Ionicons
-              name={isVerified ? 'shield-checkmark' : 'alert-circle-outline'}
-              size={12}
-              color={isVerified ? COLORS.white : '#b45309'}
-            />
-            <Text
-              style={[
-                styles.verifiedText,
-                { color: isVerified ? COLORS.white : '#b45309' },
-              ]}
+          {/* Right: Notification Bell + Verified Badge */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            {/* Bell Icon */}
+            <Pressable
+              style={({ pressed }) => [styles.bellBtn, pressed && { opacity: 0.7 }]}
+              onPress={() => router.push('/(pharmacy)/notifications' as any)}
             >
-              {isVerified ? 'VERIFIED' : 'NOT VERIFIED'}
-            </Text>
-          </Pressable>
+              <Ionicons name="notifications-outline" size={20} color={COLORS.white} />
+              {unreadCount > 0 && (
+                <View style={styles.bellBadge}>
+                  <Text style={styles.bellBadgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
+                </View>
+              )}
+            </Pressable>
+
+            {/* Verified Badge */}
+            <Pressable
+              style={({ pressed }) => [
+                styles.verifiedBadge,
+                pressed && { opacity: 0.8 },
+                isVerified
+                  ? { backgroundColor: 'rgba(255, 255, 255, 0.25)' }
+                  : { backgroundColor: '#fffbeb', borderColor: COLORS.pendingBg },
+              ]}
+              onPress={() => router.push('/(pharmacy)/(tabs)/profile')}
+            >
+              <Ionicons
+                name={isVerified ? 'shield-checkmark' : 'alert-circle-outline'}
+                size={12}
+                color={isVerified ? COLORS.white : '#b45309'}
+              />
+              <Text
+                style={[
+                  styles.verifiedText,
+                  { color: isVerified ? COLORS.white : '#b45309' },
+                ]}
+              >
+                {isVerified ? 'VERIFIED' : 'NOT VERIFIED'}
+              </Text>
+            </Pressable>
+          </View>
         </View>
+
 
         {/* Arch Curve Accent */}
         <Svg
@@ -492,6 +520,32 @@ const styles = StyleSheet.create({
   recentStatusText: {
     fontSize: 10,
     fontFamily: 'Inter-Bold'
+  },
+
+  bellBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  bellBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    minWidth: 15,
+    height: 15,
+    borderRadius: 8,
+    backgroundColor: '#ef4444',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 2,
+  },
+  bellBadgeText: {
+    color: '#ffffff',
+    fontSize: 8,
+    fontFamily: 'Inter-Bold',
   },
 
 });

@@ -492,6 +492,7 @@ const styles = StyleSheet.create({
     gap: 8
   },
   chip: {
+    flex: 1,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: RADIUS.pill,

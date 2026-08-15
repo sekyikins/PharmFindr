@@ -4,7 +4,15 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type NotificationType = 'reservation' | 'availability' | 'medication' | 'system' | 'info';
+export type NotificationType =
+  | 'reservation'
+  | 'availability'
+  | 'medication'
+  | 'prescription'
+  | 'pharmacy_action'
+  | 'collection'
+  | 'system'
+  | 'info';
 
 export interface Notification {
   id: string;
@@ -14,7 +22,6 @@ export interface Notification {
   type: NotificationType;
   is_read: boolean;
   created_at: string;
-  sent_at: string | null;
   metadata: Record<string, any> | null;
 }
 

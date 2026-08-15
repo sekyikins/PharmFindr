@@ -145,6 +145,20 @@ export default function UploadInventory() {
       const { error: insertErr } = await supabase.from('inventory').insert(payload);
       if (insertErr) throw insertErr;
 
+      // Notify the pharmacy owner (in-app + push) about the successful import
+      try {
+        await supabase.functions.invoke('push-notifier', {
+          body: {
+            direct: true,
+            user_id: user.id,
+            title: '✅ Inventory Updated',
+            body: `Successfully imported ${parsedItems.length} medicine item${parsedItems.length !== 1 ? 's' : ''} into your inventory.`,
+            notif_type: 'pharmacy_action',
+            data: { pharmacy_id: pharmId, count: parsedItems.length },
+          },
+        });
+      } catch (_) { /* non-critical — don't block the UI */ }
+
       Alert.alert(
         'Import Successful!',
         `Successfully imported ${parsedItems.length} medicine items into your inventory.`,
@@ -157,6 +171,19 @@ export default function UploadInventory() {
         { cancelable: true }
       );
     } catch (e: any) {
+      // Notify about failure too
+      try {
+        await supabase.functions.invoke('push-notifier', {
+          body: {
+            direct: true,
+            user_id: user.id,
+            title: '❌ Inventory Import Failed',
+            body: e.message || 'Your inventory import failed. Please try again.',
+            notif_type: 'pharmacy_action',
+            data: {},
+          },
+        });
+      } catch (_) { /* non-critical */ }
       toast.error(e.message || 'Failed to import inventory batch.');
     } finally {
       setUploading(false);

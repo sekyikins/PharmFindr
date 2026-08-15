@@ -45,10 +45,13 @@ function iconForType(type: Notification['type'], metadata?: Record<string, any> 
     }
   }
   switch (type) {
-    case 'availability': return 'storefront-outline';
-    case 'medication':   return 'medkit-outline';
-    case 'system':       return 'information-circle-outline';
-    default:             return 'notifications-outline';
+    case 'availability':    return 'storefront-outline';
+    case 'medication':      return 'medkit-outline';
+    case 'prescription':    return 'document-text-outline';
+    case 'collection':      return 'bag-check-outline';
+    case 'pharmacy_action': return 'cube-outline';
+    case 'system':          return 'information-circle-outline';
+    default:                return 'notifications-outline';
   }
 }
 
@@ -114,10 +117,23 @@ export default function Notifications() {
     async (item: Notification) => {
       if (!item.is_read) await markRead(item.id);
 
-      // Navigate based on type / metadata
       const meta = item.metadata;
-      if (item.type === 'reservation' && meta?.reservation_id) {
-        router.push('/(patient)/reservations-history');
+      switch (item.type) {
+        case 'reservation':
+        case 'collection':
+          router.push('/(patient)/reservations-history');
+          break;
+        case 'prescription':
+          router.push('/(patient)/prescription-history');
+          break;
+        case 'availability':
+          router.push('/(patient)/(tabs)/search');
+          break;
+        case 'medication':
+          router.push('/(patient)/(tabs)/home');
+          break;
+        default:
+          break; // system/info — no navigation
       }
     },
     [markRead]

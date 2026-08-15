@@ -10,6 +10,8 @@ export interface ScreenHeaderProps {
   showBack?: boolean;
   onBack?: () => void;
   right?: React.ReactNode;
+  /** Alias for right — use whichever reads more clearly at call sites */
+  rightElement?: React.ReactNode;
   left?: React.ReactNode;
   titleAlign?: 'center' | 'left';
 }
@@ -19,6 +21,7 @@ export function ScreenHeader({
   showBack = false,
   onBack,
   right,
+  rightElement,
   left,
   titleAlign = 'center',
 }: ScreenHeaderProps) {
@@ -49,6 +52,8 @@ export function ScreenHeader({
       </Pressable>
     ) : null
   );
+
+  const rightSlot = rightElement ?? right ?? null;
 
   return (
     <View
@@ -81,21 +86,26 @@ export function ScreenHeader({
       <View style={styles.leftSide}>{leftSlot}</View>
 
       {/* Right Slot */}
-      <View style={styles.rightSide}>{right ?? null}</View>
+      <View style={styles.rightSide}>{rightSlot}</View>
     </View>
   );
 }
 
 // ── Icon button helper ──────────────────────────────────────────────────────
 interface HeaderIconBtnProps {
-  name: React.ComponentProps<typeof Ionicons>['name'];
+  name?: React.ComponentProps<typeof Ionicons>['name'];
+  /** Alias for name */
+  icon?: React.ComponentProps<typeof Ionicons>['name'];
   onPress: () => void;
   color?: string;
   testID?: string;
+  /** Unread count badge displayed on top-right of the button */
+  badge?: number;
 }
 
-export function HeaderIconBtn({ name, onPress, color, testID }: HeaderIconBtnProps) {
+export function HeaderIconBtn({ name, icon, onPress, color, testID, badge }: HeaderIconBtnProps) {
   const { theme } = useThemeContext();
+  const iconName = name ?? icon ?? 'notifications-outline';
   return (
     <Pressable
       testID={testID}
@@ -107,7 +117,12 @@ export function HeaderIconBtn({ name, onPress, color, testID }: HeaderIconBtnPro
       ]}
       hitSlop={8}
     >
-      <Ionicons name={name} size={18} color={color ?? theme.text.primary} />
+      <Ionicons name={iconName} size={18} color={color ?? theme.text.primary} />
+      {badge != null && badge > 0 && (
+        <View style={styles.badge}>
+          <Text style={styles.badgeText}>{badge > 99 ? '99+' : badge}</Text>
+        </View>
+      )}
     </Pressable>
   );
 }
@@ -121,49 +136,64 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: SPACING.lg,
     borderBottomWidth: 1,
-    position: 'relative'
+    position: 'relative',
   },
   titleContainer: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 60
+    paddingHorizontal: 60,
   },
   titleContainerLeft: {
     alignItems: 'flex-start',
-    paddingLeft: 60
+    paddingLeft: 60,
   },
   title: {
     fontSize: FONT_SIZE.xxl,
     fontFamily: 'Inter-Bold',
-    textAlign: 'center'
+    textAlign: 'center',
   },
   titleTextLeft: {
     fontFamily: 'Inter-Regular',
-    
-    textAlign: 'left'
+    textAlign: 'left',
   },
   leftSide: {
     flexDirection: 'row',
     alignItems: 'center',
     minWidth: 40,
-    zIndex: 1
+    zIndex: 1,
   },
   rightSide: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
     minWidth: 40,
-    zIndex: 1
+    zIndex: 1,
   },
   iconBtn: {
     width: 36,
     height: 36,
     borderRadius: RADIUS.pill,
     justifyContent: 'center',
-    alignItems: 'center'
+    alignItems: 'center',
   },
-
+  badge: {
+    position: 'absolute',
+    top: -3,
+    right: -3,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#ef4444',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 3,
+  },
+  badgeText: {
+    color: '#ffffff',
+    fontSize: 9,
+    fontFamily: 'Inter-Bold',
+  },
 });
 
 // ── Back-compat alias ──

@@ -1,13 +1,3 @@
-/**
- * Arkesel SMS & OTP Service Integration
- *
- * SMS:  POST https://sms.arkesel.com/sms/api?action=send-sms  (plain SMS)
- * OTP:  POST https://sms.arkesel.com/api/otp/generate         (generate + send)
- *       POST https://sms.arkesel.com/api/otp/verify           (verify code)
- *
- * NOTE: Use the Main API Key — OTP will NOT work with Multiple/Sub API Keys.
- */
-
 const ARKESEL_API_KEY = (process.env.EXPO_PUBLIC_ARKESEL_API_KEY || '').trim();
 const SENDER_ID = 'PharmFindr';
 
@@ -59,7 +49,7 @@ export function validateGhanaPhone(phone: string): {
       formatted: digits,
       network: null,
       error:
-        'Enter a valid Ghana phone number (e.g. 0551234567 or +233551234567).',
+        'Enter a valid phone number (e.g. 0551234567 or +233551234567).',
     };
   }
 
@@ -168,7 +158,7 @@ export async function sendArkeselOtp(
         expiry: 10,         // minutes until OTP expires
         length: 6,
         medium: 'sms',
-        message: 'Your PharmFindr verification code is: %otp_code%. Valid for 10 minutes. Do not share.',
+        message: 'Verification code: %otp_code%. This is valid for 10 minutes. Do not share.',
         number: formattedPhone,
         sender_id: SENDER_ID,
         type: 'numeric',
