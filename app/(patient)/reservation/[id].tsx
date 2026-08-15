@@ -124,7 +124,7 @@ export default function ReservationScreen() {
         setReservation(data as ReservationRecord);
       } catch (e: any) {
         console.warn('Error loading reservation:', e.message);
-        Alert.alert('Error', 'Could not load reservation details.');
+        toast.error('Load Error', 'Could not load reservation details.');
         router.back();
       } finally {
         setLoadingReservation(false);
@@ -171,7 +171,7 @@ export default function ReservationScreen() {
               setReservation((prev) => (prev ? { ...prev, status: 'cancelled' } : null));
               toast.info('Reservation Cancelled', 'Your reservation has been cancelled.');
             } catch (e: any) {
-              Alert.alert('Unable to Cancel', getFriendlyErrorMessage(e, 'Failed to cancel reservation. Please try again.'));
+              toast.error('Unable to Cancel', getFriendlyErrorMessage(e, 'Failed to cancel reservation. Please try again.'));
             } finally {
               setCancelling(false);
             }
@@ -186,7 +186,7 @@ export default function ReservationScreen() {
 
   const handleConfirm = async () => {
     if (!user) {
-      Alert.alert('Authentication Required', 'Please log in to make a reservation.');
+      toast.error('Authentication Required', 'Please log in to make a reservation.');
       return;
     }
 
@@ -219,7 +219,7 @@ export default function ReservationScreen() {
       toast.success('Reservation Requested', `Your request has been sent to ${pharmName}.`);
       router.replace('/(patient)/reservations-history');
     } catch (e: any) {
-      Alert.alert('Reservation Failed', getFriendlyErrorMessage(e, 'Failed to place reservation request. Please try again.'));
+      toast.error('Reservation Failed', getFriendlyErrorMessage(e, 'Failed to place reservation request. Please try again.'));
     } finally {
       setSubmitting(false);
     }

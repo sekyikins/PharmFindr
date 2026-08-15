@@ -197,7 +197,7 @@ export default function EditAccount() {
               setAvatarModalVisible(false);
               toast.success('Photo Removed', 'Profile photo removed successfully.');
             } catch (e: any) {
-              Alert.alert('Error', e.message || 'Failed to remove photo.');
+              toast.error('Remove Failed', getFriendlyErrorMessage(e, 'Failed to remove photo. Please try again.'));
             } finally {
               setUploadingAvatar(false);
             }
@@ -210,7 +210,7 @@ export default function EditAccount() {
 
   const handleSaveAccount = async () => {
     if (!fullName.trim()) {
-      Alert.alert('Validation Error', 'Full Name cannot be empty.');
+      toast.error('Validation Error', 'Full Name cannot be empty.');
       return;
     }
     setSaving(true);
@@ -221,7 +221,7 @@ export default function EditAccount() {
       });
       toast.success('Account Updated', 'Account details updated successfully!');
     } catch (e: any) {
-      Alert.alert('Update Failed', getFriendlyErrorMessage(e, 'Failed to update account. Please try again.'));
+      toast.error('Update Failed', getFriendlyErrorMessage(e, 'Failed to update account. Please try again.'));
     } finally {
       setSaving(false);
     }
@@ -237,7 +237,7 @@ export default function EditAccount() {
   // Secure Password Update Handler with Global Session Revocation
   const handleChangePasswordSubmit = async () => {
     if (!currentPassword.trim()) {
-      Alert.alert('Validation Error', 'Please enter your current password.');
+      toast.error('Validation Error', 'Please enter your current password.');
       return;
     }
     if (!newPassword.trim()) {

@@ -22,6 +22,7 @@ import { supabase } from '@/lib/supabase';
 import Svg, { Path } from 'react-native-svg';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import AvatarPickerSheet from '@/components/ui/AvatarPickerSheet';
+import { toast } from '@/context/ToastContext';
 
 const MENU_GROUPS = [
   {
@@ -265,7 +266,7 @@ export default function Profile() {
         onCamera={async () => {
           const perm = await ImagePicker.requestCameraPermissionsAsync();
           if (!perm.granted) {
-            Alert.alert('Permission Denied', 'Camera permission is required.');
+            toast.error('Permission Denied', 'Camera permission is required.');
             return;
           }
           const result = await ImagePicker.launchCameraAsync({ allowsEditing: true, aspect: [1, 1], quality: 0.8 });
@@ -278,7 +279,7 @@ export default function Profile() {
         onGallery={async () => {
           const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
           if (!perm.granted) {
-            Alert.alert('Permission Denied', 'Media library permission is required.');
+            toast.error('Permission Denied', 'Media library permission is required.');
             return;
           }
           const result = await ImagePicker.launchImageLibraryAsync({
