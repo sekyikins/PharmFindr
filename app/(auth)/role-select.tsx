@@ -23,7 +23,7 @@ import { useThemeContext } from '@/hooks/useThemeContext';
 import { COLORS,  FONT_SIZE, RADIUS, SPACING  } from '@/styles/theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const PHARMACY_GREEN = '#10b981';
+const PHARMACY_GREEN = COLORS.pharmacyPrimary;
 
 export default function RoleSelect() {
   const router = useRouter();
@@ -203,7 +203,7 @@ const styles = StyleSheet.create({
   brandRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: SPACING.sm,
     marginBottom: SPACING.lg
   },
   brandIcon: {
@@ -228,13 +228,13 @@ const styles = StyleSheet.create({
     marginBottom: 10
   },
   heroBadgeText: {
-    fontSize: 9,
+    fontSize: FONT_SIZE.xs,
     fontFamily: 'Inter-Bold',
     color: COLORS.white,
     letterSpacing: 0.8
   },
   heroTitle: {
-    fontSize: 28,
+    fontSize: FONT_SIZE.hero,
     fontFamily: 'Inter-Bold',
     color: COLORS.white,
     marginBottom: 6,
@@ -242,8 +242,6 @@ const styles = StyleSheet.create({
   },
   heroSub: {
     fontFamily: 'Inter-Regular',
-    
-    fontSize: FONT_SIZE.lg,
     color: 'rgba(255,255,255,0.78)',
     lineHeight: 21
   },
@@ -284,7 +282,7 @@ const styles = StyleSheet.create({
     
     fontSize: FONT_SIZE.md,
     lineHeight: 18,
-    marginBottom: 8
+    marginBottom: SPACING.sm
   },
   cardTag: {
     flexDirection: 'row',
@@ -296,13 +294,10 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.pill
   },
   cardTagText: {
-    fontSize: 10,
+    fontSize: FONT_SIZE.xs,
     fontFamily: 'Inter-Bold'
   },
   cardChevron: {
-    width: 30,
-    height: 30,
-    borderRadius: RADIUS.pill,
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: SPACING.sm,
@@ -318,7 +313,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginVertical: SPACING.lg,
-    gap: SPACING.sm
+    gap: SPACING.xs
   },
   dividerLine: {
     flex: 1,
@@ -330,7 +325,7 @@ const styles = StyleSheet.create({
   },
   signupRow: {
     flexDirection: 'row',
-    gap: SPACING.sm
+    gap: SPACING.xs
   },
   signupBtn: {
     flex: 1,

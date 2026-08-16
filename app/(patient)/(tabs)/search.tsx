@@ -194,7 +194,7 @@ export default function SearchMedicines() {
                   runSearch('', selectedCategory);
                 }
               }}
-              style={{ padding: 4 }}
+              style={{ padding: SPACING.xs }}
             >
               <Ionicons name="close-circle" size={18} color={theme.textMuted} />
             </Pressable>
@@ -261,7 +261,7 @@ export default function SearchMedicines() {
           contentContainerStyle={styles.listContent}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Ionicons name="search-outline" size={48} color={theme.textDim} style={{ marginBottom: 12 }} />
+              <Ionicons name="search-outline" size={48} color={theme.textDim} style={{ marginBottom: SPACING.md }} />
               <Text style={[styles.emptyTitle, { color: theme.text.primary }]}>No Medicines Found</Text>
               <Text style={[styles.emptySub, { color: theme.textMuted }]}>
                 We couldn't find matches for "{query}". Try searching by generic active ingredient (e.g. Paracetamol, Amoxicillin).
@@ -432,7 +432,7 @@ const styles = StyleSheet.create({
   },
 
   categoryScroll: {
-    gap: SPACING.sm, paddingTop: SPACING.sm
+    gap: SPACING.xs, paddingTop: SPACING.sm
   },
   categoryChip: {
     paddingHorizontal: 14,
@@ -451,7 +451,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 8
+    marginBottom: SPACING.sm
   },
   sectionLabel: {
     fontSize: FONT_SIZE.md,
@@ -471,28 +471,28 @@ const styles = StyleSheet.create({
   recentRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.md
   },
   recentText: {
     fontSize: FONT_SIZE.lg, fontFamily: 'Inter-Medium'
   },
 
   popularGrid: {
-    gap: 10, marginTop: 8
+    gap: SPACING.md, marginTop: SPACING.sm
   },
   popularCard: {
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: RADIUS.xl,
-    padding: 12,
+    padding: SPACING.md,
     borderWidth: 1,
-    gap: 12
+    gap: SPACING.md
   },
   popularIconCircle: {
     width: 38,
     height: 38,
-    borderRadius: 19,
+    borderRadius: RADIUS.pill,
     justifyContent: 'center',
     alignItems: 'center'
   },
@@ -501,17 +501,17 @@ const styles = StyleSheet.create({
   },
   popularSub: {
     fontFamily: 'Inter-Regular',
-     fontSize: FONT_SIZE.md, marginTop: 1
+    fontSize: FONT_SIZE.md, marginTop: SPACING.xs
   },
 
   listContent: {
-    padding: SPACING.lg, gap: 10
+    padding: SPACING.lg, gap: SPACING.md
   },
   medicineCard: {
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: RADIUS.xl,
-    padding: 14,
+    padding: SPACING.lg,
     borderWidth: 1
   },
   medIcon: {
@@ -539,7 +539,7 @@ const styles = StyleSheet.create({
 
   badgePill: {
     paddingHorizontal: 7,
-    paddingVertical: 2,
+    paddingVertical: SPACING.xs,
     borderRadius: RADIUS.pill
   },
   badgePillText: {

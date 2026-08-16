@@ -295,25 +295,25 @@ const styles = StyleSheet.create({
   brandRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8
+    gap: SPACING.sm
   },
   brandIcon: {
     width: 48,
     height: 48,
-    borderRadius: 6
+    borderRadius: RADIUS.sm
   },
   brandName: {
     fontSize: FONT_SIZE.xl,
     fontFamily: 'Inter-Bold'
   },
   skipBtn: {
-    paddingHorizontal: 12,
+    paddingHorizontal: SPACING.md,
     paddingVertical: 6,
     borderRadius: RADIUS.pill,
     borderWidth: 1
   },
   skipText: {
-    fontSize: 12,
+    fontSize: FONT_SIZE.md,
     fontFamily: 'Inter-SemiBold'
   },
 
@@ -358,14 +358,14 @@ const styles = StyleSheet.create({
     alignItems: 'center'
   },
   badgePill: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs,
     borderRadius: RADIUS.pill,
     marginTop: 10,
-    marginBottom: 4
+    marginBottom: SPACING.xs
   },
   badgePillText: {
-    fontSize: 10,
+    fontSize: FONT_SIZE.xs,
     fontFamily: 'Inter-Bold',
     letterSpacing: 0.8
   },
@@ -390,19 +390,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'center',
-    gap: 8
+    gap: SPACING.sm
   },
   featureTag: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: SPACING.xs,
     borderRadius: RADIUS.pill,
     borderWidth: 1
   },
   featureTagText: {
-    fontSize: 11,
+    fontSize: FONT_SIZE.sm,
     fontFamily: 'Inter-SemiBold'
   },
 
@@ -415,7 +415,7 @@ const styles = StyleSheet.create({
   indicatorContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginBottom: 20,
+    marginBottom: SPACING.xl,
     gap: 6,
     alignItems: 'center'
   },

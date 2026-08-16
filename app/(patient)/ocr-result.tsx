@@ -27,9 +27,9 @@ import type { PrescriptionMedicine } from '@/types/prescription';
 // ─── Confidence helpers ──────────────────────────────────────────────────────
 
 function confidenceColor(confidence: number): string {
-  if (confidence >= 80) return '#16a34a'; // green
-  if (confidence >= 50) return '#d97706'; // amber
-  return '#dc2626'; // red
+  if (confidence >= 80) return COLORS.success;
+  if (confidence >= 50) return COLORS.warningDark;
+  return COLORS.error;
 }
 
 function confidenceLabel(confidence: number): string {
@@ -376,13 +376,13 @@ export default function OcrResult() {
         <>
         {/* ── Success Banner / Hero Card ── */}
         <View style={[styles.banner, { backgroundColor: theme.card, borderColor: theme.border }]}>
-            <View style={[styles.bannerBadge, { backgroundColor: isManualEntry ? '#0284c715' : '#10b98115' }]}>
+            <View style={[styles.bannerBadge, { backgroundColor: isManualEntry ? COLORS.infoBg : COLORS.pharmacySecondary }]}>
               <Ionicons
                 name={isManualEntry ? 'create-outline' : 'checkmark-circle'}
                 size={14}
-                color={isManualEntry ? '#0284c7' : COLORS.pharmacyPrimary}
+                color={isManualEntry ? COLORS.info : COLORS.pharmacyPrimary}
               />
-              <Text style={[styles.bannerBadgeText, { color: isManualEntry ? '#0284c7' : COLORS.pharmacyPrimary }]}>
+              <Text style={[styles.bannerBadgeText, { color: isManualEntry ? COLORS.info : COLORS.pharmacyPrimary }]}>
                 {isManualEntry ? 'Manual Entry' : 'AI Extracted'}
               </Text>
             </View>
@@ -393,9 +393,9 @@ export default function OcrResult() {
 
         {/* ── Low-confidence warning ── */}
         {medsList.some((m) => m.confidence < 50) && (
-          <View style={[styles.warningBanner, { backgroundColor: '#fffbeb', borderColor: COLORS.pendingBorder }]}>
-            <Ionicons name="warning" size={18} color="#d97706" style={{ marginRight: 10 }} />
-            <Text style={[styles.warningBannerText, { color: '#92400e', flex: 1 }]}>
+          <View style={[styles.warningBanner, { backgroundColor: COLORS.pendingBg, borderColor: COLORS.pendingBorder }]}>
+            <Ionicons name="warning" size={18} color={COLORS.warningDark} style={{ marginRight: SPACING.md }} />
+            <Text style={[styles.warningBannerText, { color: COLORS.pendingText, flex: 1 }]}>
               Some detected items have lower confidence. Tap any field to edit details if needed.
             </Text>
           </View>
@@ -437,7 +437,7 @@ export default function OcrResult() {
                     </Text>
                   </View>
                   {med.targetDemographic && (
-                    <View style={[styles.demographicBadge, { backgroundColor: '#3b82f615', borderColor: '#93c5fd' }]}>
+                    <View style={[styles.demographicBadge, { backgroundColor: COLORS.infoBg, borderColor: COLORS.infoBorder }]}>
                       <Ionicons name="people" size={12} color={COLORS.patientPrimary} />
                       <Text style={[styles.demographicText, { color: COLORS.patientPrimary }]}>{med.targetDemographic}</Text>
                     </View>
@@ -557,15 +557,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 5,
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: SPACING.xs,
     borderRadius: RADIUS.pill
   },
   bannerBadgeText: {
-    fontSize: 11,
+    fontSize: FONT_SIZE.sm,
     fontFamily: 'Inter-Bold'
   },
   bannerCountText: {
-    fontSize: 12,
+    fontSize: FONT_SIZE.md,
     fontFamily: 'Inter-SemiBold'
   },
   bannerSub: {
@@ -597,7 +597,7 @@ const styles = StyleSheet.create({
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 12,
+    gap: SPACING.md,
     marginBottom: SPACING.md
   },
   medIconCircle: {
@@ -613,7 +613,7 @@ const styles = StyleSheet.create({
   badgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: SPACING.sm,
     flexWrap: 'wrap'
   },
   medNameInput: {
@@ -624,19 +624,19 @@ const styles = StyleSheet.create({
   medStrengthInput: {
     fontSize: FONT_SIZE.xs,
     fontFamily: 'Inter-Bold',
-    paddingHorizontal: 8,
+    paddingHorizontal: SPACING.sm,
     paddingVertical: 3,
     borderRadius: RADIUS.sm
   },
   metaBadgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8
+    gap: SPACING.sm
   },
   confidenceBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
+    paddingHorizontal: SPACING.sm,
     paddingVertical: 3,
     borderRadius: RADIUS.sm,
     gap: 5
@@ -644,21 +644,21 @@ const styles = StyleSheet.create({
   confidenceDot: {
     width: 6,
     height: 6,
-    borderRadius: 3
+    borderRadius: RADIUS.sm
   },
   confidenceText: {
     fontSize: FONT_SIZE.xs,
     fontFamily: 'Inter-Bold'
   },
   deleteBtn: {
-    padding: 4
+    padding: SPACING.xs
   },
 
   // ── Structured Grid ──
   cardDetailsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: SPACING.sm,
     marginBottom: 10
   },
   gridCell: {
@@ -675,7 +675,7 @@ const styles = StyleSheet.create({
     marginBottom: 2
   },
   cellLabel: {
-    fontSize: 10,
+    fontSize: FONT_SIZE.xs,
     fontFamily: 'Inter-Bold',
     textTransform: 'uppercase',
     letterSpacing: 0.5
@@ -691,13 +691,13 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.md,
     borderWidth: 1,
     paddingHorizontal: 10,
-    paddingVertical: 8
+    paddingVertical: SPACING.sm
   },
   instructionsHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    marginBottom: 4
+    marginBottom: SPACING.xs
   },
   instructionsInput: {
     fontSize: FONT_SIZE.md,
@@ -711,7 +711,7 @@ const styles = StyleSheet.create({
     marginTop: SPACING.sm, gap: SPACING.md
   },
   primaryBtn: {
-    padding: 12,
+    padding: SPACING.md,
     borderRadius: RADIUS.pill,
     flexDirection: 'row',
     justifyContent: 'center',
@@ -754,7 +754,6 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontFamily: 'Inter-Regular',
-    
     fontSize: FONT_SIZE.lg,
     textAlign: 'center',
     lineHeight: 22
@@ -774,7 +773,7 @@ const styles = StyleSheet.create({
   pharmacyIconCircle: {
     width: 38,
     height: 38,
-    borderRadius: 12,
+    borderRadius: RADIUS.md,
     justifyContent: 'center',
     alignItems: 'center'
   },
@@ -784,13 +783,12 @@ const styles = StyleSheet.create({
   },
   pharmacyMeta: {
     fontFamily: 'Inter-Regular',
-    
     fontSize: FONT_SIZE.sm,
-    marginTop: 2
+    marginTop: SPACING.xs
   },
   matchBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs,
     borderRadius: RADIUS.sm
   },
   matchBadgeText: {
@@ -813,7 +811,6 @@ const styles = StyleSheet.create({
   },
   pharmacyMedStrength: {
     fontFamily: 'Inter-Regular',
-    
     fontSize: FONT_SIZE.sm
   },
   pharmacyMedPrice: {
@@ -837,14 +834,14 @@ const styles = StyleSheet.create({
   demographicBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    gap: SPACING.xs,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
     borderRadius: RADIUS.sm,
     borderWidth: 1
   },
   demographicText: {
-    fontSize: 11,
+    fontSize: FONT_SIZE.sm,
     fontFamily: 'Inter-Bold'
   },
   advisoryNoteBox: {
@@ -856,7 +853,7 @@ const styles = StyleSheet.create({
     marginTop: SPACING.sm
   },
   advisoryNoteText: {
-    fontSize: 12,
+    fontSize: FONT_SIZE.md,
     lineHeight: 16,
     fontFamily: 'Inter-Medium'
   },
@@ -879,12 +876,12 @@ const styles = StyleSheet.create({
   headerAddBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
-    padding: 6,
+    gap: SPACING.xs,
+    padding: SPACING.xs,
     borderRadius: RADIUS.pill
   },
   headerAddBtnText: {
-    fontSize: 13,
+    fontSize: FONT_SIZE.md,
     fontFamily: 'Inter-Bold'
   },
 

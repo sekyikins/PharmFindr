@@ -18,7 +18,7 @@ import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 import { useThemeContext } from '@/hooks/useThemeContext';
-import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
+import { COLORS, FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
 import { Header } from '@/components/ui/Header';
 import { toast } from '@/context/ToastContext';
 import { useAuthStore } from '@/store/authStore';
@@ -254,7 +254,7 @@ export default function SendFeedbackScreen() {
                 onPress={() => setCategory(cat.type)}
               >
                 <View style={[styles.catIconCircle, { backgroundColor: isSelected ? primaryColor : theme.surfaceSecondary }]}>
-                  <Ionicons name={cat.icon} size={20} color={isSelected ? '#ffffff' : primaryColor} />
+                  <Ionicons name={cat.icon} size={20} color={isSelected ? COLORS.white : primaryColor} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.catTitle, { color: theme.text.primary }]}>{cat.label}</Text>
@@ -269,16 +269,16 @@ export default function SendFeedbackScreen() {
         </View>
 
         {/* ── Rating Selector ── */}
-        <Text style={[styles.sectionHeading, { color: theme.textDim, marginTop: 20 }]}>RATE YOUR EXPERIENCE</Text>
+        <Text style={[styles.sectionHeading, { color: theme.textDim, marginTop: SPACING.xl }]}>RATE YOUR EXPERIENCE</Text>
         <View style={[styles.ratingCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
           <Text style={[styles.ratingLabel, { color: theme.textMuted }]}>Overall satisfaction with the app:</Text>
           <View style={styles.starsRow}>
             {[1, 2, 3, 4, 5].map((star) => (
-              <Pressable key={star} onPress={() => setRating(star)} style={{ padding: 4 }}>
+              <Pressable key={star} onPress={() => setRating(star)} style={{ padding: SPACING.xs }}>
                 <Ionicons
                   name={star <= rating ? 'star' : 'star-outline'}
                   size={32}
-                  color={star <= rating ? '#f59e0b' : theme.textDim}
+                  color={star <= rating ? COLORS.warning : theme.textDim}
                 />
               </Pressable>
             ))}
@@ -286,7 +286,7 @@ export default function SendFeedbackScreen() {
         </View>
 
         {/* ── Feedback Message Details ── */}
-        <Text style={[styles.sectionHeading, { color: theme.textDim, marginTop: 20 }]}>YOUR MESSAGE</Text>
+        <Text style={[styles.sectionHeading, { color: theme.textDim, marginTop: SPACING.xl }]}>YOUR MESSAGE</Text>
 
         <View style={[styles.formCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
           <Text style={[styles.fieldLabel, { color: theme.textDim }]}>SUBJECT (OPTIONAL)</Text>
@@ -325,7 +325,7 @@ export default function SendFeedbackScreen() {
               <View style={{ flex: 1 }}>
                 <Text style={[styles.screenshotName, { color: theme.text.primary }]}>Screenshot attached</Text>
                 <Pressable onPress={() => setScreenshotUri(null)}>
-                  <Text style={[styles.removeScreenshotText, { color: '#ff4d4f' }]}>Remove attachment</Text>
+                  <Text style={[styles.removeScreenshotText, { color: COLORS.error }]}>Remove attachment</Text>
                 </Pressable>
               </View>
             </View>
@@ -377,74 +377,74 @@ const styles = StyleSheet.create({
   bannerCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
-    padding: 16,
+    gap: SPACING.md,
+    padding: SPACING.lg,
     borderRadius: RADIUS.xl,
     borderWidth: 1,
-    marginBottom: 20,
+    marginBottom: SPACING.xl,
   },
-  bannerTitle: { fontSize: 14, fontFamily: 'Inter-Bold' },
-  bannerSub: { fontSize: 12, marginTop: 2, lineHeight: 17 },
+  bannerTitle: { fontSize: FONT_SIZE.lg, fontFamily: 'Inter-Bold' },
+  bannerSub: { fontSize: FONT_SIZE.md, marginTop: SPACING.xs, lineHeight: 17 },
 
   sectionHeading: {
-    fontSize: 11,
+    fontSize: FONT_SIZE.sm,
     fontFamily: 'Inter-Bold',
     letterSpacing: 0.8,
     textTransform: 'uppercase',
-    marginBottom: 10,
+    marginBottom: SPACING.md,
   },
 
-  categoryGrid: { gap: 10 },
+  categoryGrid: { gap: SPACING.md },
   categoryCard: {
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: RADIUS.xl,
-    padding: 12,
+    padding: SPACING.md,
     borderWidth: 1,
-    gap: 12,
+    gap: SPACING.md,
   },
   catIconCircle: {
     width: 38,
     height: 38,
-    borderRadius: 19,
+    borderRadius: RADIUS.pill,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  catTitle: { fontSize: 14, fontFamily: 'Inter-Bold' },
-  catDesc: { fontSize: 12, marginTop: 1 },
+  catTitle: { fontSize: FONT_SIZE.lg, fontFamily: 'Inter-Bold' },
+  catDesc: { fontSize: FONT_SIZE.md, marginTop: SPACING.xs },
 
   ratingCard: {
     borderRadius: RADIUS.xl,
-    padding: 16,
+    padding: SPACING.lg,
     borderWidth: 1,
     alignItems: 'center',
   },
-  ratingLabel: { fontSize: 13, marginBottom: 10, fontFamily: 'Inter-Meduim' },
-  starsRow: { flexDirection: 'row', gap: 8 },
+  ratingLabel: { fontSize: FONT_SIZE.md, marginBottom: SPACING.md, fontFamily: 'Inter-Meduim' },
+  starsRow: { flexDirection: 'row', gap: SPACING.xs },
 
   formCard: {
     borderRadius: RADIUS.xl,
-    padding: 16,
+    padding: SPACING.lg,
     borderWidth: 1,
   },
   fieldLabel: {
-    fontSize: 10,
+    fontSize: FONT_SIZE.sm,
     fontFamily: 'Inter-Bold',
     letterSpacing: 0.5,
-    marginBottom: 6,
+    marginBottom: SPACING.xs,
   },
   input: {
     borderRadius: RADIUS.md,
     height: 46,
-    paddingHorizontal: 14,
+    paddingHorizontal: SPACING.lg,
     borderWidth: 1,
     fontSize: FONT_SIZE.md,
   },
   textArea: {
     borderRadius: RADIUS.md,
     height: 110,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.md,
     borderWidth: 1,
     fontSize: FONT_SIZE.md,
   },
@@ -453,27 +453,27 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: SPACING.xs,
     height: 46,
     borderRadius: RADIUS.md,
     borderWidth: 1,
     borderStyle: 'dashed',
   },
-  attachBtnText: { fontSize: 13, fontFamily: 'Inter-SemiBold' },
+  attachBtnText: { fontSize: FONT_SIZE.md, fontFamily: 'Inter-SemiBold' },
 
   screenshotPreviewRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    marginTop: 4,
+    gap: SPACING.md,
+    marginTop: SPACING.xs,
   },
   screenshotImage: {
     width: 50,
     height: 50,
     borderRadius: RADIUS.sm,
   },
-  screenshotName: { fontSize: 13, fontFamily: 'Inter-SemiBold' },
-  removeScreenshotText: { fontSize: 12, fontFamily: 'Inter-SemiBold', marginTop: 2 },
+  screenshotName: { fontSize: FONT_SIZE.md, fontFamily: 'Inter-SemiBold' },
+  removeScreenshotText: { fontSize: FONT_SIZE.md, fontFamily: 'Inter-SemiBold', marginTop: SPACING.xs },
 
   submitBtn: {
     height: 52,
@@ -481,9 +481,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 24,
+    marginTop: SPACING.xxl,
   },
-  submitBtnText: { color: '#ffffff', fontSize: 15, fontFamily: 'Inter-Bold' },
+  submitBtnText: { color: COLORS.white, fontSize: FONT_SIZE.lg, fontFamily: 'Inter-Bold' },
 
   // Success view
   successContainer: {
@@ -495,13 +495,13 @@ const styles = StyleSheet.create({
   successIconCircle: {
     width: 96,
     height: 96,
-    borderRadius: 48,
+    borderRadius: RADIUS.pill,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: SPACING.xl,
   },
-  successTitle: { fontSize: 22, fontFamily: 'Inter-Bold', textAlign: 'center', marginBottom: 10 },
-  successSub: { fontSize: 14, textAlign: 'center', lineHeight: 20, marginBottom: 30 },
+  successTitle: { fontSize: FONT_SIZE.hero, fontFamily: 'Inter-Bold', textAlign: 'center', marginBottom: SPACING.md },
+  successSub: { fontSize: FONT_SIZE.lg, textAlign: 'center', lineHeight: 20, marginBottom: SPACING.xxl },
   doneBtn: {
     paddingHorizontal: 28,
     height: 48,
@@ -509,5 +509,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  doneBtnText: { color: '#ffffff', fontSize: 15, fontFamily: 'Inter-Bold' },
+  doneBtnText: { color: COLORS.white, fontSize: FONT_SIZE.lg, fontFamily: 'Inter-Bold' },
 });

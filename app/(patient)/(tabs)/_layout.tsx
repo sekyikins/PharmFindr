@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '@/store/authStore';
 import { usePharmacyStore } from '@/store/pharmacyStore';
 import { useChatStore } from '@/store/chatStore';
+import { FONT_SIZE } from '@/styles/theme';
 
 export default function TabsLayout() {
   const { theme, primaryColor } = useThemeContext();
@@ -38,7 +39,7 @@ export default function TabsLayout() {
         tabBarInactiveTintColor: theme.textDim,
         tabBarHideOnKeyboard: true,
         tabBarLabelStyle: {
-          fontSize: 11,
+          fontSize: FONT_SIZE.sm,
           fontFamily: 'Inter-Bold',
           marginTop: 2,
         },

@@ -22,17 +22,17 @@ import { type KnownPharmacy, type RegisteredPharmacy } from '@/types/map';
 import { sendArkeselOtp, verifyArkeselOtp, validateGhanaPhone } from '@/lib/arkeselSms';
 import { useAuthStore, PHARMACY_PASS } from '@/store/authStore';
 import { supabase } from '@/lib/supabase';
-import { COLORS, RADIUS } from '@/styles/theme';
+import { COLORS,  FONT_SIZE, RADIUS, SPACING  } from '@/styles/theme';
 import * as Location from 'expo-location';
 import { fetchAddressForCoords, fetchGoogleMapsPharmaciesForRegistration } from '@/lib/googlePlaces';
 import { useHardwareBack } from '@/hooks/useHardwareBack';
 import { toast } from '@/context/ToastContext';
 
-const GREEN = '#10b981';
-const INPUT_BG = '#f8fafc';
-const TEXT_PRIMARY = '#0f172a';
-const LABEL_COLOR = '#64748b';
-const PLACEHOLDER_COLOR = '#94a3b8';
+const GREEN = COLORS.pharmacyPrimary;
+const INPUT_BG = COLORS.surface;
+const TEXT_PRIMARY = COLORS.textDark;
+const LABEL_COLOR = COLORS.textMuted;
+const PLACEHOLDER_COLOR = COLORS.textDim;
 
 import { getFriendlyErrorMessage } from '@/lib/errorUtils';
 
@@ -77,23 +77,23 @@ function Hero({ step, onBack }: { step: 1 | 2 | 3 | 4; onBack: () => void }) {
 
 const hero = StyleSheet.create({
   safe: {
-    paddingHorizontal: 24, paddingTop: 12, paddingBottom: 16
+    paddingHorizontal: SPACING.xxl, paddingTop: SPACING.md, paddingBottom: SPACING.xl
   },
   backBtn: {
-    flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', padding: 10, borderRadius: RADIUS.pill, backgroundColor: 'rgba(255,255,255,0.22)', marginBottom: 12
+    flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', padding: 10, borderRadius: RADIUS.pill, backgroundColor: 'rgba(255,255,255,0.22)', marginBottom: SPACING.md
   },
   backText: {
-    fontSize: 13, fontFamily: 'Inter-SemiBold', color: COLORS.white, marginLeft: 6
+    fontSize: FONT_SIZE.md, fontFamily: 'Inter-SemiBold', color: COLORS.white, marginLeft: 6
   },
   stepText: {
-    fontSize: 10, fontFamily: 'Inter-Bold', color: 'rgba(255,255,255,0.75)', letterSpacing: 1, marginBottom: 2
+    fontSize: FONT_SIZE.xs, fontFamily: 'Inter-Bold', color: 'rgba(255,255,255,0.75)', letterSpacing: 1, marginBottom: 2
   },
   title: {
-    fontSize: 24, fontFamily: 'Inter-Bold', color: COLORS.white, marginBottom: 2
+    fontSize: FONT_SIZE.hero, fontFamily: 'Inter-Bold', color: COLORS.white, marginBottom: 2
   },
   sub: {
     fontFamily: 'Inter-Regular',
-     fontSize: 13, color: 'rgba(255,255,255,0.85)'
+     fontSize: FONT_SIZE.md, color: 'rgba(255,255,255,0.85)'
   },
 
 });
@@ -156,26 +156,26 @@ function PrimaryBtn({ label, onPress, loading }: { label: string; onPress: () =>
 
 const f = StyleSheet.create({
   label: {
-    fontSize: 10, fontFamily: 'Inter-Bold', color: LABEL_COLOR, letterSpacing: 0.5, marginBottom: 8, textTransform: 'uppercase'
+    fontSize: FONT_SIZE.xs, fontFamily: 'Inter-Bold', color: LABEL_COLOR, letterSpacing: 0.5, marginBottom: SPACING.sm, textTransform: 'uppercase'
   },
   row: {
-    backgroundColor: INPUT_BG, borderRadius: 16, height: 52, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, borderWidth: 1, borderColor: COLORS.borderSubtle
+    backgroundColor: INPUT_BG, borderRadius: RADIUS.xl, height: 52, flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACING.lg, borderWidth: 1, borderColor: COLORS.borderSubtle
   },
   icon: {
     marginRight: 10
   },
   input: {
     fontFamily: 'Inter-Regular',
-    flex: 1, fontSize: 14, color: TEXT_PRIMARY, height: '100%'
+    flex: 1, fontSize: FONT_SIZE.lg, color: TEXT_PRIMARY, height: '100%'
   },
 });
 
 const btn = StyleSheet.create({
   base: {
-    height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center', marginTop: 24
+    height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center', marginTop: SPACING.xxl
   },
   text: {
-    color: COLORS.white, fontSize: 15, fontFamily: 'Inter-Bold'
+    color: COLORS.white, fontSize: FONT_SIZE.lg, fontFamily: 'Inter-Bold'
   },
 });
 
@@ -526,8 +526,8 @@ function Step2Location({
           </View>
 
           {/* Editable Physical Address (Auto-fetched from Google Places / Map) */}
-          <View style={{ marginTop: 18, marginBottom: 4 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+          <View style={{ marginTop: 18, marginBottom: SPACING.xs }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: SPACING.sm }}>
               <FieldLabel>PHARMACY PHYSICAL ADDRESS</FieldLabel>
               {isAddressFetching && (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
@@ -559,7 +559,7 @@ function Step2Location({
               <Ionicons name="close" size={20} color={COLORS.white} />
             </Pressable>
 
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: SPACING.sm }}>
               <Pressable style={[locStyles.modalDoneBtn, { flexDirection: 'row', justifyContent: 'center', alignItems: 'center' }]} onPress={handleLocateMe}>
                 <Ionicons name="locate" size={14} color={GREEN} />
                 <Text style={locStyles.modalDoneText}>Current Location</Text>
@@ -604,7 +604,7 @@ function Step2Location({
               style={({ pressed }) => [
                 btn.base,
                 pressed && { opacity: 0.8 },
-                { backgroundColor: GREEN, marginTop: 8, height: 44 },
+                { backgroundColor: GREEN, marginTop: SPACING.sm, height: 44 },
               ]}
               onPress={() => setIsMapExpanded(false)}
             >
@@ -886,7 +886,7 @@ function SuccessScreen({
   return (
     <View style={{ flex: 1, backgroundColor: COLORS.white }}>
       <View style={{ backgroundColor: GREEN }}>
-        <SafeAreaView edges={['top']} style={[hero.safe, { paddingBottom: 24 }]}>
+        <SafeAreaView edges={['top']} style={[hero.safe, { paddingBottom: SPACING.xxl }]}>
           <Text style={hero.title}>PharmFindr Network</Text>
           <Text style={hero.sub}>Registration Submitted Successfully</Text>
         </SafeAreaView>
@@ -902,7 +902,7 @@ function SuccessScreen({
           <Ionicons
             name={isVerified ? 'checkmark-circle-outline' : 'time-outline'}
             size={52}
-            color={isVerified ? '#059669' : '#b45309'}
+            color={isVerified ? COLORS.pharmacyTextDark : COLORS.pendingText}
           />
         </View>
 
@@ -916,7 +916,7 @@ function SuccessScreen({
         </Text>
 
         <View style={succ.summaryBox}>
-          <Text style={[f.label, { marginBottom: 12 }]}>REGISTRATION SUMMARY</Text>
+          <Text style={[f.label, { marginBottom: SPACING.md }]}>REGISTRATION SUMMARY</Text>
           <View style={succ.row}>
             <Text style={succ.rowKey}>Pharmacy Name</Text>
             <Text style={succ.rowVal}>{pharmName}</Text>
@@ -935,14 +935,14 @@ function SuccessScreen({
           </View>
           <View style={succ.row}>
             <Text style={succ.rowKey}>Account Status</Text>
-            <Text style={[succ.rowVal, { color: isVerified ? '#059669' : '#b45309', fontFamily: 'Inter-Bold' }]}>
+            <Text style={[succ.rowVal, { color: isVerified ? COLORS.pharmacyTextDark : COLORS.pendingText, fontFamily: 'Inter-Bold' }]}>
               {isVerified ? 'ACTIVE' : 'PENDING REVIEW'}
             </Text>
           </View>
         </View>
 
         <Pressable
-          style={({ pressed }) => [btn.base, pressed && { opacity: 0.8 }, { backgroundColor: GREEN, width: '100%', marginTop: 24 }]}
+          style={({ pressed }) => [btn.base, pressed && { opacity: 0.8 }, { backgroundColor: GREEN, width: '100%', marginTop: SPACING.xxl }]}
           onPress={onGoToDashboard}
         >
           <Text style={btn.text}>Go to Dashboard</Text>
@@ -954,27 +954,27 @@ function SuccessScreen({
 
 const succ = StyleSheet.create({
   iconCircle: {
-    width: 80, height: 80, borderRadius: 40, backgroundColor: '#fffbeb', borderWidth: 2, borderColor: COLORS.pendingBg, justifyContent: 'center', alignItems: 'center', marginBottom: 20, marginTop: 12
+    width: 80, height: 80, borderRadius: RADIUS.pill, backgroundColor: COLORS.pendingBg, borderWidth: 2, borderColor: COLORS.pendingBg, justifyContent: 'center', alignItems: 'center', marginBottom: SPACING.xl, marginTop: SPACING.md
   },
   title: {
-    fontSize: 22, fontFamily: 'Inter-Bold', color: TEXT_PRIMARY, marginBottom: 8
+    fontSize: FONT_SIZE.hero, fontFamily: 'Inter-Bold', color: TEXT_PRIMARY, marginBottom: SPACING.sm
   },
   body: {
     fontFamily: 'Inter-Regular',
-     fontSize: 13, color: LABEL_COLOR, textAlign: 'center', lineHeight: 20, marginBottom: 24, paddingHorizontal: 8
+     fontSize: FONT_SIZE.md, color: LABEL_COLOR, textAlign: 'center', lineHeight: 20, marginBottom: SPACING.xxl, paddingHorizontal: SPACING.sm
   },
   summaryBox: {
-    width: '100%', backgroundColor: COLORS.background, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: COLORS.borderSubtle
+    width: '100%', backgroundColor: COLORS.background, borderRadius: RADIUS.xl, padding: SPACING.lg, borderWidth: 1, borderColor: COLORS.borderSubtle
   },
   row: {
     flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10
   },
   rowKey: {
     fontFamily: 'Inter-Regular',
-     fontSize: 13, color: LABEL_COLOR
+     fontSize: FONT_SIZE.md, color: LABEL_COLOR
   },
   rowVal: {
-    fontSize: 13, color: TEXT_PRIMARY, fontFamily: 'Inter-SemiBold'
+    fontSize: FONT_SIZE.md, color: TEXT_PRIMARY, fontFamily: 'Inter-SemiBold'
   },
 
 });
@@ -984,16 +984,16 @@ const locStyles = StyleSheet.create({
     borderRadius: RADIUS.xl, borderWidth: 1.5, borderColor: GREEN + '40', backgroundColor: COLORS.background, overflow: 'hidden', marginTop: 6
   },
   mapHeader: {
-    alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 10, backgroundColor: '#ecfdf5', borderBottomWidth: 1, borderBottomColor: GREEN
+    alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 10, backgroundColor: COLORS.pharmacySecondary, borderBottomWidth: 1, borderBottomColor: GREEN
   },
   mapHeaderTitle: {
-    fontSize: 12, fontFamily: 'Inter-Bold', color: TEXT_PRIMARY, flex: 1, marginLeft: 6
+    fontSize: FONT_SIZE.md, fontFamily: 'Inter-Bold', color: TEXT_PRIMARY, flex: 1, marginLeft: 6
   },
   expandBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: COLORS.white, paddingHorizontal: 10, paddingVertical: 4, borderRadius: RADIUS.pill, borderWidth: 1, borderColor: GREEN + '40'
+    flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: COLORS.white, paddingHorizontal: 10, paddingVertical: SPACING.xs, borderRadius: RADIUS.pill, borderWidth: 1, borderColor: GREEN + '40'
   },
   expandBtnText: {
-    fontSize: 11, fontFamily: 'Inter-Bold', color: GREEN
+    fontSize: FONT_SIZE.sm, fontFamily: 'Inter-Bold', color: GREEN
   },
   mapWrapper: {
     height: 220, width: '100%'
@@ -1002,22 +1002,22 @@ const locStyles = StyleSheet.create({
     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999, backgroundColor: COLORS.white
   },
   fullMapHeader: {
-    backgroundColor: GREEN, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 10
+    backgroundColor: GREEN, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.lg, paddingVertical: 10
   },
   modalCloseBtn: {
-    padding: 6, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.2)'
+    padding: 6, borderRadius: RADIUS.xl, backgroundColor: 'rgba(255,255,255,0.2)'
   },
   modalDoneBtn: {
-    paddingHorizontal: 12, paddingVertical: 6, borderRadius: RADIUS.pill, backgroundColor: COLORS.white
+    paddingHorizontal: SPACING.md, paddingVertical: 6, borderRadius: RADIUS.pill, backgroundColor: COLORS.white
   },
   modalDoneText: {
-    color: GREEN, fontSize: 12, fontFamily: 'Inter-Bold'
+    color: GREEN, fontSize: FONT_SIZE.md, fontFamily: 'Inter-Bold'
   },
   fullMapFooter: {
-    backgroundColor: COLORS.white, padding: 16, borderTopWidth: 1, borderTopColor: COLORS.borderSubtle
+    backgroundColor: COLORS.white, padding: SPACING.lg, borderTopWidth: 1, borderTopColor: COLORS.borderSubtle
   },
   footerAddress: {
-    fontSize: 12, color: TEXT_PRIMARY, fontFamily: 'Inter-SemiBold', marginBottom: 4
+    fontSize: FONT_SIZE.md, color: TEXT_PRIMARY, fontFamily: 'Inter-SemiBold', marginBottom: SPACING.xs
   },
 
 });
@@ -1027,11 +1027,11 @@ const s = StyleSheet.create({
     flexGrow: 1, backgroundColor: COLORS.white
   },
   form: {
-    padding: 24, backgroundColor: COLORS.white
+    padding: SPACING.xxl, backgroundColor: COLORS.white
   },
   secSub: {
     fontFamily: 'Inter-Regular',
-     fontSize: 13, color: LABEL_COLOR, marginBottom: 20, lineHeight: 18
+     fontSize: FONT_SIZE.md, color: LABEL_COLOR, marginBottom: SPACING.xl, lineHeight: 18
   },
 });
 

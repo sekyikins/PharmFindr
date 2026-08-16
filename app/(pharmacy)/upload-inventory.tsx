@@ -26,8 +26,6 @@ import { toast } from '@/context/ToastContext';
 
 import { getFriendlyErrorMessage } from '@/lib/errorUtils';
 
-const PHARMACY_GREEN = '#10b981';
-
 export default function UploadInventory() {
   const router = useRouter();
   const { user } = useAuthStore();
@@ -202,9 +200,9 @@ export default function UploadInventory() {
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* ── 1. Upload Dropzone Card ── */}
-        <View style={[styles.dropZone, { backgroundColor: theme.card, borderColor: PHARMACY_GREEN }]}>
+        <View style={[styles.dropZone, { backgroundColor: theme.card, borderColor: COLORS.pharmacyPrimary }]}>
           <View style={styles.iconCircle}>
-            <Ionicons name="cloud-upload-outline" size={32} color={PHARMACY_GREEN} />
+            <Ionicons name="cloud-upload-outline" size={32} color={COLORS.pharmacyPrimary} />
           </View>
 
           <Text style={[styles.dropTitle, { color: theme.text.primary }]}>
@@ -218,7 +216,7 @@ export default function UploadInventory() {
             style={({ pressed }) => [
               styles.chooseBtn,
               pressed && { opacity: 0.8 },
-              { backgroundColor: PHARMACY_GREEN },
+              { backgroundColor: COLORS.pharmacyPrimary },
             ]}
             onPress={handlePickDocument}
             disabled={loading}
@@ -235,7 +233,7 @@ export default function UploadInventory() {
 
           {fileName && (
             <View style={styles.fileSelectedBadge}>
-              <Ionicons name="checkmark-circle" size={16} color={PHARMACY_GREEN} />
+              <Ionicons name="checkmark-circle" size={16} color={COLORS.pharmacyPrimary} />
               <Text style={styles.fileNameText} numberOfLines={1}>
                 {fileName} {fileSize ? `(${fileSize})` : ''}
               </Text>
@@ -265,7 +263,7 @@ export default function UploadInventory() {
                 style={[styles.colPill, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}
               >
                 <Text style={[styles.colPillName, { color: theme.text.primary }]}>{col.name}</Text>
-                <View style={[styles.colTag, { backgroundColor: col.req ? '#fee2e2' : COLORS.surfaceSecondary }]}>
+                <View style={[styles.colTag, { backgroundColor: col.req ? COLORS.errorBg : COLORS.surfaceSecondary }]}>
                   <Text style={[styles.colTagText, { color: col.color }]}>{col.tag}</Text>
                 </View>
               </View>
@@ -300,7 +298,7 @@ export default function UploadInventory() {
                       Stock: {item.quantity} units
                     </Text>
                   </View>
-                  <Text style={[styles.itemPrice, { color: PHARMACY_GREEN }]}>
+                  <Text style={[styles.itemPrice, { color: COLORS.pharmacyPrimary }]}>
                     GH₵ {item.price.toFixed(2)}
                   </Text>
                 </View>
@@ -317,7 +315,7 @@ export default function UploadInventory() {
               title={uploading ? 'Importing Medicines...' : 'Confirm & Import All Items'}
               loading={uploading}
               onPress={handleUpload}
-              style={{ backgroundColor: PHARMACY_GREEN, marginTop: 12 }}
+              style={{ backgroundColor: COLORS.pharmacyPrimary, marginTop: SPACING.md }}
             />
           </View>
         )}
@@ -340,165 +338,162 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderStyle: 'dashed',
     alignItems: 'center',
-    gap: 8
+    gap: SPACING.xs,
   },
   iconCircle: {
     width: 60,
     height: 60,
-    borderRadius: 30,
-    backgroundColor: '#ecfdf5',
+    borderRadius: RADIUS.pill,
+    backgroundColor: COLORS.pharmacySecondary,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 4
+    marginBottom: SPACING.xs,
   },
   dropTitle: {
     fontSize: FONT_SIZE.xl,
-    fontFamily: 'Inter-Bold'
+    fontFamily: 'Inter-Bold',
   },
   dropSub: {
     fontFamily: 'Inter-Regular',
-    
     fontSize: FONT_SIZE.md,
-    textAlign: 'center'
+    textAlign: 'center',
   },
   chooseBtn: {
     flexDirection: 'row',
     height: 48,
     borderRadius: RADIUS.pill,
-    paddingHorizontal: 24,
+    paddingHorizontal: SPACING.xxl,
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 8,
-    marginTop: 12
+    gap: SPACING.xs,
+    marginTop: SPACING.md,
   },
   chooseBtnText: {
     color: COLORS.white,
     fontSize: FONT_SIZE.md,
-    fontFamily: 'Inter-Bold'
+    fontFamily: 'Inter-Bold',
   },
   fileSelectedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#ecfdf5',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    gap: SPACING.xs,
+    backgroundColor: COLORS.pharmacySecondary,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs,
     borderRadius: RADIUS.pill,
-    marginTop: 10
+    marginTop: SPACING.md,
   },
   fileNameText: {
-    fontSize: 12,
+    fontSize: FONT_SIZE.md,
     fontFamily: 'Inter-Bold',
-    color: PHARMACY_GREEN
+    color: COLORS.pharmacyPrimary,
   },
 
   formatCard: {
     borderRadius: RADIUS.xl,
     padding: SPACING.lg,
     borderWidth: 1.5,
-    gap: 10
+    gap: SPACING.md,
   },
   formatHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8
+    gap: SPACING.xs,
   },
   formatTitle: {
     fontSize: FONT_SIZE.lg,
-    fontFamily: 'Inter-Bold'
+    fontFamily: 'Inter-Bold',
   },
   formatSub: {
     fontFamily: 'Inter-Regular',
-    
-    fontSize: FONT_SIZE.md
+    fontSize: FONT_SIZE.md,
   },
   colGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 4
+    gap: SPACING.xs,
+    marginTop: SPACING.xs,
   },
   colPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    gap: SPACING.xs,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs,
     borderRadius: RADIUS.pill,
-    borderWidth: 1
+    borderWidth: 1,
   },
   colPillName: {
-    fontSize: 12,
-    fontFamily: 'Inter-Bold'
+    fontSize: FONT_SIZE.md,
+    fontFamily: 'Inter-Bold',
   },
   colTag: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4
+    paddingHorizontal: SPACING.xs,
+    paddingVertical: SPACING.xs,
+    borderRadius: RADIUS.sm,
   },
   colTagText: {
-    fontSize: 9,
-    fontFamily: 'Inter-Bold'
+    fontSize: FONT_SIZE.xs,
+    fontFamily: 'Inter-Bold',
   },
 
   previewCard: {
     borderRadius: RADIUS.xl,
     padding: SPACING.lg,
     borderWidth: 1.5,
-    gap: 12
+    gap: SPACING.md,
   },
   previewHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center'
+    alignItems: 'center',
   },
   previewTitle: {
     fontSize: FONT_SIZE.lg,
-    fontFamily: 'Inter-Bold'
+    fontFamily: 'Inter-Bold',
   },
   validBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#ecfdf5',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: RADIUS.pill
+    gap: SPACING.xs,
+    backgroundColor: COLORS.pharmacySecondary,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
+    borderRadius: RADIUS.pill,
   },
   validBadgeText: {
     color: COLORS.pharmacyTextDark,
-    fontSize: 11,
-    fontFamily: 'Inter-Bold'
+    fontSize: FONT_SIZE.sm,
+    fontFamily: 'Inter-Bold',
   },
   previewList: {
-    gap: 8
+    gap: SPACING.xs,
   },
   previewRow: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: SPACING.md,
     borderRadius: RADIUS.lg,
-    borderWidth: 1
+    borderWidth: 1,
   },
   itemTitle: {
     fontSize: FONT_SIZE.md,
-    fontFamily: 'Inter-Bold'
+    fontFamily: 'Inter-Bold',
   },
   itemQty: {
     fontFamily: 'Inter-Regular',
-    
-    fontSize: 11,
-    marginTop: 2
+    fontSize: FONT_SIZE.sm,
+    marginTop: SPACING.xs,
   },
   itemPrice: {
     fontSize: FONT_SIZE.lg,
-    fontFamily: 'Inter-Bold'
+    fontFamily: 'Inter-Bold',
   },
   moreText: {
     textAlign: 'center',
-    fontSize: 12,
+    fontSize: FONT_SIZE.md,
     fontFamily: 'Inter-SemiBold',
-    marginTop: 4
+    marginTop: SPACING.xs,
   },
 
 });

@@ -1,4 +1,4 @@
-import { COLORS } from '@/styles/theme';
+import { COLORS, FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
 /**
  * components/ui/OtpInput.tsx
  *
@@ -69,7 +69,7 @@ const EMPTY = Array(OTP_LENGTH).fill('');
 
 const OtpInput = forwardRef<OtpInputHandle, OtpInputProps>((props, ref) => {
   const {
-    accentColor = '#10b981',
+    accentColor = COLORS.pharmacyPrimary,
     onComplete,
     onChange,
     onResend,
@@ -309,53 +309,53 @@ export default OtpInput;
 
 const styles = StyleSheet.create({
   container: {
-    marginVertical: 4
+    marginVertical: SPACING.xs,
   },
   subtitleRow: {
-    marginBottom: 12
+    marginBottom: SPACING.md,
   },
   boxRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 8,
-    marginVertical: 10
+    gap: SPACING.xs,
+    marginVertical: SPACING.sm,
   },
   box: {
     width: 44,
     height: 54,
-    borderRadius: 12,
+    borderRadius: RADIUS.md,
     borderWidth: 1.5,
     borderColor: COLORS.borderSlate,
     backgroundColor: COLORS.white,
-    fontSize: 22,
+    fontSize: FONT_SIZE.hero,
     fontFamily: 'Inter-Bold',
-    color: COLORS.surfaceDark
+    color: COLORS.surfaceDark,
   },
   successRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    marginTop: 6,
-    marginBottom: 4
+    gap: SPACING.xs,
+    marginTop: SPACING.xs,
+    marginBottom: SPACING.xs,
   },
   successText: {
     color: COLORS.pharmacyPrimary,
-    fontSize: 13,
-    fontFamily: 'Inter-Bold'
+    fontSize: FONT_SIZE.lg,
+    fontFamily: 'Inter-Bold',
   },
   resendRow: {
     alignItems: 'center',
-    marginTop: 8
+    marginTop: SPACING.sm,
   },
   resendBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 6,
-    paddingHorizontal: 12
+    paddingVertical: SPACING.xs,
+    paddingHorizontal: SPACING.md,
   },
   resendText: {
-    fontSize: 13,
-    fontFamily: 'Inter-SemiBold'
+    fontSize: FONT_SIZE.lg,
+    fontFamily: 'Inter-SemiBold',
   },
 });

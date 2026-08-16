@@ -22,6 +22,7 @@ export const RADIUS = {
   md: 10,
   lg: 14,
   xl: 18,
+  xxl: 22,
   pill: 999,
 } as const;
 
@@ -135,8 +136,6 @@ export const MAP_PIN_COLORS = {
   selected: '#f59e0b', // YELLOW/GOLD: Currently selected pharmacy or dropped pin
 } as const;
 
-export type PharmacyPinStatus = 'verified' | 'public' | 'closed';
-
 export interface GetPharmacyPinColorOptions {
   isVerified?: boolean;
   isOpen?: boolean;
@@ -189,108 +188,3 @@ const _makePalette = () => {
 export type ThemeColors = ReturnType<typeof _makePalette>;
 
 export const LIGHT_COLORS = _makePalette();
-
-// ─── Typography builder ───────────────────────────────────────────────────────
-export function buildTypography(c: ThemeColors) {
-  return {
-    hero:        { fontSize: FONT_SIZE.hero,  fontFamily: 'Inter-Bold' as const, color: c.text, letterSpacing: -0.5 },
-    title:       { fontSize: FONT_SIZE.title, fontFamily: 'Inter-Bold' as const, color: c.text },
-    sectionLabel:{ fontSize: FONT_SIZE.xs,    fontFamily: 'Inter-Bold' as const, color: c.textDim, letterSpacing: 0.8, textTransform: 'uppercase' as const },
-    subtitle:    { fontSize: FONT_SIZE.lg,  color: c.textDim, lineHeight: 20 },
-    body:        { fontSize: FONT_SIZE.xl,    color: c.text },
-    bodySmall:   { fontSize: FONT_SIZE.lg,    color: c.text },
-    caption:     { fontSize: FONT_SIZE.md,    color: c.textDim },
-    meta:        { fontSize: FONT_SIZE.sm,    color: c.textDim },
-    fieldLabel:  { fontSize: FONT_SIZE.xs,    fontFamily: 'Inter-Bold' as const, color: c.textDim, textTransform: 'uppercase' as const, letterSpacing: 0.8 },
-    inputLabel:  { fontSize: FONT_SIZE.xl,    fontFamily: 'Inter-SemiBold' as const, color: c.text },
-    menuTitle:   { fontSize: FONT_SIZE.xl,    fontFamily: 'Inter-SemiBold' as const, color: c.text },
-    menuSub:     { fontSize: FONT_SIZE.md,    color: c.textDim, lineHeight: 16 },
-    link:        { fontSize: FONT_SIZE.md,    fontFamily: 'Inter-Medium' as const, color: c.patientPrimary },
-    mono:        { fontSize: FONT_SIZE.md,    color: c.textDim, fontFamily: 'monospace' as const },
-  };
-}
-
-// ─── Common style builder ─────────────────────────────────────────────────────
-export function buildCommonStyles(c: ThemeColors) {
-  return {
-    // Layout
-    screen:   { flex: 1 as const, backgroundColor: c.background },
-    center:   { flex: 1 as const, justifyContent: 'center' as const, alignItems: 'center' as const, backgroundColor: c.background },
-    content:  { padding: SPACING.xl, paddingBottom: 36 },
-    scrollContent: { paddingHorizontal: SPACING.lg, paddingTop: SPACING.md, paddingBottom: 36 },
-
-    // Cards
-    card: {
-      backgroundColor: c.card,
-      borderRadius: RADIUS.xl,
-      borderWidth: 1,
-      borderColor: c.border,
-    },
-    cardPadded: {
-      backgroundColor: c.card,
-      borderRadius: RADIUS.xl,
-      borderWidth: 1,
-      borderColor: c.border,
-      padding: SPACING.lg,
-    },
-
-    // Header bar
-    header: {
-      flexDirection: 'row' as const,
-      alignItems: 'center' as const,
-      justifyContent: 'space-between' as const,
-      paddingHorizontal: SPACING.xl,
-      paddingVertical: SPACING.md,
-      backgroundColor: c.card,
-      borderBottomWidth: 1,
-      borderBottomColor: c.border,
-    },
-
-    // Inputs
-    input: {
-      backgroundColor: c.surfaceSecondary,
-      borderWidth: 1,
-      borderColor: c.border,
-      borderRadius: RADIUS.lg,
-      paddingVertical: SPACING.md,
-      paddingHorizontal: SPACING.lg,
-      color: c.text,
-      fontSize: FONT_SIZE.xl,
-    },
-
-    // Buttons
-    btn: { borderRadius: RADIUS.pill, height: 52, justifyContent: 'center' as const, alignItems: 'center' as const },
-    btnText: { color: '#ffffff', fontSize: FONT_SIZE.xl, fontFamily: 'Inter-SemiBold' as const },
-    btnOutline: {
-      borderRadius: RADIUS.pill, height: 52,
-      justifyContent: 'center' as const, alignItems: 'center' as const,
-      borderWidth: 1.5, backgroundColor: 'transparent',
-    },
-    btnOutlineText: { fontSize: FONT_SIZE.xl, fontFamily: 'Inter-SemiBold' as const },
-
-    // List helpers
-    divider: { height: 1, backgroundColor: c.border },
-    row:     { flexDirection: 'row' as const, alignItems: 'center' as const },
-    rowBetween: { flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'space-between' as const },
-
-    // Icon circles
-    iconCircle: {
-      justifyContent: 'center' as const,
-      alignItems: 'center' as const,
-      borderRadius: RADIUS.pill,
-    },
-
-    // Badges
-    badge: {
-      paddingHorizontal: SPACING.sm,
-      paddingVertical: 3,
-      borderRadius: RADIUS.pill,
-    },
-    badgeText: { fontSize: FONT_SIZE.sm, fontFamily: 'Inter-SemiBold' as const },
-
-    // Empty state
-    emptyContainer: { flex: 1 as const, alignItems: 'center' as const, justifyContent: 'center' as const, padding: 40 },
-    emptyText: { fontSize: FONT_SIZE.lg, color: c.textDim, marginTop: SPACING.md, textAlign: 'center' as const },
-  };
-}
-

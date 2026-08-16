@@ -112,7 +112,7 @@ export default function PrescriptionHistory() {
               <Skeleton width={110} height={16} borderRadius={4} />
               <Skeleton width={75} height={20} borderRadius={10} />
             </View>
-            <Skeleton width={130} height={12} borderRadius={4} style={{ marginVertical: 8 }} />
+            <Skeleton width={130} height={12} borderRadius={4} style={{ marginVertical: SPACING.sm }} />
             <View style={styles.chipsRow}>
               <Skeleton width={95} height={24} borderRadius={12} />
               <Skeleton width={80} height={24} borderRadius={12} />
@@ -252,10 +252,10 @@ const styles = StyleSheet.create({
   },
 
   listContent: {
-    padding: SPACING.lg, gap: 12
+    padding: SPACING.lg, gap: SPACING.md
   },
   emptyContainer: {
-    alignItems: 'center', marginTop: 80, gap: 10
+    alignItems: 'center', marginTop: 20, gap: SPACING.md
   },
   emptyText: {
     fontFamily: 'Inter-Regular',
@@ -286,21 +286,21 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZE.xl, fontFamily: 'Inter-Bold'
   },
   countBadge: {
-    paddingHorizontal: 8, paddingVertical: 3, borderRadius: RADIUS.pill
+    paddingHorizontal: SPACING.sm, paddingVertical: 3, borderRadius: RADIUS.pill
   },
   countText: {
     fontSize: FONT_SIZE.sm, fontFamily: 'Inter-SemiBold'
   },
   cardDoctor: {
     fontFamily: 'Inter-Regular',
-     fontSize: FONT_SIZE.sm, marginBottom: 8
+     fontSize: FONT_SIZE.sm, marginBottom: SPACING.sm
   },
 
   chipsRow: {
     flexDirection: 'row', flexWrap: 'wrap', gap: 6
   },
   chip: {
-    borderRadius: RADIUS.pill, paddingHorizontal: 8, paddingVertical: 3
+    borderRadius: RADIUS.pill, paddingHorizontal: SPACING.sm, paddingVertical: 3
   },
   chipText: {
     fontSize: FONT_SIZE.sm, fontFamily: 'Inter-Medium'
@@ -309,7 +309,7 @@ const styles = StyleSheet.create({
   addHeaderBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
+    gap: SPACING.xs,
     padding: 6,
     borderRadius: RADIUS.pill
   },

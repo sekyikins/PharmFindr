@@ -211,7 +211,7 @@ export default function Scan() {
               </Pressable>
 
               <Pressable onPress={() => setFlash(!flash)} style={({pressed})=>[styles.circleIconBtn, pressed && { opacity: 0.5 }]}>
-                <Ionicons name={flash ? 'flash' : 'flash-outline'} size={20} color={flash ? '#fbbf24' : COLORS.white} />
+                <Ionicons name={flash ? 'flash' : 'flash-outline'} size={20} color={flash ? COLORS.warning : COLORS.white} />
               </Pressable>
             </SafeAreaView>
 
@@ -293,7 +293,7 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZE.xl,
     textAlign: 'center',
     lineHeight: 22,
-    marginBottom: 32
+    marginBottom: SPACING.xxxl
   },
   permissionBtn: {
     paddingVertical: 14,
@@ -334,7 +334,7 @@ const styles = StyleSheet.create({
   circleIconBtn: {
     width: 44,
     height: 44,
-    borderRadius: 22,
+    borderRadius: RADIUS.xxl,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center'
@@ -393,7 +393,7 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     fontSize: FONT_SIZE.lg,
     fontFamily: 'Inter-Bold',
-    marginTop: 20,
+    marginTop: SPACING.xl,
     textAlign: 'center'
   },
   viewfinderSubText: {
@@ -401,7 +401,7 @@ const styles = StyleSheet.create({
     
     color: 'rgba(255, 255, 255, 0.6)',
     fontSize: FONT_SIZE.md,
-    marginTop: 6,
+    marginTop: SPACING.xs,
     textAlign: 'center'
   },
 
@@ -419,13 +419,13 @@ const styles = StyleSheet.create({
   footerIconLabel: {
     color: COLORS.white,
     fontSize: FONT_SIZE.sm,
-    marginTop: 6,
+    marginTop: SPACING.xs,
     fontFamily: 'Inter-SemiBold'
   },
   captureOuter: {
     width: 76,
     height: 76,
-    borderRadius: 38,
+    borderRadius: RADIUS.pill,
     borderWidth: 4,
     borderColor: COLORS.white,
     justifyContent: 'center',
@@ -447,14 +447,14 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     fontSize: FONT_SIZE.xxl,
     fontFamily: 'Inter-Bold',
-    marginTop: 20
+    marginTop: SPACING.xl
   },
   processingSub: {
     fontFamily: 'Inter-Regular',
     
     color: COLORS.textDim,
     fontSize: FONT_SIZE.lg,
-    marginTop: 8
+    marginTop: SPACING.sm
   },
 
 });

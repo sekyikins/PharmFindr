@@ -15,7 +15,7 @@ export function Input({ label, error, containerStyle, style, ...props }: InputPr
   return (
     <View style={[styles.wrapper, containerStyle]}>
       {label && (
-        <Text style={[styles.label, { color: theme.text.secondary }]}>
+        <Text style={[styles.label, { color: theme.textDim }]}>
           {label}
         </Text>
       )}
@@ -29,8 +29,8 @@ export function Input({ label, error, containerStyle, style, ...props }: InputPr
         ]}
       >
         <TextInput
-          style={[styles.input, { color: theme.text.primary }, style]}
-          placeholderTextColor={theme.text.muted}
+          style={[styles.input, { color: theme.text }, style]}
+          placeholderTextColor={theme.textDim}
           {...props}
         />
       </View>
@@ -44,32 +44,30 @@ export function Input({ label, error, containerStyle, style, ...props }: InputPr
 const styles = StyleSheet.create({
   wrapper: {
     width: '100%',
-    marginVertical: SPACING.sm
+    marginVertical: SPACING.sm,
   },
   label: {
     fontSize: FONT_SIZE.sm,
     fontFamily: 'Inter-Bold',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    marginBottom: SPACING.sm
+    marginBottom: SPACING.sm,
   },
   inputContainer: {
     height: 52,
     borderRadius: RADIUS.lg,
     borderWidth: 1.2,
     paddingHorizontal: SPACING.lg,
-    justifyContent: 'center'
+    justifyContent: 'center',
   },
   input: {
     fontFamily: 'Inter-Regular',
-    
     fontSize: FONT_SIZE.lg,
-    width: '100%'
+    width: '100%',
   },
   errorText: {
     fontSize: FONT_SIZE.sm,
     marginTop: SPACING.xs,
-    fontFamily: 'Inter-Medium'
+    fontFamily: 'Inter-Medium',
   },
-
 });

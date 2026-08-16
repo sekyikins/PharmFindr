@@ -21,7 +21,7 @@ import { supabase } from '@/lib/supabase';
 import { getPharmacyForUser } from '@/lib/pharmacyService';
 import { useThemeContext } from '@/hooks/useThemeContext';
 import { useHardwareBack } from '@/hooks/useHardwareBack';
-import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
+import { COLORS, FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
 import { COMMON_DOSAGE_FORMS, type DosageForm } from '@/types/medicine';
 
 interface GenericOption {
@@ -38,8 +38,6 @@ interface ProductOption {
   dosage_form: string;
   manufacturer?: string | null;
 }
-
-const PHARMACY_GREEN = '#10b981';
 
 export default function AddMedicine() {
   const router = useRouter();
@@ -284,7 +282,7 @@ export default function AddMedicine() {
                   style={styles.dropdownItem}
                   onPress={() => handleSelectGeneric(item)}
                 >
-                  <Ionicons name="medical-outline" size={16} color={PHARMACY_GREEN} style={{ marginRight: 8 }} />
+                  <Ionicons name="medical-outline" size={16} color={COLORS.pharmacyPrimary} style={{ marginRight: 8 }} />
                   <Text style={[styles.dropdownItemText, { color: theme.text.primary }]}>
                     {item.generic_name}
                   </Text>
@@ -313,13 +311,13 @@ export default function AddMedicine() {
                   style={styles.dropdownItem}
                   onPress={() => handleSelectBrand(item)}
                 >
-                  <Ionicons name="pricetag-outline" size={16} color={PHARMACY_GREEN} style={{ marginRight: 8 }} />
+                  <Ionicons name="pricetag-outline" size={16} color={COLORS.pharmacyPrimary} style={{ marginRight: 8 }} />
                   <View>
                     <Text style={[styles.dropdownItemText, { color: theme.text.primary }]}>
                       {item.brand_name}
                     </Text>
                     {item.strength && (
-                      <Text style={{ fontSize: 11, color: theme.textMuted }}>{item.strength}</Text>
+                      <Text style={{ fontSize: FONT_SIZE.sm, color: theme.textMuted }}>{item.strength}</Text>
                     )}
                   </View>
                 </Pressable>
@@ -329,9 +327,9 @@ export default function AddMedicine() {
         </View>
 
         {/* ── 3. Dosage Form Chip Selector ── */}
-        <View style={{ marginBottom: 16 }}>
+        <View style={{ marginBottom: SPACING.lg }}>
           <Text style={[styles.fieldLabel, { color: theme.text.primary }]}>Dosage Form</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: SPACING.xs }}>
             {COMMON_DOSAGE_FORMS.map((form) => {
               const isSelected = dosageForm === form;
               return (
@@ -340,7 +338,7 @@ export default function AddMedicine() {
                   style={[
                     styles.formChip,
                     isSelected
-                      ? { backgroundColor: PHARMACY_GREEN, borderColor: PHARMACY_GREEN }
+                      ? { backgroundColor: COLORS.pharmacyPrimary, borderColor: COLORS.pharmacyPrimary }
                       : { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
                   ]}
                   onPress={() => setDosageForm(form)}
@@ -348,7 +346,7 @@ export default function AddMedicine() {
                   <Text
                     style={[
                       styles.formChipText,
-                      { color: isSelected ? '#ffffff' : theme.text.primary },
+                      { color: isSelected ? COLORS.white : theme.text.primary },
                     ]}
                   >
                     {form}
@@ -406,7 +404,7 @@ export default function AddMedicine() {
           title={loading ? 'Saving...' : isEditMode ? 'Update Medicine Stock' : 'Save Medicine Stock'}
           loading={loading}
           onPress={handleSave}
-          style={{ marginTop: 24, backgroundColor: PHARMACY_GREEN }}
+          style={{ marginTop: SPACING.xxl, backgroundColor: COLORS.pharmacyPrimary }}
         />
       </ScrollView>
       </KeyboardAvoidingView>
@@ -417,7 +415,7 @@ export default function AddMedicine() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   scrollContent: { padding: SPACING.xl },
-  inputContainer: { position: 'relative', zIndex: 1, marginBottom: 4 },
+  inputContainer: { position: 'relative', zIndex: 1, marginBottom: SPACING.xs },
   dropdownCard: {
     position: 'absolute',
     top: 72,
@@ -432,19 +430,19 @@ const styles = StyleSheet.create({
   dropdownItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.md,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#cbd5e1',
+    borderBottomColor: COLORS.borderSlate,
   },
   dropdownItemText: { fontSize: FONT_SIZE.md, fontFamily: 'Inter-SemiBold' },
-  fieldLabel: { fontSize: FONT_SIZE.md, fontFamily: 'Inter-Bold', marginBottom: 6 },
+  fieldLabel: { fontSize: FONT_SIZE.md, fontFamily: 'Inter-Bold', marginBottom: SPACING.xs },
   formChip: {
-    paddingHorizontal: 14,
+    paddingHorizontal: SPACING.lg,
     paddingVertical: 7,
     borderRadius: RADIUS.pill,
     borderWidth: 1,
   },
   formChipText: { fontSize: FONT_SIZE.sm, fontFamily: 'Inter-SemiBold' },
-  rowTwo: { gap: 12 },
+  rowTwo: { gap: SPACING.md },
 });

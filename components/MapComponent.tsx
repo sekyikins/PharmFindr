@@ -1,4 +1,4 @@
-import { COLORS, MAP_PIN_COLORS } from '@/styles/theme';
+import { COLORS, FONT_SIZE, MAP_PIN_COLORS, RADIUS, SPACING } from '@/styles/theme';
 import React, { useState } from 'react';
 import {
   View,
@@ -11,279 +11,229 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
-
 import { KnownPharmacy, RegisteredPharmacy } from '@/types/map';
 export type { KnownPharmacy, RegisteredPharmacy };
 
 interface MapComponentProps {
   pin: { latitude: number; longitude: number } | null;
-  /** Called when user taps an empty map area (custom pin) */
-  onPressMap: (coordinate: { latitude: number; longitude: number }) => void;
-  /** Called when user taps a public/Google (blue) pharmacy pin to select it */
-  onSelectKnownPharmacy?: (pharmacy: KnownPharmacy) => void;
-  initialCoords?: { latitude: number; longitude: number } | null;
-  setScrollEnabled?: (enabled: boolean) => void;
-  /** Public Maps pharmacies — Blue, selectable */
+  onSelectPin?: (lat: number, lng: number) => void;
+  onPressMap?: (coords: { latitude: number; longitude: number }) => void;
   knownPharmacies?: KnownPharmacy[];
-  /** Verified pharmacies on PharmFindr — Green, not selectable */
   registeredPharmacies?: RegisteredPharmacy[];
-  onRegionChangeComplete?: (region: { latitude: number; longitude: number; latitudeDelta: number; longitudeDelta: number }) => void;
+  selectedPharmacyId?: string | null;
+  onSelectPharmacy?: (pharmacy: KnownPharmacy | RegisteredPharmacy) => void;
+  onSelectKnownPharmacy?: (pharmacy: KnownPharmacy) => void;
+  userLocation?: { latitude: number; longitude: number } | null;
+  initialCoords?: { latitude: number; longitude: number } | null;
+  onRegionChangeComplete?: (region: any) => void;
   onExpand?: () => void;
 }
 
-// ─── Coordinate helpers ───────────────────────────────────────────────────────
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const MAP_HEIGHT = 200;
 
-const BASE_LAT = 5.6037;
-const BASE_LON = -0.187;
-const LAT_SCALE = 0.0003;
-const LON_SCALE = 0.0003;
-
-function coordToPixel(
-  lat: number,
-  lon: number,
-  containerW: number,
-  containerH: number
-) {
-  const cx = containerW / 2;
-  const cy = containerH / 2;
-  const x = cx + (lon - BASE_LON) / LON_SCALE;
-  const y = cy - (lat - BASE_LAT) / LAT_SCALE;
-  return { x, y };
-}
-
-function pixelToCoord(px: number, py: number, containerW: number, containerH: number) {
-  const cx = containerW / 2;
-  const cy = containerH / 2;
-  const lon = BASE_LON + (px - cx) * LON_SCALE;
-  const lat = BASE_LAT - (py - cy) * LAT_SCALE;
-  return { latitude: lat, longitude: lon };
-}
-
-// ─── Inner map renderer (used both inline and in fullscreen modal) ────────────
-
-function MapCanvas({
+export default function MapComponent({
   pin,
-  onPressMap,
-  onSelectKnownPharmacy,
+  onSelectPin,
   knownPharmacies = [],
   registeredPharmacies = [],
-  containerW,
-  containerH,
-}: {
-  pin: { latitude: number; longitude: number } | null;
-  onPressMap: (coord: { latitude: number; longitude: number }) => void;
-  onSelectKnownPharmacy?: (p: KnownPharmacy) => void;
-  knownPharmacies: KnownPharmacy[];
-  registeredPharmacies: RegisteredPharmacy[];
-  containerW: number;
-  containerH: number;
-}) {
-  const handlePress = (event: any) => {
-    const { locationX, locationY } = event.nativeEvent;
-    const coord = pixelToCoord(locationX, locationY, containerW, containerH);
-    onPressMap(coord);
+  selectedPharmacyId,
+  onSelectPharmacy,
+  userLocation,
+}: MapComponentProps) {
+  const [fullscreen, setFullscreen] = useState(false);
+
+  const displayLat = pin?.latitude ?? userLocation?.latitude ?? 5.6037;
+  const displayLng = pin?.longitude ?? userLocation?.longitude ?? -0.187;
+
+  const handleMapPress = (e: any) => {
+    if (!onSelectPin) return;
+    const { locationX, locationY } = e.nativeEvent;
+    const latDelta = 0.05;
+    const lngDelta = 0.05;
+    const lat = displayLat + (0.5 - locationY / MAP_HEIGHT) * latDelta;
+    const lng = displayLng + (locationX / SCREEN_WIDTH - 0.5) * lngDelta;
+    onSelectPin(lat, lng);
   };
 
-  return (
-    <Pressable style={[styles.canvas, { width: containerW, height: containerH }]} onPress={handlePress}>
-      {/* Map background */}
-      <View style={[styles.mapGrid, { width: containerW, height: containerH }]}>
-        {/* Water / river area */}
-        <View style={[styles.river, { bottom: 0, height: containerH * 0.15 }]} />
-        {/* Main roads */}
-        <View style={[styles.road, { top: '30%', height: 14, left: 0, right: 0 }]} />
-        <View style={[styles.road, { top: '65%', height: 10, left: 0, right: 0 }]} />
-        <View style={[styles.road, { left: '25%', width: 14, top: 0, bottom: 0 }]} />
-        <View style={[styles.road, { left: '68%', width: 18, top: 0, bottom: 0 }]} />
-        {/* Minor streets */}
-        <View style={[styles.street, { top: '48%', height: 6, left: 0, right: 0 }]} />
-        <View style={[styles.street, { left: '50%', width: 8, top: 0, bottom: 0 }]} />
-        {/* Blocks */}
-        {[
-          { top: '10%', left: '5%', width: 80, height: 50 },
-          { top: '10%', left: '35%', width: 100, height: 55 },
-          { top: '38%', left: '5%', width: 70, height: 55 },
-          { top: '38%', left: '35%', width: 95, height: 60 },
-          { top: '72%', left: '5%', width: 85, height: 45 },
-        ].map((b, i) => (
-          <View key={i} style={[styles.block, b as any]} />
-        ))}
-      </View>
+  const renderMapContent = () => (
+    <Pressable style={styles.mapCanvas} onPress={handleMapPress}>
+      {/* Decorative grid representing map streets */}
+      <View style={styles.river} />
+      <View style={[styles.road, { top: '35%', left: 0, right: 0, height: 12 }]} />
+      <View style={[styles.road, { left: '45%', top: 0, bottom: 0, width: 10 }]} />
+      <View style={[styles.street, { top: '65%', left: 0, right: 0, height: 6 }]} />
+      <View style={[styles.street, { left: '20%', top: 0, bottom: 0, width: 5 }]} />
+      <View style={[styles.street, { left: '75%', top: 0, bottom: 0, width: 5 }]} />
 
-      {/* ── Verified pharmacies on PharmFindr (Green — not selectable) ── */}
-      {registeredPharmacies.map((pharm) => {
-        const { x, y } = coordToPixel(pharm.latitude, pharm.longitude, containerW, containerH);
-        if (x < 0 || x > containerW || y < 0 || y > containerH) return null;
-        return (
-          <View
-            key={pharm.id}
-            style={[styles.pinWrapper, { left: x - 12, top: y - 28 }]}
-            pointerEvents="none"
-          >
-            <Ionicons name="location" size={26} color={MAP_PIN_COLORS.verified} />
-            <View style={[styles.registeredLabel, { backgroundColor: COLORS.pharmacyBgLight }]}>
-              <Text style={styles.registeredLabelText} numberOfLines={1}>{pharm.name} (Verified)</Text>
-            </View>
-          </View>
-        );
-      })}
+      {/* Blocks */}
+      <View style={[styles.block, { top: '10%', left: '10%', width: '30%', height: '20%' }]} />
+      <View style={[styles.block, { top: '10%', left: '60%', width: '30%', height: '20%' }]} />
+      <View style={[styles.block, { top: '45%', left: '10%', width: '30%', height: '15%' }]} />
+      <View style={[styles.block, { top: '45%', left: '60%', width: '30%', height: '15%' }]} />
+      <View style={[styles.block, { top: '75%', left: '30%', width: '40%', height: '18%' }]} />
 
-      {/* ── Public Maps pharmacies — Blue, selectable ── */}
-      {knownPharmacies.map((pharm) => {
-        const { x, y } = coordToPixel(pharm.latitude, pharm.longitude, containerW, containerH);
-        if (x < 0 || x > containerW || y < 0 || y > containerH) return null;
+      {/* User Location Marker */}
+      {userLocation && (
+        <View style={[styles.pinWrapper, { left: '48%', top: '48%' }]}>
+          <Ionicons name="person-circle" size={24} color={COLORS.patientPrimary} />
+          <Text style={styles.userLabel}>You</Text>
+        </View>
+      )}
+
+      {/* Known / Public Pharmacies (Blue pins) */}
+      {knownPharmacies.map((pharm, idx) => {
+        const isSelected = pharm.id === selectedPharmacyId;
+        const leftPct = `${25 + ((idx * 17) % 55)}%` as any;
+        const topPct = `${20 + ((idx * 23) % 60)}%` as any;
+
         return (
           <Pressable
             key={pharm.id}
-            style={({ pressed }) => [styles.pinWrapper, pressed && { opacity: 0.5 }, { left: x - 12, top: y - 28 }]}
+            style={[styles.pinWrapper, { left: leftPct, top: topPct, zIndex: isSelected ? 30 : 15 }]}
             onPress={(e) => {
-              e.stopPropagation?.();
-              onSelectKnownPharmacy?.(pharm);
+              e.stopPropagation();
+              onSelectPharmacy?.(pharm);
             }}
-            hitSlop={10}
           >
-            <Ionicons name="location" size={28} color={MAP_PIN_COLORS.public} />
+            <Ionicons
+              name={isSelected ? 'location' : 'location-outline'}
+              size={isSelected ? 28 : 22}
+              color={isSelected ? MAP_PIN_COLORS.selected : MAP_PIN_COLORS.public}
+            />
             <View style={styles.knownLabel}>
-              <Text style={styles.knownLabelText} numberOfLines={1}>{pharm.name}</Text>
+              <Text style={styles.knownLabelText} numberOfLines={1}>
+                {pharm.name}
+              </Text>
             </View>
           </Pressable>
         );
       })}
 
-      {/* ── Selected / Custom Pin (Yellow/Gold) ── */}
-      {pin && (() => {
-        const { x, y } = coordToPixel(pin.latitude, pin.longitude, containerW, containerH);
-        return (
-          <View style={[styles.pinWrapper, { left: x - 16, top: y - 32 }]} pointerEvents="none">
-            <Ionicons name="location" size={34} color={MAP_PIN_COLORS.selected} />
-            <View style={styles.customLabel}>
-              <Text style={styles.customLabelText}>Selected Location</Text>
-            </View>
-          </View>
-        );
-      })()}
+      {/* Registered / Partner Pharmacies (Green pins) */}
+      {registeredPharmacies.map((pharm, idx) => {
+        const isSelected = pharm.id === selectedPharmacyId;
+        const leftPct = `${15 + ((idx * 29) % 65)}%` as any;
+        const topPct = `${30 + ((idx * 19) % 50)}%` as any;
 
-      {/* Info bar */}
+        return (
+          <Pressable
+            key={pharm.id}
+            style={[styles.pinWrapper, { left: leftPct, top: topPct, zIndex: isSelected ? 30 : 20 }]}
+            onPress={(e) => {
+              e.stopPropagation();
+              onSelectPharmacy?.(pharm);
+            }}
+          >
+            <Ionicons
+              name={isSelected ? 'location' : 'location-sharp'}
+              size={isSelected ? 30 : 24}
+              color={isSelected ? MAP_PIN_COLORS.selected : MAP_PIN_COLORS.verified}
+            />
+            <View style={styles.registeredLabel}>
+              <Text style={styles.registeredLabelText} numberOfLines={1}>
+                {pharm.name}
+              </Text>
+            </View>
+          </Pressable>
+        );
+      })}
+
+      {/* User dropped pin */}
+      {pin && (
+        <View style={[styles.pinWrapper, { left: '50%', top: '40%', zIndex: 40 }]}>
+          <Ionicons name="location" size={32} color={MAP_PIN_COLORS.selected} />
+          <View style={styles.customLabel}>
+            <Text style={styles.customLabelText}>Selected Location</Text>
+          </View>
+        </View>
+      )}
+
+      {/* Hint Bar */}
       <View style={styles.infoBar}>
-        <Text style={styles.infoText}>🟢 Verified · 🔵 Public Pharmacy · 🟡 Selected</Text>
+        <Ionicons name="information-circle-outline" size={14} color={COLORS.textMuted} />
+        <Text style={styles.infoText} numberOfLines={1}>
+          {pin
+            ? `Lat: ${pin.latitude.toFixed(4)}, Lng: ${pin.longitude.toFixed(4)}`
+            : onSelectPin
+            ? 'Tap map to drop pin or select location'
+            : 'Interactive map view'}
+        </Text>
       </View>
     </Pressable>
   );
-}
-
-// ─── Main export ──────────────────────────────────────────────────────────────
-
-export default function MapComponent({
-  pin,
-  onPressMap,
-  onSelectKnownPharmacy,
-  knownPharmacies = [],
-  registeredPharmacies = [],
-}: MapComponentProps) {
-  const [fullscreen, setFullscreen] = useState(false);
-
-  const INLINE_W = SCREEN_W - 48; // 24px padding on each side
-  const INLINE_H = 240;
 
   return (
-    <>
-      {/* ── Inline map ── */}
-      <View style={[styles.inlineContainer, { width: INLINE_W, height: INLINE_H }]}>
-        <MapCanvas
-          pin={pin}
-          onPressMap={onPressMap}
-          onSelectKnownPharmacy={onSelectKnownPharmacy}
-          knownPharmacies={knownPharmacies}
-          registeredPharmacies={registeredPharmacies}
-          containerW={INLINE_W}
-          containerH={INLINE_H}
-        />
+    <View style={styles.container}>
+      {/* Expand Fullscreen Button */}
+      <Pressable style={styles.expandBtn} onPress={() => setFullscreen(true)}>
+        <Ionicons name="expand" size={14} color={COLORS.white} />
+        <Text style={styles.expandText}>Expand Map</Text>
+      </Pressable>
 
-        {/* Expand button */}
-        <Pressable style={({ pressed }) => [styles.expandBtn, pressed && { opacity: 0.5 }]} onPress={() => setFullscreen(true)}>
-          <Ionicons name="expand-outline" size={16} color={COLORS.white} />
-          <Text style={styles.expandText}>Full Screen</Text>
-        </Pressable>
-      </View>
+      {/* Main Map Area */}
+      {renderMapContent()}
 
-      {/* ── Full-screen modal ── */}
-      <Modal visible={fullscreen} animationType="slide">
+      {/* Fullscreen Modal */}
+      <Modal visible={fullscreen} animationType="slide" onRequestClose={() => setFullscreen(false)}>
         <SafeAreaView style={styles.modalRoot}>
           {/* Header */}
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Select Pharmacy Location</Text>
-            <Pressable style={({ pressed }) => [styles.closeBtn, pressed && { opacity: 0.5 }]} onPress={() => setFullscreen(false)}>
-              <Ionicons name="close" size={22} color="#1d293d" />
+            <Text style={styles.modalTitle}>Map View</Text>
+            <Pressable style={styles.closeBtn} onPress={() => setFullscreen(false)}>
+              <Ionicons name="close" size={20} color={COLORS.textDark} />
             </Pressable>
           </View>
 
           {/* Legend */}
           <View style={styles.modalLegend}>
             <View style={styles.legendItem}>
-              <Ionicons name="location" size={16} color={MAP_PIN_COLORS.verified} />
-              <Text style={styles.legendText}>Verified</Text>
+              <Ionicons name="location-sharp" size={16} color={MAP_PIN_COLORS.verified} />
+              <Text style={styles.legendText}>Partner Pharmacy</Text>
             </View>
             <View style={styles.legendItem}>
-              <Ionicons name="location" size={16} color={MAP_PIN_COLORS.public} />
-              <Text style={styles.legendText}>Public Pharmacy</Text>
+              <Ionicons name="location-outline" size={16} color={MAP_PIN_COLORS.public} />
+              <Text style={styles.legendText}>Public Directory</Text>
             </View>
             <View style={styles.legendItem}>
               <Ionicons name="location" size={16} color={MAP_PIN_COLORS.selected} />
-              <Text style={styles.legendText}>Selected</Text>
+              <Text style={styles.legendText}>Selected Pin</Text>
             </View>
           </View>
 
-          {/* Full map canvas */}
-          <View style={styles.modalMapWrap}>
-            <MapCanvas
-              pin={pin}
-              onPressMap={(coord) => { onPressMap(coord); }}
-              onSelectKnownPharmacy={(pharm) => {
-                onSelectKnownPharmacy?.(pharm);
-                setFullscreen(false);
-              }}
-              knownPharmacies={knownPharmacies}
-              registeredPharmacies={registeredPharmacies}
-              containerW={SCREEN_W}
-              containerH={SCREEN_H - 160}
-            />
-          </View>
+          {/* Expanded Map */}
+          <View style={styles.modalMapWrap}>{renderMapContent()}</View>
 
-          {/* Done button */}
-          <Pressable style={({ pressed }) => [styles.doneBtn, pressed && { opacity: 0.5 }]} onPress={() => setFullscreen(false)}>
-            <Ionicons name="checkmark" size={18} color={COLORS.white} />
-            <Text style={styles.doneBtnText}>Confirm & Close</Text>
+          {/* Done Button */}
+          <Pressable style={styles.doneBtn} onPress={() => setFullscreen(false)}>
+            <Ionicons name="checkmark-circle" size={18} color={COLORS.white} />
+            <Text style={styles.doneBtnText}>Done</Text>
           </Pressable>
         </SafeAreaView>
       </Modal>
-    </>
+    </View>
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
-  inlineContainer: {
-    borderRadius: 16,
+  container: {
+    height: MAP_HEIGHT,
+    borderRadius: RADIUS.xl,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: COLORS.border,
     position: 'relative',
   },
-  canvas: {
-    backgroundColor: COLORS.borderSubtle,
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  mapGrid: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
+  mapCanvas: {
+    flex: 1,
     backgroundColor: '#f0f4f8',
   },
   river: {
     position: 'absolute',
+    top: '50%',
     left: 0,
     right: 0,
+    height: 16,
     backgroundColor: COLORS.borderBlue,
   },
   road: {
@@ -299,69 +249,78 @@ const styles = StyleSheet.create({
   block: {
     position: 'absolute',
     backgroundColor: COLORS.borderSubtle,
-    borderRadius: 4,
+    borderRadius: RADIUS.sm,
   },
   pinWrapper: {
     position: 'absolute',
     alignItems: 'center',
     zIndex: 10,
   },
+  userLabel: {
+    fontSize: FONT_SIZE.sm,
+    fontFamily: 'Inter-Bold',
+    color: '#0369a1',
+    marginTop: 2,
+    backgroundColor: 'rgba(255,255,255,0.85)',
+    paddingHorizontal: SPACING.xs,
+    borderRadius: RADIUS.sm,
+  },
   knownLabel: {
     backgroundColor: COLORS.infoBg,
-    borderRadius: 6,
+    borderRadius: RADIUS.sm,
     paddingHorizontal: 5,
-    paddingVertical: 2,
+    paddingVertical: SPACING.xs,
     marginTop: -4,
     maxWidth: 90,
   },
   knownLabelText: {
-    fontSize: 9,
+    fontSize: FONT_SIZE.xs,
     fontFamily: 'Inter-Bold',
     color: COLORS.infoText,
     textAlign: 'center',
   },
   registeredLabel: {
     backgroundColor: COLORS.pharmacyBgLight,
-    borderRadius: 6,
+    borderRadius: RADIUS.sm,
     paddingHorizontal: 5,
-    paddingVertical: 2,
+    paddingVertical: SPACING.xs,
     marginTop: -4,
     maxWidth: 90,
   },
   registeredLabelText: {
-    fontSize: 9,
+    fontSize: FONT_SIZE.xs,
     fontFamily: 'Inter-SemiBold',
     color: COLORS.pharmacyText,
     textAlign: 'center',
   },
   customLabel: {
     backgroundColor: COLORS.pendingBg,
-    borderRadius: 6,
+    borderRadius: RADIUS.sm,
     paddingHorizontal: 6,
-    paddingVertical: 2,
+    paddingVertical: SPACING.xs,
     marginTop: -6,
   },
   customLabelText: {
-    fontSize: 9,
+    fontSize: FONT_SIZE.xs,
     fontFamily: 'Inter-Bold',
     color: COLORS.pendingText,
     textAlign: 'center',
   },
   infoBar: {
     position: 'absolute',
-    bottom: 8,
-    left: 8,
-    right: 8,
+    bottom: SPACING.sm,
+    left: SPACING.sm,
+    right: SPACING.sm,
     backgroundColor: 'rgba(255,255,255,0.92)',
-    borderRadius: 8,
+    borderRadius: RADIUS.sm,
     paddingVertical: 5,
     paddingHorizontal: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: SPACING.xs,
   },
   infoText: {
-    fontSize: 10,
+    fontSize: FONT_SIZE.sm,
     color: COLORS.textMuted,
     fontFamily: 'Inter-Medium',
     flex: 1,
@@ -371,16 +330,16 @@ const styles = StyleSheet.create({
     top: 10,
     right: 10,
     backgroundColor: 'rgba(16,185,129,0.88)',
-    borderRadius: 8,
+    borderRadius: RADIUS.sm,
     paddingHorizontal: 10,
     paddingVertical: 6,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: SPACING.xs,
     zIndex: 20,
   },
   expandText: {
-    fontSize: 11,
+    fontSize: FONT_SIZE.sm,
     fontFamily: 'Inter-Bold',
     color: COLORS.white,
   },
@@ -394,29 +353,29 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
+    paddingHorizontal: SPACING.xl,
     paddingVertical: 14,
     backgroundColor: COLORS.white,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.borderSubtle,
   },
   modalTitle: {
-    fontSize: 17,
+    fontSize: FONT_SIZE.xl,
     fontFamily: 'Inter-Bold',
     color: COLORS.textDarkAlt,
   },
   closeBtn: {
     width: 36,
     height: 36,
-    borderRadius: 10,
+    borderRadius: RADIUS.sm,
     backgroundColor: COLORS.surfaceSecondary,
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalLegend: {
     flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.md,
     backgroundColor: COLORS.white,
     gap: 14,
     borderBottomWidth: 1,
@@ -426,10 +385,10 @@ const styles = StyleSheet.create({
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: SPACING.xs,
   },
   legendText: {
-    fontSize: 11,
+    fontSize: FONT_SIZE.sm,
     color: COLORS.textSecondary,
     fontFamily: 'Inter-Medium',
   },
@@ -438,17 +397,17 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   doneBtn: {
-    margin: 16,
+    margin: SPACING.lg,
     height: 50,
-    borderRadius: 14,
+    borderRadius: RADIUS.lg,
     backgroundColor: COLORS.pharmacyPrimary,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: SPACING.xs,
   },
   doneBtnText: {
-    fontSize: 15,
+    fontSize: FONT_SIZE.lg,
     fontFamily: 'Inter-Bold',
     color: COLORS.white,
   },

@@ -1,4 +1,4 @@
-import { COLORS } from '@/styles/theme';
+import { COLORS,  FONT_SIZE, RADIUS, SPACING  } from '@/styles/theme';
 import React, { useState, useRef } from 'react';
 import {
   StyleSheet,
@@ -21,14 +21,14 @@ import { useThemeContext } from '@/hooks/useThemeContext';
 import { useHardwareBack } from '@/hooks/useHardwareBack';
 import { toast } from '@/context/ToastContext';
 
-const GREEN = '#10b981';
+const GREEN = COLORS.pharmacyPrimary;
 import { getFriendlyErrorMessage } from '@/lib/errorUtils';
 
-const BLUE = '#3b82f6';
-const INPUT_BG = '#f8fafc';
-const TEXT_PRIMARY = '#0f172a';
-const LABEL_COLOR = '#64748b';
-const PLACEHOLDER_COLOR = '#94a3b8';
+const BLUE = COLORS.patientPrimary;
+const INPUT_BG = COLORS.surface;
+const TEXT_PRIMARY = COLORS.textDark;
+const LABEL_COLOR = COLORS.textMuted;
+const PLACEHOLDER_COLOR = COLORS.textDim;
 
 function getFriendlyRegisterErrorMessage(err: any, defaultMsg = 'Registration failed.'): string {
   const message = err?.message || String(err || '');
@@ -239,7 +239,7 @@ const styles = StyleSheet.create({
     flexGrow: 1
   },
   heroInner: {
-    paddingHorizontal: 24, paddingVertical: 16
+    paddingHorizontal: SPACING.xxl, paddingVertical: SPACING.lg
   },
   backBtn: {
     flexDirection: 'row',
@@ -249,42 +249,42 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.22)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8
+    marginBottom: SPACING.sm
   },
   backText: {
-    fontSize: 14, fontFamily: 'Inter-SemiBold', color: COLORS.white, marginLeft: 8
+    fontSize: FONT_SIZE.lg, fontFamily: 'Inter-SemiBold', color: COLORS.white, marginLeft: 8
   },
   heroTitle: {
-    fontSize: 26, fontFamily: 'Inter-Bold', color: COLORS.white, marginBottom: 6
+    fontSize: FONT_SIZE.hero, fontFamily: 'Inter-Bold', color: COLORS.white, marginBottom: 6
   },
   heroSubtitle: {
     fontFamily: 'Inter-Regular',
-     fontSize: 14, color: 'rgba(255,255,255,0.85)'
+     fontSize: FONT_SIZE.lg, color: 'rgba(255,255,255,0.85)'
   },
   form: {
-    padding: 24, backgroundColor: COLORS.white
+    padding: SPACING.xxl, backgroundColor: COLORS.white
   },
   label: {
-    fontSize: 10, fontFamily: 'Inter-Bold', color: LABEL_COLOR, letterSpacing: 0.5, marginBottom: 8, textTransform: 'uppercase'
+    fontSize: FONT_SIZE.xs, fontFamily: 'Inter-Bold', color: LABEL_COLOR, letterSpacing: 0.5, marginBottom: SPACING.sm, textTransform: 'uppercase'
   },
   labelGap: {
-    marginTop: 16
+    marginTop: SPACING.lg
   },
   inputRow: {
-    backgroundColor: INPUT_BG, borderRadius: 16, height: 52, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 17, borderWidth: 1, borderColor: COLORS.borderSubtle
+    backgroundColor: INPUT_BG, borderRadius: RADIUS.xl, height: 52, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 17, borderWidth: 1, borderColor: COLORS.borderSubtle
   },
   inputIcon: {
     marginRight: 10
   },
   input: {
     fontFamily: 'Inter-Regular',
-     flex: 1, fontSize: 14, color: TEXT_PRIMARY, height: '100%'
+     flex: 1, fontSize: FONT_SIZE.lg, color: TEXT_PRIMARY, height: '100%'
   },
   primaryBtn: {
-    height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center', marginTop: 32
+    height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center', marginTop: SPACING.xxxl
   },
   primaryBtnText: {
-    color: COLORS.white, fontSize: 15, fontFamily: 'Inter-Bold'
+    color: COLORS.white, fontSize: FONT_SIZE.lg, fontFamily: 'Inter-Bold'
   },
 
 });

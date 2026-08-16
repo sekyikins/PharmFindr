@@ -309,7 +309,7 @@ export default function PharmacyDetail() {
                 styles.statusBadge,
                 {
                   backgroundColor: isClosingSoon
-                    ? '#FEF3C7'
+                    ? COLORS.pendingBg
                     : isOpen
                     ? theme.successBg
                     : theme.surfaceSecondary,
@@ -321,7 +321,7 @@ export default function PharmacyDetail() {
                   styles.statusText,
                   {
                     color: isClosingSoon
-                      ? '#B45309'
+                      ? COLORS.pendingText
                       : isOpen
                       ? theme.successText
                       : theme.textMuted,
@@ -379,7 +379,7 @@ export default function PharmacyDetail() {
                     key={s.day}
                     style={[
                       styles.scheduleRow,
-                      isToday && { backgroundColor: theme.surfaceSecondary, borderRadius: RADIUS.md, paddingHorizontal: 8 },
+                      isToday && { backgroundColor: theme.surfaceSecondary, borderRadius: RADIUS.md, paddingHorizontal: SPACING.sm },
                     ]}
                   >
                     <Text
@@ -484,20 +484,20 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.xl,
     padding: SPACING.lg,
     borderWidth: 1,
-    gap: 8,
+    gap: SPACING.sm,
   },
   infoTitleRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    marginBottom: 4,
+    marginBottom: SPACING.xs,
   },
   verifiedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
     gap: 4,
-    paddingHorizontal: 8,
+    paddingHorizontal: SPACING.sm,
     paddingVertical: 3,
     borderRadius: RADIUS.pill,
   },
@@ -511,7 +511,7 @@ const styles = StyleSheet.create({
   },
   statusBadge: {
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: SPACING.xs,
     borderRadius: RADIUS.pill,
     flexShrink: 0,
   },
@@ -522,7 +522,7 @@ const styles = StyleSheet.create({
   detailRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: SPACING.sm,
   },
   detailText: {
     fontFamily: 'Inter-Regular',
@@ -533,12 +533,12 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.xl,
     padding: SPACING.lg,
     borderWidth: 1,
-    gap: 12,
+    gap: SPACING.md,
   },
   scheduleHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: SPACING.sm,
   },
   scheduleTitle: {
     fontSize: FONT_SIZE.lg,
@@ -550,7 +550,7 @@ const styles = StyleSheet.create({
   scheduleRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 4,
+    paddingVertical: SPACING.xs,
   },
   dayText: {
     fontSize: FONT_SIZE.md,
@@ -573,7 +573,7 @@ const styles = StyleSheet.create({
   },
   secondaryRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: SPACING.md,
   },
   secondaryBtn: {
     flex: 1,

@@ -188,7 +188,7 @@ export default function PrescriptionPharmacies() {
                   </View>
                   <Skeleton width={50} height={22} borderRadius={11} />
                 </View>
-                <View style={{ marginTop: 14, gap: 8 }}>
+                <View style={{ marginTop: 14, gap: SPACING.sm }}>
                   <Skeleton width="100%" height={32} borderRadius={6} />
                   <Skeleton width="100%" height={32} borderRadius={6} />
                 </View>
@@ -272,7 +272,7 @@ export default function PrescriptionPharmacies() {
                       style={[
                         styles.matchBadge,
                         {
-                          backgroundColor: isFullMatch ? '#dcfce7' : '#fef9c3',
+                          backgroundColor: isFullMatch ? COLORS.successBg : COLORS.pendingBg,
                         },
                       ]}
                     >
@@ -280,7 +280,7 @@ export default function PrescriptionPharmacies() {
                         style={[
                           styles.matchBadgeText,
                           {
-                            color: isFullMatch ? '#16a34a' : '#a16207',
+                            color: isFullMatch ? COLORS.successText : COLORS.pendingText,
                           },
                         ]}
                       >
@@ -364,7 +364,6 @@ const styles = StyleSheet.create({
   },
   scroll: {
     padding: SPACING.lg,
-    paddingBottom: 40,
   },
   summaryCard: {
     borderRadius: RADIUS.xl,
@@ -381,35 +380,35 @@ const styles = StyleSheet.create({
   badge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    gap: SPACING.xs,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs,
     borderRadius: RADIUS.pill,
   },
   badgeText: {
-    fontSize: 12,
+    fontSize: FONT_SIZE.md,
     fontFamily: 'Inter-SemiBold',
   },
   resultCount: {
-    fontSize: 12,
+    fontSize: FONT_SIZE.md,
     fontFamily: 'Inter-Regular',
   },
   medChipsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
+    gap: SPACING.xs,
   },
   medChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    gap: SPACING.xs,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs,
     borderRadius: RADIUS.lg,
     borderWidth: 1,
   },
   medChipText: {
-    fontSize: 12,
+    fontSize: FONT_SIZE.md,
     fontFamily: 'Inter-Medium',
   },
   loadingContainer: {
@@ -422,17 +421,17 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.xl,
     borderWidth: 1.2,
     padding: SPACING.md,
-    gap: 12,
+    gap: SPACING.md,
   },
   pharmacyHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: SPACING.md,
   },
   pharmacyIconCircle: {
     width: 42,
     height: 42,
-    borderRadius: 21,
+    borderRadius: RADIUS.pill,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -444,20 +443,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
-    gap: 4,
-    marginTop: 2,
+    gap: SPACING.xs,
+    marginTop: SPACING.xs,
   },
   pharmacyMeta: {
     fontSize: FONT_SIZE.sm,
     fontFamily: 'Inter-Regular',
   },
   matchBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
     borderRadius: RADIUS.pill,
   },
   matchBadgeText: {
-    fontSize: 11,
+    fontSize: FONT_SIZE.sm,
     fontFamily: 'Inter-Bold',
   },
   medsBox: {
@@ -469,8 +468,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 6,
-    paddingHorizontal: 4,
+    paddingVertical: SPACING.xs,
+    paddingHorizontal: SPACING.xs,
   },
   medRowName: {
     fontSize: FONT_SIZE.md,
@@ -479,7 +478,7 @@ const styles = StyleSheet.create({
   medRowStrength: {
     fontSize: FONT_SIZE.md,
     fontFamily: 'Inter-Regular',
-    marginTop: 1,
+    marginTop: SPACING.xs,
   },
   medRowPrice: {
     fontSize: FONT_SIZE.md,
@@ -489,9 +488,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 8,
-    paddingHorizontal: 4,
-    marginTop: 4,
+    paddingTop: SPACING.sm,
+    paddingHorizontal: SPACING.xs,
+    marginTop: SPACING.xs,
   },
   totalLabel: {
     fontSize: FONT_SIZE.md,
@@ -503,7 +502,7 @@ const styles = StyleSheet.create({
   },
   cardActions: {
     flexDirection: 'row',
-    gap: 10,
+    gap: SPACING.md,
   },
   reserveBtn: {
     flexDirection: 'row',
@@ -530,16 +529,16 @@ const styles = StyleSheet.create({
     borderWidth: 1.2,
     padding: SPACING.xl,
     alignItems: 'center',
-    gap: 10,
+    gap: SPACING.md,
     marginTop: SPACING.lg,
   },
   emptyIconCircle: {
     width: 72,
     height: 72,
-    borderRadius: 36,
+    borderRadius: RADIUS.pill,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 4,
+    marginBottom: SPACING.xs,
   },
   emptyTitle: {
     fontSize: FONT_SIZE.xxl,
@@ -552,7 +551,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   emptyActionRow: {
-    marginTop: 10,
+    marginTop: SPACING.md,
     width: '100%',
   },
   emptyBtn: {

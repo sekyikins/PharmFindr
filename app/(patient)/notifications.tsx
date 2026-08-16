@@ -268,11 +268,11 @@ const styles = StyleSheet.create({
   },
 
   listContent: {
-    padding: SPACING.lg, gap: 12
+    padding: SPACING.lg, gap: SPACING.md
   },
 
   emptyContainer: {
-    alignItems: 'center', marginTop: 80, gap: 10
+    alignItems: 'center', marginTop: SPACING.sm0, gap: 10
   },
   emptyTitle: {
     fontSize: FONT_SIZE.xl, fontFamily: 'Inter-Bold'
@@ -304,7 +304,7 @@ const styles = StyleSheet.create({
   iconCircle: {
     width: 44,
     height: 44,
-    borderRadius: 22,
+    borderRadius: RADIUS.xxl,
     justifyContent: 'center',
     alignItems: 'center',
     flexShrink: 0
@@ -313,7 +313,7 @@ const styles = StyleSheet.create({
     flex: 1
   },
   cardTitle: {
-    fontSize: FONT_SIZE.lg, fontFamily: 'Inter-Bold', marginBottom: 4
+    fontSize: FONT_SIZE.lg, fontFamily: 'Inter-Bold', marginBottom: SPACING.xs
   },
   cardMessage: {
     fontFamily: 'Inter-Regular',

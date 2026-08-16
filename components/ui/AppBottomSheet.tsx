@@ -65,7 +65,7 @@ const AppBottomSheet = forwardRef<any, AppBottomSheetProps>(
 
             {title && (
               <View style={styles.titleContainer} pointerEvents="none">
-                <Text style={[styles.title, { color: theme.text.primary }]}>
+                <Text style={[styles.title, { color: theme.text }]}>
                   {title}
                 </Text>
               </View>
@@ -93,7 +93,7 @@ export default AppBottomSheet;
 
 const styles = StyleSheet.create({
   content: {
-    paddingBottom: 12
+    paddingBottom: SPACING.md
   },
   titleRow: {
     height: 48,

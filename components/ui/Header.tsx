@@ -3,7 +3,7 @@ import { StyleSheet, Text, View, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeContext } from '@/hooks/useThemeContext';
-import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
+import { COLORS, FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
 
 export interface ScreenHeaderProps {
   title: string;
@@ -48,7 +48,7 @@ export function ScreenHeader({
         ]}
         hitSlop={8}
       >
-        <Ionicons name="arrow-back" size={18} color={theme.text.primary} />
+        <Ionicons name="arrow-back" size={18} color={theme.text} />
       </Pressable>
     ) : null
   );
@@ -73,7 +73,7 @@ export function ScreenHeader({
         <Text
           style={[
             styles.title,
-            { color: theme.text.primary },
+            { color: theme.text },
             titleAlign === 'left' && styles.titleTextLeft,
           ]}
           numberOfLines={1}
@@ -117,7 +117,7 @@ export function HeaderIconBtn({ name, icon, onPress, color, testID, badge }: Hea
       ]}
       hitSlop={8}
     >
-      <Ionicons name={iconName} size={18} color={color ?? theme.text.primary} />
+      <Ionicons name={iconName} size={18} color={color ?? theme.text} />
       {badge != null && badge > 0 && (
         <View style={styles.badge}>
           <Text style={styles.badgeText}>{badge > 99 ? '99+' : badge}</Text>
@@ -183,15 +183,15 @@ const styles = StyleSheet.create({
     right: -3,
     minWidth: 16,
     height: 16,
-    borderRadius: 8,
-    backgroundColor: '#ef4444',
+    borderRadius: RADIUS.pill,
+    backgroundColor: COLORS.error,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 3,
   },
   badgeText: {
-    color: '#ffffff',
-    fontSize: 9,
+    color: COLORS.white,
+    fontSize: FONT_SIZE.xs,
     fontFamily: 'Inter-Bold',
   },
 });

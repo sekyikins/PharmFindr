@@ -11,13 +11,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useThemeContext } from '@/hooks/useThemeContext';
-import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
 import { useAuthStore } from '@/store/authStore';
 import { useNotificationStore, type Notification } from '@/store/notificationStore';
 import Skeleton from '@/components/ui/Skeleton';
 import { Header, HeaderIconBtn } from '@/components/ui/Header';
-
-const PHARMACY_GREEN = '#10b981';
+import { COLORS, FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -51,10 +49,10 @@ function iconForType(type: Notification['type'], meta?: Record<string, any> | nu
 function colorForType(type: Notification['type'], meta?: Record<string, any> | null) {
   const status = meta?.status as string | undefined;
   if (type === 'reservation') {
-    if (status === 'cancelled') return '#ef4444';
-    return PHARMACY_GREEN;
+    if (status === 'cancelled') return COLORS.error;
+    return COLORS.pharmacyPrimary;
   }
-  return PHARMACY_GREEN;
+  return COLORS.pharmacyPrimary;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -114,7 +112,7 @@ export default function PharmacyNotifications() {
   // ── Skeleton ───────────────────────────────────────────────────────────────
 
   const renderSkeleton = () => (
-    <View style={{ gap: 10, padding: SPACING.lg }}>
+    <View style={{ gap: SPACING.md, padding: SPACING.lg }}>
       {[1, 2, 3].map((i) => (
         <Skeleton key={i} width="100%" height={72} borderRadius={14} />
       ))}
@@ -176,7 +174,7 @@ export default function PharmacyNotifications() {
             <HeaderIconBtn
               name="checkmark-done-outline"
               onPress={handleMarkAllRead}
-              color={PHARMACY_GREEN}
+              color={COLORS.pharmacyPrimary}
             />
           ) : undefined
         }
@@ -194,8 +192,8 @@ export default function PharmacyNotifications() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={handleRefresh}
-              tintColor={PHARMACY_GREEN}
-              colors={[PHARMACY_GREEN]}
+              tintColor={COLORS.pharmacyPrimary}
+              colors={[COLORS.pharmacyPrimary]}
             />
           }
           ListEmptyComponent={
@@ -220,27 +218,26 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   list: {
     padding: SPACING.lg,
-    paddingBottom: 40,
   },
   item: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 12,
-    padding: 14,
+    gap: SPACING.md,
+    padding: SPACING.lg,
     borderRadius: RADIUS.xl,
     borderWidth: 1,
   },
   iconWrap: {
     width: 38,
     height: 38,
-    borderRadius: 19,
+    borderRadius: RADIUS.pill,
     justifyContent: 'center',
     alignItems: 'center',
     flexShrink: 0,
   },
   itemBody: {
     flex: 1,
-    gap: 2,
+    gap: SPACING.xs,
   },
   itemTitle: {
     fontSize: FONT_SIZE.md,
@@ -259,14 +256,14 @@ const styles = StyleSheet.create({
   unreadDot: {
     width: 8,
     height: 8,
-    borderRadius: 4,
-    marginTop: 4,
+    borderRadius: RADIUS.sm,
+    marginTop: SPACING.xs,
     flexShrink: 0,
   },
   empty: {
     alignItems: 'center',
-    paddingTop: 80,
-    gap: 12,
+    paddingTop: SPACING.xxxl,
+    gap: SPACING.md,
     paddingHorizontal: SPACING.xl,
   },
   emptyTitle: {

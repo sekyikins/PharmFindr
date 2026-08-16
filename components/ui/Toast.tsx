@@ -1,4 +1,4 @@
-import { COLORS } from '@/styles/theme';
+import { COLORS, FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
 import React, { useEffect, useRef } from 'react';
 import {
   StyleSheet,
@@ -188,7 +188,7 @@ export default function Toast({ toast, onDismiss }: ToastProps) {
           accent: primaryColor,
           bg: 'rgba(15, 23, 42, 0.88)',
           textColor: COLORS.white,
-          subColor: '#e2e8f0',
+          subColor: COLORS.borderSubtle,
           border: primaryColor,
         };
       case 'success':
@@ -197,7 +197,7 @@ export default function Toast({ toast, onDismiss }: ToastProps) {
           accent: COLORS.pharmacyPrimary,
           bg: 'rgba(6, 78, 59, 0.88)',
           textColor: COLORS.white,
-          subColor: '#a7f3d0',
+          subColor: COLORS.successBorder,
           border: COLORS.pharmacyPrimary,
         };
       case 'warning':
@@ -206,7 +206,7 @@ export default function Toast({ toast, onDismiss }: ToastProps) {
           accent: COLORS.warning,
           bg: 'rgba(120, 53, 15, 0.88)',
           textColor: COLORS.white,
-          subColor: '#fde68a',
+          subColor: COLORS.pendingBorder,
           border: COLORS.warning,
         };
       case 'error':
@@ -215,7 +215,7 @@ export default function Toast({ toast, onDismiss }: ToastProps) {
           accent: COLORS.error,
           bg: 'rgba(127, 29, 29, 0.88)',
           textColor: COLORS.white,
-          subColor: '#fecaca',
+          subColor: COLORS.errorBorder,
           border: COLORS.error,
         };
       case 'info':
@@ -225,7 +225,7 @@ export default function Toast({ toast, onDismiss }: ToastProps) {
           accent: COLORS.info,
           bg: 'rgba(15, 23, 42, 0.88)',
           textColor: COLORS.white,
-          subColor: '#cbd5e1',
+          subColor: COLORS.borderSlate,
           border: COLORS.info,
         };
     }
@@ -302,21 +302,21 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderRadius: 16,
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.lg,
+    borderRadius: RADIUS.xl,
     borderWidth: 1.5,
     shadowColor: COLORS.black,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.25,
     shadowRadius: 10,
     elevation: 8,
-    gap: 10,
+    gap: SPACING.md,
   },
   iconCircle: {
     width: 34,
     height: 34,
-    borderRadius: 17,
+    borderRadius: RADIUS.pill,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -325,25 +325,25 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   title: {
-    fontSize: 13,
+    fontSize: FONT_SIZE.md,
     fontFamily: 'Inter-Bold',
-    marginBottom: 2,
+    marginBottom: SPACING.xs,
   },
   message: {
-    fontSize: 12,
+    fontSize: FONT_SIZE.md,
     fontFamily: 'Inter-Regular',
     lineHeight: 16,
   },
   actionBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs,
+    borderRadius: RADIUS.md,
     justifyContent: 'center',
     alignItems: 'center',
   },
   actionText: {
     color: COLORS.white,
-    fontSize: 11,
+    fontSize: FONT_SIZE.sm,
     fontFamily: 'Inter-Bold',
   },
 });

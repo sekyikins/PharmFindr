@@ -490,7 +490,7 @@ export default function Pharmacies() {
           <View style={styles.sheetContent}>
             {/* Title Row + Close button */}
             <View style={styles.cardHeaderRow}>
-              <View style={{ flex: 1, gap: 4 }}>
+              <View style={{ flex: 1, gap: SPACING.xs }}>
                 <Text style={[styles.pharmTitle, { color: theme.text.primary }]} numberOfLines={1}>
                   {selectedPharmacy.name}
                 </Text>
@@ -513,7 +513,7 @@ export default function Pharmacies() {
                         styles.hoursBadge,
                         {
                           backgroundColor: selectedPharmacy.isClosingSoon
-                            ? '#FEF3C7'
+                            ? COLORS.pendingBg
                             : selectedPharmacy.isOpen === false
                             ? theme.surfaceSecondary
                             : theme.successBg,
@@ -531,7 +531,7 @@ export default function Pharmacies() {
                         size={12}
                         color={
                           selectedPharmacy.isClosingSoon
-                            ? '#D97706'
+                            ? COLORS.warningDark
                             : selectedPharmacy.isOpen === false
                             ? theme.textMuted
                             : theme.success
@@ -542,7 +542,7 @@ export default function Pharmacies() {
                           styles.hoursText,
                           {
                             color: selectedPharmacy.isClosingSoon
-                              ? '#B45309'
+                              ? COLORS.pendingText
                               : selectedPharmacy.isOpen === false
                               ? theme.textMuted
                               : theme.successText,
@@ -605,9 +605,9 @@ export default function Pharmacies() {
                   </Text>
                 </View>
               ) : (
-                <View style={[styles.stockCheckBanner, { backgroundColor: '#fef3c7', borderColor: '#fde68a', borderWidth: 1 }]}>
-                  <Ionicons name="information-circle-outline" size={16} color="#b45309" />
-                  <Text style={[styles.stockCheckText, { color: '#92400e' }]}>
+                <View style={[styles.stockCheckBanner, { backgroundColor: COLORS.pendingBg, borderColor: COLORS.pendingBorder, borderWidth: 1 }]}>
+                  <Ionicons name="information-circle-outline" size={16} color={COLORS.pendingText} />
+                  <Text style={[styles.stockCheckText, { color: COLORS.pendingText }]}>
                     Availability unknown — pharmacy not verified on PharmFindr
                   </Text>
                 </View>
@@ -671,7 +671,7 @@ export default function Pharmacies() {
         title="Loading Pharmacies…"
       >
         <View style={styles.sheetBody}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, marginBottom: SPACING.sm }}>
             <Animated.View style={{ transform: [{ rotate: spinInterpolate }] }}>
               <Ionicons name="refresh-circle" size={24} color={primaryColor} />
             </Animated.View>
@@ -743,10 +743,10 @@ export default function Pharmacies() {
             })}
           </View>
 
-          <Text style={[styles.sheetSubTitle, { color: theme.textMuted, marginTop: 16 }]}>
+          <Text style={[styles.sheetSubTitle, { color: theme.textMuted, marginTop: SPACING.lg }]}>
             TOGGLE FILTERS
           </Text>
-          <View style={{ gap: 10 }}>
+          <View style={{ gap: SPACING.md }}>
             <Pressable
               style={({ pressed }) => [
                 styles.toggleFilterRow,
@@ -756,7 +756,7 @@ export default function Pharmacies() {
               onPress={() => setDraftOnlyOpen(!draftOnlyOpen)}
             >
               <Ionicons name={draftOnlyOpen ? "checkbox" : "square-outline"} size={20} color={draftOnlyOpen ? primaryColor : theme.textMuted} />
-              <Text style={[styles.toggleFilterText, { color: theme.text.primary }]}>Show Open Pharmacies Only</Text>
+              <Text style={[styles.toggleFilterText, { color: theme.text }]}>Show Open Pharmacies Only</Text>
             </Pressable>
 
             <Pressable
@@ -768,7 +768,7 @@ export default function Pharmacies() {
               onPress={() => setDraftOnlyVerified(!draftOnlyVerified)}
             >
               <Ionicons name={draftOnlyVerified ? "checkbox" : "square-outline"} size={20} color={draftOnlyVerified ? primaryColor : theme.textMuted} />
-              <Text style={[styles.toggleFilterText, { color: theme.text.primary }]}>Show Verified Partners Only</Text>
+              <Text style={[styles.toggleFilterText, { color: theme.text }]}>Show Verified Partners Only</Text>
             </Pressable>
           </View>
 
@@ -776,7 +776,7 @@ export default function Pharmacies() {
             style={({ pressed }) => [
               styles.applyFilterBtn,
               pressed && { opacity: 0.7 },
-              { backgroundColor: primaryColor, marginTop: 18 },
+              { backgroundColor: primaryColor, marginTop: SPACING.xl },
             ]}
             onPress={handleApplyFilter}
           >
@@ -802,28 +802,28 @@ const styles = StyleSheet.create({
   contextBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: SPACING.md,
     paddingHorizontal: SPACING.lg,
-    paddingVertical: 10,
+    paddingVertical: SPACING.md,
     borderBottomWidth: 1
   },
   contextTitle: {
-    fontSize: 13, fontFamily: 'Inter-Bold'
+    fontSize: FONT_SIZE.md, fontFamily: 'Inter-Bold'
   },
 
   searchBarContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.md,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: SPACING.md,
     zIndex: 10
   },
   searchBar: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
+    paddingHorizontal: SPACING.md,
     height: 42,
     borderRadius: RADIUS.pill,
     borderWidth: 1
@@ -831,7 +831,7 @@ const styles = StyleSheet.create({
   searchInput: {
     fontFamily: 'Inter-Regular',
     flex: 1,
-    fontSize: 14,
+    fontSize: FONT_SIZE.lg,
     paddingVertical: 0,
   },
 
@@ -855,19 +855,19 @@ const styles = StyleSheet.create({
   },
   handleContainer: {
     width: '100%',
-    paddingVertical: 10,
+    paddingVertical: SPACING.md,
     alignItems: 'center',
     justifyContent: 'center'
   },
   handleIndicator: {
     width: 40,
     height: 5,
-    borderRadius: 2.5
+    borderRadius: RADIUS.sm
   },
   sheetContent: {
-    paddingHorizontal: 18,
-    paddingBottom: 24,
-    gap: 10
+    paddingHorizontal: SPACING.xl,
+    paddingBottom: SPACING.xxl,
+    gap: SPACING.md
   },
   cardHeaderRow: {
     flexDirection: 'row',
@@ -875,21 +875,21 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between'
   },
   pharmTitle: {
-    fontSize: 17,
+    fontSize: FONT_SIZE.xl,
     fontFamily: 'Inter-Bold'
   },
   badgeRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     alignItems: 'center',
-    gap: 8
+    gap: SPACING.xs
   },
   registeredBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    gap: SPACING.xs,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
     borderRadius: RADIUS.pill
   },
   registeredText: {
@@ -898,65 +898,63 @@ const styles = StyleSheet.create({
   },
   hoursBadge: {
     flexDirection: 'row',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
     borderRadius: RADIUS.sm,
     alignItems: "center",
-    gap: 6,
+    gap: SPACING.xs,
   },
   hoursText: {
-    fontSize: 11,
+    fontSize: FONT_SIZE.sm,
     fontFamily: 'Inter-Bold'
   },
   closeBtn: {
     width: 30,
     height: 30,
-    borderRadius: 15,
+    borderRadius: RADIUS.pill,
     justifyContent: 'center',
     alignItems: 'center'
   },
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4
+    gap: SPACING.xs
   },
   metaText: {
-    fontSize: 13,
+    fontSize: FONT_SIZE.md,
     fontFamily: 'Inter-Medium'
   },
   metaDot: {
     fontFamily: 'Inter-Regular',
-    
-    fontSize: 13
+    fontSize: FONT_SIZE.md
   },
   infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8
+    gap: SPACING.xs
   },
   infoText: {
     fontFamily: 'Inter-Regular',
-    
-    fontSize: 13,
+    fontSize: FONT_SIZE.md,
     flex: 1
   },
   stockCheckBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    gap: SPACING.xs,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs,
     borderRadius: RADIUS.md
   },
   stockCheckText: {
-    fontSize: 12,
+    fontSize: FONT_SIZE.md,
     fontFamily: 'Inter-SemiBold'
   },
 
   actionRow: {
     flexDirection: 'row',
-    gap: 10,
-    marginTop: 6
+    gap: SPACING.md,
+    marginTop: SPACING.xs
   },
   actionBtn: {
     flex: 1,
@@ -965,7 +963,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 6
+    gap: SPACING.xs
   },
   secondaryActionBtn: {
     borderWidth: 1.5
@@ -974,73 +972,73 @@ const styles = StyleSheet.create({
     
   },
   actionBtnText: {
-    fontSize: 14,
+    fontSize: FONT_SIZE.lg,
     fontFamily: 'Inter-SemiBold'
   },
 
   sheetBody: {
-    padding: 16
+    padding: SPACING.lg
   },
   sheetSub: {
     fontFamily: 'Inter-Regular',
-     fontSize: 13, flex: 1
+    fontSize: FONT_SIZE.md, flex: 1
   },
   sheetOptionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    padding: 14,
-    borderRadius: 12
+    gap: SPACING.md,
+    padding: SPACING.lg,
+    borderRadius: RADIUS.md
   },
   sheetOptionText: {
-    fontSize: 14, fontFamily: 'Inter-SemiBold'
+    fontSize: FONT_SIZE.lg, fontFamily: 'Inter-SemiBold'
   },
 
   filterRadiusBtn: {
     height: 44,
-    paddingHorizontal: 12,
+    paddingHorizontal: SPACING.md,
     borderRadius: RADIUS.md,
     borderWidth: 1.5,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: SPACING.xs,
     justifyContent: 'center'
   },
   filterRadiusText: {
-    fontSize: 13,
+    fontSize: FONT_SIZE.md,
     fontFamily: 'Inter-Bold'
   },
   chipRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 8
+    gap: SPACING.xs,
+    marginTop: SPACING.sm
   },
   radiusChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.sm,
     borderRadius: RADIUS.pill,
     borderWidth: 1
   },
   radiusChipText: {
-    fontSize: 12,
+    fontSize: FONT_SIZE.md,
     fontFamily: 'Inter-SemiBold'
   },
   sheetSubTitle: {
-    fontSize: 11,
+    fontSize: FONT_SIZE.sm,
     fontFamily: 'Inter-Bold',
     letterSpacing: 0.5,
-    marginBottom: 4
+    marginBottom: SPACING.xs
   },
   toggleFilterRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    padding: 12,
+    gap: SPACING.md,
+    padding: SPACING.md,
     borderRadius: RADIUS.md
   },
   toggleFilterText: {
-    fontSize: 13,
+    fontSize: FONT_SIZE.md,
     fontFamily: 'Inter-SemiBold'
   },
   applyFilterBtn: {
@@ -1051,7 +1049,7 @@ const styles = StyleSheet.create({
   },
   applyFilterBtnText: {
     color: COLORS.white,
-    fontSize: 14,
+    fontSize: FONT_SIZE.lg,
     fontFamily: 'Inter-Bold'
   },
 

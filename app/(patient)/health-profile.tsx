@@ -142,17 +142,17 @@ export default function HealthProfile() {
     const heightInMeters = h / 100;
     const bmi = w / (heightInMeters * heightInMeters);
     let category = 'Normal';
-    let color = '#10b981';
+    let color: string = COLORS.pharmacyPrimary;
 
     if (bmi < 18.5) {
       category = 'Underweight';
-      color = '#3b82f6';
+      color = COLORS.info;
     } else if (bmi >= 25 && bmi < 29.9) {
       category = 'Overweight';
-      color = '#f59e0b';
+      color = COLORS.warning;
     } else if (bmi >= 30) {
       category = 'Obese';
-      color = '#ef4444';
+      color = COLORS.error;
     }
 
     return { value: bmi.toFixed(1), category, color };
@@ -408,7 +408,7 @@ export default function HealthProfile() {
           </View>
 
           {/* ── SECTION 2: SAFETY & INTERACTION GUARDRAILS ── */}
-          <View style={[styles.sectionHeaderRow, { marginTop: 24 }]}>
+          <View style={[styles.sectionHeaderRow, { marginTop: SPACING.xxl }]}>
             <Ionicons name="shield-checkmark-sharp" size={18} color={COLORS.error} />
             <Text style={[styles.sectionTitleText, { color: theme.text.primary }]}>
               Clinical Safety Guardrails
@@ -419,7 +419,7 @@ export default function HealthProfile() {
           </Text>
 
           {/* 1. KNOWN DRUG ALLERGIES CARD */}
-          <View style={[styles.safetyCard, { backgroundColor: theme.card, borderColor: hasAllergies ? '#ef444450' : theme.border }]}>
+          <View style={[styles.safetyCard, { backgroundColor: theme.card, borderColor: hasAllergies ? COLORS.errorBorder : theme.border }]}>
             <Pressable
               style={styles.checkboxRow}
               onPress={() => {
@@ -449,11 +449,11 @@ export default function HealthProfile() {
                 {allergiesList.length > 0 && (
                   <View style={styles.pillsWrap}>
                     {allergiesList.map((item) => (
-                      <View key={item} style={[styles.tagPill, { backgroundColor: '#ef444415', borderColor: '#ef444440' }]}>
-                        <Ionicons name="warning-outline" size={13} color="#dc2626" />
-                        <Text style={[styles.tagPillText, { color: '#dc2626' }]}>{item}</Text>
+                      <View key={item} style={[styles.tagPill, { backgroundColor: COLORS.errorBg, borderColor: COLORS.errorBorder }]}>
+                        <Ionicons name="warning-outline" size={13} color={COLORS.error} />
+                        <Text style={[styles.tagPillText, { color: COLORS.errorText }]}>{item}</Text>
                         <Pressable onPress={() => removeTag('allergies', item)} hitSlop={6}>
-                          <Ionicons name="close-circle" size={15} color="#dc2626" />
+                          <Ionicons name="close-circle" size={15} color={COLORS.error} />
                         </Pressable>
                       </View>
                     ))}
@@ -504,7 +504,7 @@ export default function HealthProfile() {
           </View>
 
           {/* 2. EXISTING MEDICAL CONDITIONS CARD */}
-          <View style={[styles.safetyCard, { backgroundColor: theme.card, borderColor: hasConditions ? '#f59e0b50' : theme.border }]}>
+          <View style={[styles.safetyCard, { backgroundColor: theme.card, borderColor: hasConditions ? COLORS.pendingBorder : theme.border }]}>
             <Pressable
               style={styles.checkboxRow}
               onPress={() => {
@@ -534,11 +534,11 @@ export default function HealthProfile() {
                 {conditionsList.length > 0 && (
                   <View style={styles.pillsWrap}>
                     {conditionsList.map((item) => (
-                      <View key={item} style={[styles.tagPill, { backgroundColor: '#f59e0b15', borderColor: '#f59e0b40' }]}>
-                        <Ionicons name="pulse-outline" size={13} color="#d97706" />
+                      <View key={item} style={[styles.tagPill, { backgroundColor: COLORS.pendingBg, borderColor: COLORS.pendingBorder }]}>
+                        <Ionicons name="pulse-outline" size={13} color={COLORS.warningDark} />
                         <Text style={[styles.tagPillText, { color: COLORS.warningDark }]}>{item}</Text>
                         <Pressable onPress={() => removeTag('conditions', item)} hitSlop={6}>
-                          <Ionicons name="close-circle" size={15} color="#d97706" />
+                          <Ionicons name="close-circle" size={15} color={COLORS.warningDark} />
                         </Pressable>
                       </View>
                     ))}
@@ -589,7 +589,7 @@ export default function HealthProfile() {
           </View>
 
           {/* 3. CURRENT MEDICATIONS CARD */}
-          <View style={[styles.safetyCard, { backgroundColor: theme.card, borderColor: hasMedications ? '#8b5cf650' : theme.border }]}>
+          <View style={[styles.safetyCard, { backgroundColor: theme.card, borderColor: hasMedications ? COLORS.borderSlate : theme.border }]}>
             <Pressable
               style={styles.checkboxRow}
               onPress={() => {
@@ -619,11 +619,11 @@ export default function HealthProfile() {
                 {medicationsList.length > 0 && (
                   <View style={styles.pillsWrap}>
                     {medicationsList.map((item) => (
-                      <View key={item} style={[styles.tagPill, { backgroundColor: '#8b5cf615', borderColor: '#8b5cf640' }]}>
-                        <Ionicons name="medical-outline" size={13} color="#7c3aed" />
-                        <Text style={[styles.tagPillText, { color: '#7c3aed' }]}>{item}</Text>
+                      <View key={item} style={[styles.tagPill, { backgroundColor: COLORS.surfaceSecondary, borderColor: COLORS.borderSlate }]}>
+                        <Ionicons name="medical-outline" size={13} color={COLORS.purple} />
+                        <Text style={[styles.tagPillText, { color: COLORS.purple }]}>{item}</Text>
                         <Pressable onPress={() => removeTag('medications', item)} hitSlop={6}>
-                          <Ionicons name="close-circle" size={15} color="#7c3aed" />
+                          <Ionicons name="close-circle" size={15} color={COLORS.purple} />
                         </Pressable>
                       </View>
                     ))}
@@ -744,8 +744,8 @@ const styles = StyleSheet.create({
   sectionHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 8
+    gap: SPACING.sm,
+    marginBottom: SPACING.sm
   },
   sectionTitleText: {
     fontSize: FONT_SIZE.lg,
@@ -753,8 +753,7 @@ const styles = StyleSheet.create({
   },
   sectionHelperText: {
     fontFamily: 'Inter-Regular',
-    
-    fontSize: 12,
+    fontSize: FONT_SIZE.md,
     marginBottom: 14,
     lineHeight: 16
   },
@@ -762,20 +761,20 @@ const styles = StyleSheet.create({
   // Biometrics Card Grid
   metricsContainerCard: {
     borderRadius: RADIUS.xl,
-    padding: 16,
+    padding: SPACING.lg,
     borderWidth: 1,
-    gap: 12,
+    gap: SPACING.md,
     marginBottom: 10
   },
   gridRow: {
     flexDirection: 'row',
-    gap: 12
+    gap: SPACING.md
   },
   gridCol: {
     flex: 1
   },
   inputLabel: {
-    fontSize: 10,
+    fontSize: FONT_SIZE.xs,
     fontFamily: 'Inter-Bold',
     letterSpacing: 0.6,
     marginBottom: 6
@@ -786,7 +785,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12
+    paddingHorizontal: SPACING.md
   },
   numericInput: {
     flex: 1,
@@ -795,7 +794,7 @@ const styles = StyleSheet.create({
     height: '100%'
   },
   suffixBadge: {
-    fontSize: 12,
+    fontSize: FONT_SIZE.md,
     fontFamily: 'Inter-SemiBold'
   },
 
@@ -806,7 +805,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 12
+    paddingHorizontal: SPACING.md
   },
   genderSelectorValue: {
     fontSize: FONT_SIZE.md,
@@ -817,115 +816,113 @@ const styles = StyleSheet.create({
   bmiBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    padding: 12,
+    gap: SPACING.md,
+    padding: SPACING.md,
     borderRadius: RADIUS.lg,
     borderWidth: 1,
-    marginTop: 4
+    marginTop: SPACING.xs,
   },
   bmiTitle: {
     fontFamily: 'Inter-Regular',
-    
-    fontSize: 12
+    fontSize: FONT_SIZE.md,
   },
   bmiStatusPill: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: RADIUS.pill
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
+    borderRadius: RADIUS.pill,
   },
   bmiStatusText: {
     color: COLORS.white,
-    fontSize: 10,
-    fontFamily: 'Inter-Bold'
+    fontSize: FONT_SIZE.sm,
+    fontFamily: 'Inter-Bold',
   },
 
   // Safety Card UI
   safetyCard: {
     borderRadius: RADIUS.xl,
-    padding: 16,
+    padding: SPACING.lg,
     borderWidth: 1,
-    marginBottom: 14
+    marginBottom: SPACING.lg,
   },
   checkboxRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12
+    gap: SPACING.md,
   },
   cardTitleText: {
-    fontSize: 14, fontFamily: 'Inter-Bold'
+    fontSize: FONT_SIZE.lg, fontFamily: 'Inter-Bold',
   },
   cardSubText: {
     fontFamily: 'Inter-Regular',
-     fontSize: 11, marginTop: 2, lineHeight: 15
+    fontSize: FONT_SIZE.sm, marginTop: SPACING.xs, lineHeight: 15,
   },
 
   cardBody: {
-    marginTop: 14,
-    paddingTop: 14,
+    marginTop: SPACING.lg,
+    paddingTop: SPACING.lg,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.06)'
+    borderTopColor: 'rgba(0,0,0,0.06)',
   },
   pillsWrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 12
+    gap: SPACING.xs,
+    marginBottom: SPACING.md,
   },
   tagPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    gap: SPACING.xs,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs,
     borderRadius: RADIUS.pill,
-    borderWidth: 1
+    borderWidth: 1,
   },
   tagPillText: {
-    fontSize: 12, fontFamily: 'Inter-Bold'
+    fontSize: FONT_SIZE.md, fontFamily: 'Inter-Bold',
   },
 
   addInputRow: {
     flexDirection: 'row',
-    gap: 8
+    gap: SPACING.xs,
   },
   addInput: {
     fontFamily: 'Inter-Regular',
-    
     flex: 1,
     height: 42,
     borderRadius: RADIUS.md,
-    paddingHorizontal: 14,
+    paddingHorizontal: SPACING.lg,
     borderWidth: 1,
-    fontSize: 13
+    fontSize: FONT_SIZE.md,
   },
   addBtn: {
     width: 42,
     height: 42,
     borderRadius: RADIUS.md,
     justifyContent: 'center',
-    alignItems: 'center'
+    alignItems: 'center',
   },
 
   // Dynamic Autocomplete Dropdown
   suggestionsBox: {
     borderRadius: RADIUS.md,
     borderWidth: 1,
-    marginTop: 6,
-    padding: 8
+    marginTop: SPACING.xs,
+    padding: SPACING.sm,
   },
   suggestionHeader: {
-    fontSize: 10, fontFamily: 'Inter-Bold', letterSpacing: 0.5, marginBottom: 6, paddingHorizontal: 6
+    fontSize: FONT_SIZE.sm, fontFamily: 'Inter-Bold', letterSpacing: 0.5, marginBottom: SPACING.xs, paddingHorizontal: SPACING.xs,
   },
   suggestionRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 9,
-    paddingHorizontal: 8,
-    borderBottomWidth: StyleSheet.hairlineWidth
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   suggestionText: {
-    flex: 1, fontSize: 13, marginLeft: 8, fontFamily: 'Inter-SemiBold'
+    flex: 1, fontSize: FONT_SIZE.md, marginLeft: 8, fontFamily: 'Inter-SemiBold'
   },
 
   saveBtn: {
@@ -933,12 +930,12 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.pill,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 20
+    marginTop: SPACING.xl
   },
   saveBtnInner: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8
+    gap: SPACING.sm
   },
   saveBtnText: {
     color: COLORS.white, fontSize: FONT_SIZE.lg, fontFamily: 'Inter-Bold'

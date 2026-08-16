@@ -194,8 +194,8 @@ export default function Inventory() {
               isOutOfStock
                 ? { backgroundColor: COLORS.errorBg }
                 : isLow
-                ? { backgroundColor: '#fffbeb' }
-                : { backgroundColor: '#ecfdf5' },
+                ? { backgroundColor: COLORS.pendingBg }
+                : { backgroundColor: COLORS.pharmacySecondary },
             ]}
           >
             <View
@@ -215,9 +215,9 @@ export default function Inventory() {
                 styles.statusPillText,
                 {
                   color: isOutOfStock
-                    ? '#b91c1c'
+                    ? COLORS.errorText
                     : isLow
-                    ? '#b45309'
+                    ? COLORS.pendingText
                     : COLORS.pharmacyTextDark,
                 },
               ]}
@@ -344,7 +344,7 @@ export default function Inventory() {
 
       {/* Item List */}
       {loading ? (
-        <View style={{ padding: SPACING.xl, gap: 12 }}>
+        <View style={{ padding: SPACING.xl, gap: SPACING.md }}>
           {[1, 2, 3, 4].map((i) => (
             <Skeleton key={i} width="100%" height={80} borderRadius={16} />
           ))}
@@ -354,13 +354,13 @@ export default function Inventory() {
           data={filteredInventory}
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
-          contentContainerStyle={{ padding: SPACING.xl, gap: 12 }}
+          contentContainerStyle={{ padding: SPACING.xl, gap: SPACING.md }}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
               onRefresh={handleRefresh}
               tintColor={COLORS.pharmacyPrimary}
-              colors={['#10b981']}
+              colors={[COLORS.pharmacyPrimary]}
             />
           }
           ListEmptyComponent={
@@ -463,7 +463,7 @@ const styles = StyleSheet.create({
   },
 
   searchRow: {
-    flexDirection: 'row', paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md, gap: 8
+    flexDirection: 'row', paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md, gap: SPACING.sm
   },
   searchBar: {
     flex: 1,
@@ -491,7 +491,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: SPACING.lg,
     paddingBottom: SPACING.sm,
-    gap: SPACING.sm
+    gap: SPACING.xs
   },
   chip: {
     paddingHorizontal: SPACING.md,
@@ -554,7 +554,7 @@ const styles = StyleSheet.create({
   statusPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.sm,
+    gap: SPACING.xs,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.xs,
     borderRadius: RADIUS.pill
@@ -585,7 +585,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 60,
-    gap: SPACING.sm
+    gap: SPACING.xs
   },
   emptyTitle: {
     fontSize: FONT_SIZE.xl,

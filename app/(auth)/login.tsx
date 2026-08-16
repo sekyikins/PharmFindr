@@ -1,4 +1,4 @@
-import { COLORS } from '@/styles/theme';
+import { COLORS,  FONT_SIZE, RADIUS, SPACING  } from '@/styles/theme';
 import React, { useState, useRef } from 'react';
 import {
   StyleSheet,
@@ -24,10 +24,6 @@ import OtpInput, { type OtpInputHandle } from '@/components/ui/OtpInput';
 import { toast } from '@/context/ToastContext';
 
 import { getFriendlyErrorMessage } from '@/lib/errorUtils';
-
-function getFriendlyAuthErrorMessage(err: any, defaultMsg = 'Authentication failed.'): string {
-  return getFriendlyErrorMessage(err, defaultMsg);
-}
 
 export default function Login() {
   const router = useRouter();
@@ -68,7 +64,7 @@ export default function Login() {
       toast.success('Login successful! Welcome back.');
       router.replace('/(patient)/(tabs)/home');
     } catch (error: any) {
-      const msg = getFriendlyAuthErrorMessage(error, 'Login failed. Please check your credentials.');
+      const msg = getFriendlyErrorMessage(error, 'Login failed. Please check your credentials.');
       toast.error(msg);
     } finally {
       setLoading(false);
@@ -209,7 +205,7 @@ export default function Login() {
       }, 400);
     } catch (error: any) {
       console.warn('Pharmacy auth sign-in error:', error.message);
-      const msg = getFriendlyAuthErrorMessage(error, 'Login failed.');
+      const msg = getFriendlyErrorMessage(error, 'Login failed.');
       toast.error(msg);
       setLoading(false);
     }
@@ -217,7 +213,7 @@ export default function Login() {
 
   const isPharmacy = role === 'pharmacy';
   const BLUE = primaryColor;
-  const GREEN = '#10b981';
+  const GREEN = COLORS.pharmacyPrimary;
   const activeColor = isPharmacy ? GREEN : BLUE;
 
   return (
@@ -295,7 +291,7 @@ export default function Login() {
               </View>
 
               {/* Password */}
-              <Text style={[styles.label, { marginTop: 16 }]}>PASSWORD</Text>
+              <Text style={[styles.label, { marginTop: SPACING.lg }]}>PASSWORD</Text>
               <View style={styles.inputRow}>
                 <Ionicons name="lock-closed-outline" size={16} color={COLORS.textDim} style={styles.inputIcon} />
                 <TextInput
@@ -379,7 +375,7 @@ export default function Login() {
                 </>
               ) : (
                 <>
-                  <View style={{ alignItems: 'center', marginBottom: 12 }}>
+                  <View style={{ alignItems: 'center', marginBottom: SPACING.md }}>
                     <Text style={styles.label}>ENTER THE 6-DIGIT SMS CODE</Text>
                   </View>
 
@@ -396,7 +392,7 @@ export default function Login() {
                   />
 
                   <Pressable
-                    style={[styles.primaryBtn, { backgroundColor: GREEN, marginTop: 12 }]}
+                    style={[styles.primaryBtn, { backgroundColor: GREEN, marginTop: SPACING.md }]}
                     onPress={() => handleVerifyOtp()}
                     disabled={loading}
                   >
@@ -421,7 +417,7 @@ export default function Login() {
                     onPress={() => setPharmStep(1)}
                   >
                     <Ionicons name="arrow-back" size={14} color={COLORS.textMuted} />
-                    <Text style={{ color: COLORS.textMuted, fontSize: 13, fontFamily: 'Inter-SemiBold' }}>Change Phone Number</Text>
+                    <Text style={{ color: COLORS.textMuted, fontSize: FONT_SIZE.md, fontFamily: 'Inter-SemiBold' }}>Change Phone Number</Text>
                   </Pressable>
                 </>
               )}
@@ -442,67 +438,67 @@ const styles = StyleSheet.create({
     flexGrow: 1
   },
   heroInner: {
-    paddingHorizontal: 24, paddingTop: 16, paddingBottom: 16
+    paddingHorizontal: SPACING.xxl, paddingTop: SPACING.lg, paddingBottom: SPACING.xl
   },
   brandRow: {
     flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 6
   },
   brandTitle: {
-    fontSize: 28, fontFamily: 'Inter-Bold', color: COLORS.white
+    fontSize: FONT_SIZE.hero, fontFamily: 'Inter-Bold', color: COLORS.white
   },
   heroSubtitle: {
     fontFamily: 'Inter-Regular',
-     fontSize: 13, color: 'rgba(255,255,255,0.85)', marginBottom: 16
+     fontSize: FONT_SIZE.md, color: 'rgba(255,255,255,0.85)', marginBottom: SPACING.lg
   },
   roleContainer: {
-    flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 24, padding: 4
+    flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: RADIUS.xxl, padding: SPACING.xs
   },
   roleTab: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', height: 38, borderRadius: 20
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', height: 38, borderRadius: RADIUS.xl
   },
   roleTabActive: {
     backgroundColor: COLORS.white
   },
   roleTabText: {
-    fontSize: 13, fontFamily: 'Inter-Bold', color: COLORS.white
+    fontSize: FONT_SIZE.md, fontFamily: 'Inter-Bold', color: COLORS.white
   },
   form: {
-    padding: 24, backgroundColor: COLORS.white
+    padding: SPACING.xxl, backgroundColor: COLORS.white
   },
   label: {
-    fontSize: 10, fontFamily: 'Inter-Bold', color: COLORS.textMuted, letterSpacing: 0.5, marginBottom: 8
+    fontSize: FONT_SIZE.xs, fontFamily: 'Inter-Bold', color: COLORS.textMuted, letterSpacing: 0.5, marginBottom: SPACING.sm
   },
   inputRow: {
-    backgroundColor: COLORS.background, borderRadius: 16, height: 52, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, borderWidth: 1, borderColor: COLORS.borderSubtle
+    backgroundColor: COLORS.background, borderRadius: RADIUS.xl, height: 52, flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACING.lg, borderWidth: 1, borderColor: COLORS.borderSubtle
   },
   inputIcon: {
     marginRight: 10
   },
   input: {
     fontFamily: 'Inter-Regular',
-     flex: 1, fontSize: 14, color: COLORS.surfaceDark, height: '100%'
+     flex: 1, fontSize: FONT_SIZE.lg, color: COLORS.surfaceDark, height: '100%'
   },
   primaryBtn: {
-    height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center', marginTop: 24
+    height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center', marginTop: SPACING.xxl
   },
   primaryBtnText: {
-    color: COLORS.white, fontSize: 15, fontFamily: 'Inter-Bold'
+    color: COLORS.white, fontSize: FONT_SIZE.lg, fontFamily: 'Inter-Bold'
   },
   divider: {
-    flexDirection: 'row', alignItems: 'center', marginVertical: 20
+    flexDirection: 'row', alignItems: 'center', marginVertical: SPACING.xl
   },
   dividerLine: {
     flex: 1, height: 1, backgroundColor: COLORS.borderSubtle
   },
   dividerLabel: {
     fontFamily: 'Inter-Regular',
-     marginHorizontal: 12, color: COLORS.textDim, fontSize: 12
+     marginHorizontal: SPACING.md, color: COLORS.textDim, fontSize: FONT_SIZE.md
   },
   secondaryBtn: {
     height: 50, borderRadius: 25, borderWidth: 1, borderColor: COLORS.borderSlate, justifyContent: 'center', alignItems: 'center'
   },
   secondaryBtnText: {
-    color: COLORS.textSecondary, fontSize: 14, fontFamily: 'Inter-SemiBold'
+    color: COLORS.textSecondary, fontSize: FONT_SIZE.lg, fontFamily: 'Inter-SemiBold'
   },
 
 });

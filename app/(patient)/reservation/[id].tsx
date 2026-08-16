@@ -13,7 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useThemeContext } from '@/hooks/useThemeContext';
-import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
+import { COLORS, FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
 import { Header } from '@/components/ui/Header';
@@ -48,11 +48,11 @@ interface ReservationRecord {
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 const STATUS_BADGE_MAP: Record<string, { label: string; bg: string; text: string; icon: any }> = {
-  accepted:  { label: 'Accepted', bg: '#dcfce7', text: '#16a34a', icon: 'checkmark-circle' },
-  declined:  { label: 'Declined', bg: '#fee2e2', text: '#dc2626', icon: 'close-circle' },
-  collected: { label: 'Collected', bg: '#ede9fe', text: '#7c3aed', icon: 'bag-check' },
-  cancelled: { label: 'Cancelled', bg: '#f1f5f9', text: '#64748b', icon: 'close-circle-outline' },
-  pending:   { label: 'Pending', bg: '#fef3c7', text: '#d97706', icon: 'time' },
+  accepted:  { label: 'Accepted', bg: COLORS.successBg, text: COLORS.success, icon: 'checkmark-circle' },
+  declined:  { label: 'Declined', bg: COLORS.errorBg, text: COLORS.error, icon: 'close-circle' },
+  collected: { label: 'Collected', bg: COLORS.patientSecondary, text: COLORS.patientPrimary, icon: 'bag-check' },
+  cancelled: { label: 'Cancelled', bg: COLORS.surfaceSecondary, text: COLORS.textMuted, icon: 'close-circle-outline' },
+  pending:   { label: 'Pending', bg: COLORS.pendingBg, text: COLORS.warningDark, icon: 'time' },
 };
 
 function getStatusBadge(status: string) {
@@ -233,9 +233,9 @@ export default function ReservationScreen() {
         <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
           <Header title="Reservation Details" showBack />
           <ScrollView contentContainerStyle={styles.scroll}>
-            <Skeleton width="60%" height={26} style={{ marginBottom: 12, marginTop: 12 }} />
-            <Skeleton width="80%" height={16} style={{ marginBottom: 24 }} />
-            <Skeleton width="100%" height={220} style={{ borderRadius: 16, marginBottom: 20 }} />
+            <Skeleton width="60%" height={26} style={{ marginBottom: SPACING.md, marginTop: SPACING.md }} />
+            <Skeleton width="80%" height={16} style={{ marginBottom: SPACING.xxl }} />
+            <Skeleton width="100%" height={220} style={{ borderRadius: RADIUS.xl, marginBottom: SPACING.xl }} />
           </ScrollView>
         </SafeAreaView>
       );
@@ -313,7 +313,7 @@ export default function ReservationScreen() {
 
           {/* ── Medicine Details Card ── */}
           <View style={[styles.detailsCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
-            <View style={{ padding: 12, borderBottomWidth: 1, borderColor: theme.border }}>
+            <View style={{ padding: SPACING.md, borderBottomWidth: 1, borderColor: theme.border }}>
               <Text style={[styles.sectionLabel, { color: theme.text.primary }]}>Prescribed Medicines</Text>
             </View>
             <View style={{ paddingHorizontal: 14 }}>
@@ -344,33 +344,33 @@ export default function ReservationScreen() {
 
           {/* ── Status Banner Message ── */}
           {reservation.status === 'pending' && (
-            <View style={[styles.infoBanner, { backgroundColor: '#fef3c7', borderColor: '#f59e0b' }]}>
-              <Ionicons name="time-outline" size={16} color="#d97706" style={{ marginRight: 8 }} />
-              <Text style={{ color: '#92400e', fontSize: FONT_SIZE.sm, fontFamily: 'Inter-Medium', flex: 1, lineHeight: 18 }}>
+            <View style={[styles.infoBanner, { backgroundColor: COLORS.pendingBg, borderColor: COLORS.warning }]}>
+              <Ionicons name="time-outline" size={16} color={COLORS.warningDark} style={{ marginRight: SPACING.sm }} />
+              <Text style={{ color: COLORS.pendingText, fontSize: FONT_SIZE.sm, fontFamily: 'Inter-Medium', flex: 1, lineHeight: 18 }}>
                 Your reservation is being reviewed. The pharmacy will confirm shortly.
               </Text>
             </View>
           )}
           {reservation.status === 'accepted' && (
-            <View style={[styles.infoBanner, { backgroundColor: '#dcfce7', borderColor: '#16a34a' }]}>
-              <Ionicons name="checkmark-circle-outline" size={16} color="#16a34a" style={{ marginRight: 8 }} />
-              <Text style={{ color: '#14532d', fontSize: FONT_SIZE.sm, fontFamily: 'Inter-Medium', flex: 1, lineHeight: 18 }}>
+            <View style={[styles.infoBanner, { backgroundColor: COLORS.successBg, borderColor: COLORS.success }]}>
+              <Ionicons name="checkmark-circle-outline" size={16} color={COLORS.success} style={{ marginRight: SPACING.sm }} />
+              <Text style={{ color: COLORS.successDark, fontSize: FONT_SIZE.sm, fontFamily: 'Inter-Medium', flex: 1, lineHeight: 18 }}>
                 Your medicines are ready for collection at {resPharmName}.
               </Text>
             </View>
           )}
           {reservation.status === 'declined' && (
-            <View style={[styles.infoBanner, { backgroundColor: '#fee2e2', borderColor: '#dc2626' }]}>
-              <Ionicons name="close-circle-outline" size={16} color="#dc2626" style={{ marginRight: 8 }} />
-              <Text style={{ color: '#7f1d1d', fontSize: FONT_SIZE.sm, fontFamily: 'Inter-Medium', flex: 1, lineHeight: 18 }}>
+            <View style={[styles.infoBanner, { backgroundColor: COLORS.errorBg, borderColor: COLORS.error }]}>
+              <Ionicons name="close-circle-outline" size={16} color={COLORS.error} style={{ marginRight: SPACING.sm }} />
+              <Text style={{ color: COLORS.errorDarkBg, fontSize: FONT_SIZE.sm, fontFamily: 'Inter-Medium', flex: 1, lineHeight: 18 }}>
                 This reservation was declined. You may search for another pharmacy.
               </Text>
             </View>
           )}
           {reservation.status === 'cancelled' && (
-            <View style={[styles.infoBanner, { backgroundColor: '#f1f5f9', borderColor: '#cbd5e1' }]}>
-              <Ionicons name="close-circle-outline" size={16} color="#64748b" style={{ marginRight: 8 }} />
-              <Text style={{ color: '#475569', fontSize: FONT_SIZE.sm, fontFamily: 'Inter-Medium', flex: 1, lineHeight: 18 }}>
+            <View style={[styles.infoBanner, { backgroundColor: COLORS.surfaceSecondary, borderColor: COLORS.borderSlate }]}>
+              <Ionicons name="close-circle-outline" size={16} color={COLORS.textMuted} style={{ marginRight: SPACING.sm }} />
+              <Text style={{ color: COLORS.textSecondary, fontSize: FONT_SIZE.sm, fontFamily: 'Inter-Medium', flex: 1, lineHeight: 18 }}>
                 This reservation has been cancelled.
               </Text>
             </View>
@@ -421,7 +421,7 @@ export default function ReservationScreen() {
             style={({ pressed }) => [
               styles.topNavigateBtn,
               pressed && { opacity: 0.7 },
-              { backgroundColor: primaryColor, alignSelf: 'center', marginTop: 4 },
+              { backgroundColor: primaryColor, alignSelf: 'center', marginTop: SPACING.xs },
             ]}
             onPress={() => handleInAppNavigate(id, pharmName)}
           >
@@ -432,7 +432,7 @@ export default function ReservationScreen() {
 
         {/* Details card */}
         <View style={[styles.detailsCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
-          <View style={{ padding: 12, borderBottomWidth: 1, borderColor: theme.border }}>
+          <View style={{ padding: SPACING.md, borderBottomWidth: 1, borderColor: theme.border }}>
             <Text style={[styles.sectionLabel, { color: theme.text.primary }]}>Medicines</Text>
           </View>
           <View style={{ paddingHorizontal: 14 }}>
@@ -509,8 +509,8 @@ const styles = StyleSheet.create({
   topInfoSection: {
     width: '100%',
     alignItems: 'center',
-    marginBottom: 20,
-    marginTop: 8,
+    marginBottom: SPACING.xl,
+    marginTop: SPACING.sm,
   },
   pharmacyTitle: {
     fontSize: FONT_SIZE.hero,
@@ -521,7 +521,7 @@ const styles = StyleSheet.create({
   pharmacyDetailsSub: {
     alignItems: 'center',
     gap: 4,
-    marginBottom: 12,
+    marginBottom: SPACING.md,
   },
   infoInlineRow: {
     flexDirection: 'row',
@@ -536,9 +536,9 @@ const styles = StyleSheet.create({
   topActionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    marginTop: 4,
-    marginBottom: 8,
+    gap: SPACING.md,
+    marginTop: SPACING.xs,
+    marginBottom: SPACING.sm,
   },
   topNavigateBtn: {
     flexDirection: 'row',
@@ -548,19 +548,19 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.pill,
   },
   topNavigateText: {
-    color: '#ffffff',
+    color: COLORS.white,
     fontSize: FONT_SIZE.sm,
     fontFamily: 'Inter-Bold',
   },
 
-  sub: { fontSize: FONT_SIZE.lg, textAlign: 'center', lineHeight: 22, paddingHorizontal: SPACING.md, marginBottom: 16 },
+  sub: { fontSize: FONT_SIZE.lg, textAlign: 'center', lineHeight: 22, paddingHorizontal: SPACING.md, marginBottom: SPACING.lg },
   dateLabel: { fontSize: FONT_SIZE.sm, textAlign: 'center', fontFamily: 'Inter-Medium' },
 
   // Status
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
+    paddingHorizontal: SPACING.md,
     paddingVertical: 5,
     borderRadius: RADIUS.pill,
   },
@@ -570,7 +570,7 @@ const styles = StyleSheet.create({
   detailsCard: {
     width: '100%',
     borderRadius: RADIUS.xl,
-    marginBottom: 20,
+    marginBottom: SPACING.xl,
     borderWidth: 1,
     overflow: 'hidden',
   },
@@ -588,11 +588,11 @@ const styles = StyleSheet.create({
     padding: SPACING.md,
     borderRadius: RADIUS.lg,
     borderWidth: 1,
-    marginBottom: 20,
+    marginBottom: SPACING.xl,
   },
 
   // Actions
-  actionRow: { width: '100%', marginTop: 8 },
+  actionRow: { width: '100%', marginTop: SPACING.sm },
   primaryBtn: {
     width: '100%',
     height: 52,
@@ -601,7 +601,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  primaryBtnText: { color: '#ffffff', fontSize: FONT_SIZE.xl, fontFamily: 'Inter-SemiBold' },
+  primaryBtnText: { color: COLORS.white, fontSize: FONT_SIZE.xl, fontFamily: 'Inter-SemiBold' },
   cancelBtn: {
     width: '100%',
     height: 52,

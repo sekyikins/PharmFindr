@@ -1,4 +1,4 @@
-import { COLORS } from '@/styles/theme';
+import { COLORS, FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
 import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
@@ -35,7 +35,6 @@ SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const [loaded, error] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
     'Inter-Regular': require('../assets/fonts/Inter-Regular.ttf'),
     'Inter-Medium': require('../assets/fonts/Inter-Medium.ttf'),
     'Inter-SemiBold': require('../assets/fonts/Inter-SemiBold.ttf'),
@@ -149,23 +148,23 @@ function RootLayoutNav() {
         <OfflineBanner />
 
         {isLocked ? (
-          <View style={{ flex: 1, backgroundColor: COLORS.surfaceDark, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
-            <View style={{ width: 88, height: 88, borderRadius: 44, backgroundColor: COLORS.pharmacyPrimary + '20', justifyContent: 'center', alignItems: 'center', marginBottom: 20 }}>
+          <View style={{ flex: 1, backgroundColor: COLORS.surfaceDark, justifyContent: 'center', alignItems: 'center', padding: SPACING.xxl }}>
+            <View style={{ width: 88, height: 88, borderRadius: RADIUS.pill, backgroundColor: COLORS.pharmacyPrimary + '20', justifyContent: 'center', alignItems: 'center', marginBottom: SPACING.xl }}>
               <Ionicons name={biometricIcon as any} size={44} color={COLORS.pharmacyPrimary} />
             </View>
-            <Text style={{ color: COLORS.white, fontSize: 22, fontFamily: 'Inter-Bold', marginBottom: 8 }}>PharmFindr Locked</Text>
-            <Text style={{ color: COLORS.textDim, fontSize: 13, fontFamily: 'Inter-Regular', textAlign: 'center', marginBottom: 32, paddingHorizontal: 16, lineHeight: 20 }}>
+            <Text style={{ color: COLORS.white, fontSize: FONT_SIZE.hero, fontFamily: 'Inter-Bold', marginBottom: SPACING.sm }}>PharmFindr Locked</Text>
+            <Text style={{ color: COLORS.textDim, fontSize: FONT_SIZE.md, fontFamily: 'Inter-Regular', textAlign: 'center', marginBottom: SPACING.xxxl, paddingHorizontal: SPACING.lg, lineHeight: 20 }}>
               {biometricType} authentication is required to access your medical records and active reservations.
             </Text>
             <Pressable
               style={({ pressed }) => [
-                { backgroundColor: COLORS.pharmacyPrimary, paddingHorizontal: 28, paddingVertical: 14, borderRadius: 24, flexDirection: 'row', alignItems: 'center', gap: 8 },
+                { backgroundColor: COLORS.pharmacyPrimary, paddingHorizontal: SPACING.xxxl, paddingVertical: SPACING.md, borderRadius: RADIUS.pill, flexDirection: 'row', alignItems: 'center', gap: SPACING.xs },
                 pressed && { opacity: 0.7 },
               ]}
               onPress={() => triggerUnlock()}
             >
               <Ionicons name={biometricIcon as any} size={18} color={COLORS.white} />
-              <Text style={{ color: COLORS.white, fontSize: 15, fontFamily: 'Inter-Bold' }}>Unlock with {biometricType}</Text>
+              <Text style={{ color: COLORS.white, fontSize: FONT_SIZE.lg, fontFamily: 'Inter-Bold' }}>Unlock with {biometricType}</Text>
             </Pressable>
           </View>
         ) : (

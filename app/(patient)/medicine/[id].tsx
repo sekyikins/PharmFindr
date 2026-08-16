@@ -129,12 +129,12 @@ export default function MedicineDetailsScreen() {
               <Ionicons name="arrow-back" size={20} color={COLORS.white} />
             </Pressable>
 
-            <View style={{ flexDirection: 'row', gap: 10 }}>
+            <View style={{ flexDirection: 'row', gap: SPACING.md }}>
               <Pressable
                 style={({ pressed }) => [styles.iconCircleBtn, pressed && { opacity: 0.6 }]}
                 onPress={handleToggleSave}
               >
-                <Ionicons name={saved ? 'heart' : 'heart-outline'} size={20} color={saved ? '#ff4d4f' : COLORS.white} />
+                <Ionicons name={saved ? 'heart' : 'heart-outline'} size={20} color={saved ? COLORS.error : COLORS.white} />
               </Pressable>
             </View>
           </View>
@@ -176,7 +176,7 @@ export default function MedicineDetailsScreen() {
             style={({ pressed }) => [styles.actionCard, { backgroundColor: theme.card, borderColor: theme.patientPrimary }, pressed && { opacity: 0.7 }]}
             onPress={handleToggleSave}
           >
-            <Ionicons name={saved ? 'heart' : 'heart-outline'} size={22} color={saved ? '#ff4d4f' : primaryColor} />
+            <Ionicons name={saved ? 'heart' : 'heart-outline'} size={22} color={saved ? COLORS.error : primaryColor} />
             <Text style={[styles.actionCardText, { color: theme.text.primary }]}>{saved ? 'Saved' : 'Save'}</Text>
           </Pressable>
 
@@ -212,7 +212,7 @@ export default function MedicineDetailsScreen() {
         {/* ── Generic Alternatives ── */}
         {medicine.alternatives && medicine.alternatives.length > 0 && (
           <View style={[styles.panel, { backgroundColor: theme.card, borderColor: theme.border }]}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, marginBottom: SPACING.md }}>
               <Ionicons name="swap-horizontal-outline" size={20} color={primaryColor} />
               <Text style={[styles.panelTitle, { color: theme.text.primary }]}>Generic Alternatives</Text>
             </View>
@@ -272,7 +272,7 @@ function DetailCard({ icon, iconColor, label, value, theme }: { icon: any; iconC
 function InfoPanel({ title, content, icon, theme, primaryColor }: { title: string; content: string; icon: any; theme: any; primaryColor: string }) {
   return (
     <View style={[styles.panel, { backgroundColor: theme.card, borderColor: theme.border }]}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, marginBottom: SPACING.sm }}>
         <Ionicons name={icon} size={20} color={primaryColor} />
         <Text style={[styles.panelTitle, { color: theme.text.primary }]}>{title}</Text>
       </View>
@@ -290,7 +290,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 16
+    marginBottom: SPACING.lg
   },
   iconCircleBtn: {
     width: 38,
@@ -302,19 +302,19 @@ const styles = StyleSheet.create({
   },
 
   hero: {
-    paddingTop: 12,
+    paddingTop: SPACING.md,
     paddingHorizontal: SPACING.xl,
-    paddingBottom: 24
+    paddingBottom: SPACING.xxl
   },
   heroContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16
+    gap: SPACING.lg
   },
   pillCircle: {
     width: 60,
     height: 60,
-    borderRadius: 30,
+    borderRadius: RADIUS.xxl,
     backgroundColor: COLORS.white,
     justifyContent: 'center',
     alignItems: 'center'
@@ -323,76 +323,76 @@ const styles = StyleSheet.create({
     flex: 1
   },
   medName: {
-    fontSize: 24, fontFamily: 'Inter-Bold', color: COLORS.white, marginBottom: 2
+    fontSize: FONT_SIZE.hero, fontFamily: 'Inter-Bold', color: COLORS.white, marginBottom: 2
   },
   medSub: {
-    fontSize: 14, color: 'rgba(255, 255, 255, 0.85)', fontFamily: 'Inter-SemiBold'
+    fontSize: FONT_SIZE.lg, color: 'rgba(255, 255, 255, 0.85)', fontFamily: 'Inter-SemiBold'
   },
   genericSub: {
     fontFamily: 'Inter-Regular',
-     fontSize: 12, color: 'rgba(255, 255, 255, 0.75)', marginTop: 2
+    fontSize: FONT_SIZE.md, color: 'rgba(255, 255, 255, 0.75)', marginTop: SPACING.xs
   },
 
   // Action Bar Grid
   actionGrid: {
     flexDirection: 'row',
     paddingHorizontal: SPACING.xl,
-    gap: 12,
-    marginTop: 6,
-    marginBottom: 16
+    gap: SPACING.md,
+    marginTop: SPACING.xs,
+    marginBottom: SPACING.lg
   },
   actionCard: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: SPACING.xs,
     borderRadius: RADIUS.lg,
-    paddingVertical: 12,
+    paddingVertical: SPACING.md,
     borderWidth: 1
   },
   actionCardText: {
-    fontSize: 13,
+    fontSize: FONT_SIZE.md,
     fontFamily: 'Inter-Bold'
   },
 
   // Cards Row
   cardsRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: SPACING.md,
     paddingHorizontal: SPACING.xl,
-    marginBottom: 16
+    marginBottom: SPACING.lg
   },
   detailCard: {
     flex: 1,
     borderRadius: RADIUS.lg,
-    padding: 12,
+    padding: SPACING.md,
     alignItems: 'center',
     borderWidth: 1
   },
   cardLabel: {
-    fontSize: 9, fontFamily: 'Inter-Bold', letterSpacing: 0.5, marginBottom: 4
+    fontSize: FONT_SIZE.xs, fontFamily: 'Inter-Bold', letterSpacing: 0.5, marginBottom: SPACING.xs
   },
   cardValue: {
-    fontSize: 12, fontFamily: 'Inter-SemiBold', textAlign: 'center'
+    fontSize: FONT_SIZE.md, fontFamily: 'Inter-SemiBold', textAlign: 'center'
   },
 
   infoBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: SPACING.md,
     marginHorizontal: SPACING.xl,
-    marginBottom: 16,
+    marginBottom: SPACING.lg,
     padding: 14,
     borderRadius: RADIUS.lg,
     borderWidth: 1
   },
   bannerTitle: {
-    fontSize: 13, fontFamily: 'Inter-Bold'
+    fontSize: FONT_SIZE.md, fontFamily: 'Inter-Bold'
   },
   bannerSub: {
     fontFamily: 'Inter-Regular',
-     fontSize: 11, marginTop: 2
+     fontSize: FONT_SIZE.sm, marginTop: 2
   },
 
   panel: {
@@ -403,25 +403,25 @@ const styles = StyleSheet.create({
     borderWidth: 1
   },
   panelTitle: {
-    fontSize: 16, fontFamily: 'Inter-Bold'
+    fontSize: FONT_SIZE.xl, fontFamily: 'Inter-Bold'
   },
   panelContent: {
     fontFamily: 'Inter-Regular',
-     fontSize: 13, lineHeight: 20
+     fontSize: FONT_SIZE.md, lineHeight: 20
   },
 
   alternativesRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8
+    gap: SPACING.sm
   },
   alternativeBadge: {
     paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingVertical: SPACING.sm,
     borderRadius: RADIUS.pill
   },
   alternativeText: {
-    fontSize: 12,
+    fontSize: FONT_SIZE.md,
     fontFamily: 'Inter-SemiBold'
   },
 
@@ -436,14 +436,14 @@ const styles = StyleSheet.create({
   },
   findBtnText: {
     color: COLORS.white,
-    fontSize: 12,
+    fontSize: FONT_SIZE.md,
     fontFamily: 'Inter-Bold'
   },
 
   prescriptionPharmBtn: {
     marginHorizontal: SPACING.xl,
     marginTop: 10,
-    marginBottom: 4,
+    marginBottom: SPACING.xs,
     height: 52,
     borderRadius: RADIUS.pill,
     borderWidth: 1,
@@ -452,7 +452,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.lg,
   },
   prescriptionPharmBtnText: {
-    fontSize: 13,
+    fontSize: FONT_SIZE.md,
     fontFamily: 'Inter-Bold',
   },
 

@@ -34,9 +34,6 @@ import {
   getBiometricIcon,
   authenticateBiometrics,
 } from '@/lib/biometrics';
-
-const PHARMACY_GREEN = '#10b981';
-
 export default function PharmacyProfile() {
   const router = useRouter();
   const { user, profile, signOut, updateProfile, uploadAvatar, refreshProfile } = useAuthStore();
@@ -259,7 +256,7 @@ export default function PharmacyProfile() {
       {loading ? (
         <View style={styles.scrollContent}>
           <Skeleton width="100%" height={160} borderRadius={16} />
-          <Skeleton width="100%" height={220} borderRadius={16} style={{ marginTop: 16 }} />
+          <Skeleton width="100%" height={220} borderRadius={16} style={{ marginTop: SPACING.lg }} />
         </View>
       ) : (
         <ScrollView
@@ -269,8 +266,8 @@ export default function PharmacyProfile() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={handleRefresh}
-              tintColor={PHARMACY_GREEN}
-              colors={[PHARMACY_GREEN]}
+              tintColor={COLORS.pharmacyPrimary}
+              colors={[COLORS.pharmacyPrimary]}
             />
           }
         >
@@ -281,7 +278,7 @@ export default function PharmacyProfile() {
                 {profile?.avatar_url ? (
                   <Image source={{ uri: profile.avatar_url }} style={styles.avatarImage} />
                 ) : (
-                  <Ionicons name="storefront" size={32} color={PHARMACY_GREEN} />
+                  <Ionicons name="storefront" size={32} color={COLORS.pharmacyPrimary} />
                 )}
               </View>
               <View style={styles.cameraBadge}>
@@ -301,20 +298,20 @@ export default function PharmacyProfile() {
                 style={[
                   styles.statusBadge,
                   isVerified
-                    ? { backgroundColor: '#ecfdf5', borderColor: COLORS.successBorder }
-                    : { backgroundColor: '#fffbeb', borderColor: COLORS.pendingBg },
+                    ? { backgroundColor: COLORS.pharmacySecondary, borderColor: COLORS.successBorder }
+                    : { backgroundColor: COLORS.pendingBg, borderColor: COLORS.pendingBg },
                 ]}
                 onPress={!isVerified ? handleVerifyPharmacy : undefined}
               >
                 <Ionicons
                   name={isVerified ? 'shield-checkmark' : 'time-outline'}
                   size={13}
-                  color={isVerified ? COLORS.pharmacyTextDark : '#b45309'}
+                  color={isVerified ? COLORS.pharmacyTextDark : COLORS.pendingText}
                 />
                 <Text
                   style={[
                     styles.statusBadgeText,
-                    { color: isVerified ? COLORS.pharmacyTextDark : '#b45309' },
+                    { color: isVerified ? COLORS.pharmacyTextDark : COLORS.pendingText },
                   ]}
                 >
                   {isVerified ? 'VERIFIED LICENSE' : 'REGISTRATION PENDING — TAP TO VERIFY'}
@@ -346,8 +343,8 @@ export default function PharmacyProfile() {
               style={({ pressed }) => [styles.rowItem, pressed && { opacity: 0.7 }]}
               onPress={() => router.push('/(pharmacy)/operating-hours')}
             >
-              <View style={[styles.iconWrap, { backgroundColor: '#ecfdf5' }]}>
-                <Ionicons name="time-outline" size={18} color={PHARMACY_GREEN} />
+              <View style={[styles.iconWrap, { backgroundColor: COLORS.pharmacySecondary }]}>
+                <Ionicons name="time-outline" size={18} color={COLORS.pharmacyPrimary} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.rowTitle, { color: theme.text.primary }]}>Operating Hours</Text>
@@ -363,8 +360,8 @@ export default function PharmacyProfile() {
           <Text style={[styles.sectionTitle, { color: theme.textMuted }]}>PREFERENCES & SECURITY</Text>
           <View style={[styles.cardGroup, { backgroundColor: theme.card, borderColor: theme.border }]}>
             <View style={styles.rowItem}>
-              <View style={[styles.iconWrap, { backgroundColor: '#f5f3ff' }]}>
-                <Ionicons name="notifications-outline" size={18} color="#8b5cf6" />
+              <View style={[styles.iconWrap, { backgroundColor: COLORS.surfaceSecondary }]}>
+                <Ionicons name="notifications-outline" size={18} color={COLORS.purple} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.rowTitle, { color: theme.text.primary }]}>Reservation Alerts</Text>
@@ -374,15 +371,15 @@ export default function PharmacyProfile() {
                 value={notificationsEnabled}
                 onValueChange={setNotificationsEnabled}
                 trackColor={{ false: COLORS.borderSlate, true: COLORS.successBorder }}
-                thumbColor={notificationsEnabled ? PHARMACY_GREEN : COLORS.surfaceSecondary}
+                thumbColor={notificationsEnabled ? COLORS.pharmacyPrimary : COLORS.surfaceSecondary}
               />
             </View>
 
             <View style={[styles.divider, { backgroundColor: theme.border }]} />
 
             <View style={styles.rowItem}>
-              <View style={[styles.iconWrap, { backgroundColor: '#ecfdf5' }]}>
-                <Ionicons name={biometricIcon as any} size={18} color={PHARMACY_GREEN} />
+              <View style={[styles.iconWrap, { backgroundColor: COLORS.pharmacySecondary }]}>
+                <Ionicons name={biometricIcon as any} size={18} color={COLORS.pharmacyPrimary} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.rowTitle, { color: theme.text.primary }]}>Use {biometricType}</Text>
@@ -392,7 +389,7 @@ export default function PharmacyProfile() {
                 value={biometricsEnabled}
                 onValueChange={handleToggleBiometrics}
                 trackColor={{ false: COLORS.borderSlate, true: COLORS.successBorder }}
-                thumbColor={biometricsEnabled ? PHARMACY_GREEN : COLORS.surfaceSecondary}
+                thumbColor={biometricsEnabled ? COLORS.pharmacyPrimary : COLORS.surfaceSecondary}
               />
             </View>
 
@@ -402,8 +399,8 @@ export default function PharmacyProfile() {
               style={({ pressed }) => [styles.rowItem, pressed && { opacity: 0.7 }]}
               onPress={() => pwdSheetRef.current?.present()}
             >
-              <View style={[styles.iconWrap, { backgroundColor: '#fff7ed' }]}>
-                <Ionicons name="lock-closed-outline" size={18} color="#f97316" />
+              <View style={[styles.iconWrap, { backgroundColor: COLORS.pendingBg }]}>
+                <Ionicons name="lock-closed-outline" size={18} color={COLORS.warning} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.rowTitle, { color: theme.text.primary }]}>Account Security</Text>
@@ -421,7 +418,7 @@ export default function PharmacyProfile() {
               onPress={() => router.push('/(patient)/help-feedback')}
             >
               <View style={[styles.iconWrap, { backgroundColor: COLORS.surfaceSecondary }]}>
-                <Ionicons name="help-circle-outline" size={18} color="#475569" />
+                <Ionicons name="help-circle-outline" size={18} color={COLORS.textSecondary} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.rowTitle, { color: theme.text.primary }]}>Help & Feedback</Text>
@@ -435,7 +432,7 @@ export default function PharmacyProfile() {
             style={({ pressed }) => [
               styles.signOutBtn,
               pressed && { opacity: 0.8 },
-              { backgroundColor: COLORS.errorBg, borderColor: '#fecaca' },
+              { backgroundColor: COLORS.errorBg, borderColor: COLORS.errorBorder },
             ]}
             onPress={handleSignOut}
           >
@@ -487,7 +484,7 @@ export default function PharmacyProfile() {
               style={({ pressed }) => [
                 styles.saveBtn,
                 pressed && { opacity: 0.8 },
-                { backgroundColor: PHARMACY_GREEN },
+                { backgroundColor: COLORS.pharmacyPrimary },
               ]}
               onPress={handleSaveInfo}
               disabled={savingEdit}
@@ -522,7 +519,7 @@ export default function PharmacyProfile() {
               style={({ pressed }) => [
                 styles.saveBtn,
                 pressed && { opacity: 0.8 },
-                { backgroundColor: PHARMACY_GREEN },
+                { backgroundColor: COLORS.pharmacyPrimary },
               ]}
               onPress={handleChangePassword}
               disabled={savingPwd}
@@ -577,7 +574,7 @@ const styles = StyleSheet.create({
     flex: 1
   },
   scrollContent: {
-    padding: SPACING.xl, gap: 12
+    padding: SPACING.xl, gap: SPACING.md
   },
 
   heroCard: {
@@ -585,17 +582,17 @@ const styles = StyleSheet.create({
     padding: SPACING.xl,
     borderRadius: RADIUS.xl,
     borderWidth: 1.5,
-    gap: 6
+    gap: SPACING.xs
   },
   avatarWrapper: {
     position: 'relative',
-    marginBottom: 6
+    marginBottom: SPACING.xs
   },
   avatarCircle: {
     width: 80,
     height: 80,
-    borderRadius: 40,
-    backgroundColor: '#ecfdf5',
+    borderRadius: RADIUS.pill,
+    backgroundColor: COLORS.pharmacySecondary,
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden'
@@ -603,7 +600,7 @@ const styles = StyleSheet.create({
   avatarImage: {
     width: 80,
     height: 80,
-    borderRadius: 40
+    borderRadius: RADIUS.pill
   },
   cameraBadge: {
     position: 'absolute',
@@ -611,8 +608,8 @@ const styles = StyleSheet.create({
     right: 0,
     width: 26,
     height: 26,
-    borderRadius: 13,
-    backgroundColor: PHARMACY_GREEN,
+    borderRadius: RADIUS.pill,
+    backgroundColor: COLORS.pharmacyPrimary,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
@@ -625,33 +622,32 @@ const styles = StyleSheet.create({
   },
   pharmacySub: {
     fontFamily: 'Inter-Regular',
-    
     fontSize: FONT_SIZE.md
   },
   statusRow: {
-    marginTop: 4
+    marginTop: SPACING.xs
   },
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    gap: SPACING.xs,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs,
     borderRadius: RADIUS.pill,
     borderWidth: 1
   },
   statusBadgeText: {
-    fontSize: 10,
+    fontSize: FONT_SIZE.sm,
     fontFamily: 'Inter-Bold',
     letterSpacing: 0.5
   },
 
   sectionTitle: {
-    fontSize: 11,
+    fontSize: FONT_SIZE.sm,
     fontFamily: 'Inter-Bold',
     letterSpacing: 0.8,
-    marginTop: 10,
-    marginLeft: 4
+    marginTop: SPACING.md,
+    marginLeft: SPACING.xs
   },
   cardGroup: {
     borderRadius: RADIUS.xl,
@@ -662,12 +658,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: SPACING.lg,
-    gap: 12
+    gap: SPACING.md
   },
   iconWrap: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: RADIUS.pill,
     justifyContent: 'center',
     alignItems: 'center'
   },
@@ -677,9 +673,8 @@ const styles = StyleSheet.create({
   },
   rowSub: {
     fontFamily: 'Inter-Regular',
-    
-    fontSize: 12,
-    marginTop: 2
+    fontSize: FONT_SIZE.md,
+    marginTop: SPACING.xs
   },
   divider: {
     height: 1,
@@ -692,9 +687,9 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.pill,
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 8,
+    gap: SPACING.xs,
     borderWidth: 1,
-    marginTop: 16
+    marginTop: SPACING.lg
   },
   signOutText: {
     color: COLORS.error,
@@ -707,27 +702,26 @@ const styles = StyleSheet.create({
     gap: 14
   },
   modalField: {
-    gap: 4
+    gap: SPACING.xs
   },
   modalLabel: {
-    fontSize: 10,
+    fontSize: FONT_SIZE.sm,
     fontFamily: 'Inter-Bold',
     letterSpacing: 0.5
   },
   modalInput: {
     fontFamily: 'Inter-Regular',
-    
     height: 44,
     borderRadius: RADIUS.md,
     borderWidth: 1.2,
-    paddingHorizontal: 12,
+    paddingHorizontal: SPACING.md,
     fontSize: FONT_SIZE.lg
   },
   modalActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    marginTop: 12
+    gap: SPACING.md,
+    marginTop: SPACING.md
   },
   cancelBtn: {
     flex: 1,

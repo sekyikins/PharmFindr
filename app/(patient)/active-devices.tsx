@@ -17,7 +17,7 @@ import { Header } from '@/components/ui/Header';
 import { getDeviceId, revokeSpecificDeviceSession, revokeAllOtherSessions } from '@/lib/deviceSession';
 import { logAuditEvent } from '@/lib/auditLogger';
 import { supabase } from '@/lib/supabase';
-import { COLORS, RADIUS, SPACING } from '@/styles/theme';
+import { COLORS, FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
 import { useHardwareBack } from '@/hooks/useHardwareBack';
 
 interface SessionItem {
@@ -161,7 +161,7 @@ export default function ActiveDevicesScreen() {
         <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>LOGGED-IN DEVICES ({sessions.length})</Text>
 
         {loading && sessions.length === 0 ? (
-          <ActivityIndicator size="large" color={primaryColor} style={{ marginTop: 40 }} />
+          <ActivityIndicator size="large" color={primaryColor} style={{ marginTop: 20 }} />
         ) : (
           sessions.map((item) => {
             const isCurrent = item.device_id === currentDeviceId;
@@ -190,7 +190,7 @@ export default function ActiveDevicesScreen() {
                 </View>
 
                 <View style={{ flex: 1 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: SPACING.xs }}>
                     <Text style={[styles.devicePlatform, { color: theme.text.primary }]}>
                       {item.platform.toUpperCase()} DEVICE
                     </Text>
@@ -233,19 +233,19 @@ const styles = StyleSheet.create({
   bannerCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    padding: 14,
+    gap: SPACING.md,
+    padding: SPACING.lg,
     borderRadius: RADIUS.lg,
     borderWidth: 1,
-    marginBottom: 16,
+    marginBottom: SPACING.lg,
   },
   bannerTitle: {
-    fontSize: 14,
+    fontSize: FONT_SIZE.lg,
     fontFamily: 'Inter-Bold',
   },
   bannerSub: {
     fontFamily: 'Inter-Regular',
-    fontSize: 12,
+    fontSize: FONT_SIZE.md,
     marginTop: 2,
     lineHeight: 16,
   },
@@ -256,65 +256,65 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 18,
+    gap: SPACING.xs,
+    marginBottom: SPACING.xl,
   },
   revokeAllText: {
-    fontSize: 14,
+    fontSize: FONT_SIZE.lg,
     fontFamily: 'Inter-Bold',
   },
   sectionTitle: {
-    fontSize: 11,
+    fontSize: FONT_SIZE.sm,
     fontFamily: 'Inter-Bold',
     letterSpacing: 0.8,
-    marginBottom: 10,
+    marginBottom: SPACING.md,
   },
   deviceCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 14,
+    padding: SPACING.lg,
     borderRadius: RADIUS.lg,
     borderWidth: 1,
-    marginBottom: 10,
-    gap: 12,
+    marginBottom: SPACING.md,
+    gap: SPACING.md,
   },
   deviceIconCircle: {
     width: 44,
     height: 44,
-    borderRadius: 22,
+    borderRadius: RADIUS.pill,
     justifyContent: 'center',
     alignItems: 'center',
   },
   devicePlatform: {
-    fontSize: 14,
+    fontSize: FONT_SIZE.lg,
     fontFamily: 'Inter-Bold',
   },
   thisDeviceBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
+    borderRadius: RADIUS.md,
   },
   thisDeviceText: {
     color: COLORS.white,
-    fontSize: 9,
+    fontSize: FONT_SIZE.xs,
     fontFamily: 'Inter-Bold',
   },
   deviceMeta: {
     fontFamily: 'Inter-Regular',
-    fontSize: 11,
+    fontSize: FONT_SIZE.sm,
     marginTop: 2,
   },
   deviceTime: {
     fontFamily: 'Inter-Regular',
-    fontSize: 12,
-    marginTop: 4,
+    fontSize: FONT_SIZE.md,
+    marginTop: SPACING.xs,
   },
   revokeSingleBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs,
   },
   revokeSingleText: {
-    fontSize: 13,
+    fontSize: FONT_SIZE.md,
     fontFamily: 'Inter-Bold',
   },
 });

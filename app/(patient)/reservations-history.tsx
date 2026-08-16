@@ -141,9 +141,9 @@ export default function PatientReservationsHistory() {
     <View style={styles.skeletonContainer}>
       {[1, 2, 3].map((i) => (
         <View key={i} style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
-          <Skeleton width="60%" height={18} style={{ marginBottom: 8 }} />
-          <Skeleton width="40%" height={14} style={{ marginBottom: 12 }} />
-          <Skeleton width="100%" height={16} style={{ marginBottom: 12 }} />
+          <Skeleton width="60%" height={18} style={{ marginBottom: SPACING.sm }} />
+          <Skeleton width="40%" height={14} style={{ marginBottom: SPACING.md }} />
+          <Skeleton width="100%" height={16} style={{ marginBottom: SPACING.md }} />
           <Skeleton width="30%" height={16} />
         </View>
       ))}
@@ -222,7 +222,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingHorizontal: SPACING.lg,
     paddingVertical: SPACING.sm,
-    gap: 8,
+    gap: SPACING.sm,
     borderBottomWidth: 1,
   },
   filterChip: {
@@ -267,7 +267,7 @@ const styles = StyleSheet.create({
   badge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
+    paddingHorizontal: SPACING.sm,
     paddingVertical: 3,
     borderRadius: RADIUS.pill,
   },
@@ -278,13 +278,13 @@ const styles = StyleSheet.create({
   medsText: {
     fontFamily: 'Inter-Regular',
     fontSize: FONT_SIZE.lg,
-    marginBottom: 12,
+    marginBottom: SPACING.md,
   },
   cardFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: 8,
+    paddingTop: SPACING.sm,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: COLORS.borderSubtle,
   },
@@ -296,7 +296,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 60,
-    gap: 8,
+    gap: SPACING.sm,
   },
   emptyTitle: {
     fontSize: FONT_SIZE.xl,
@@ -306,6 +306,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Regular',
     fontSize: FONT_SIZE.lg,
     textAlign: 'center',
-    paddingHorizontal: 32,
+    paddingHorizontal: SPACING.xxxl,
   },
 });

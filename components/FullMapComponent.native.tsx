@@ -1,4 +1,4 @@
-import { COLORS, MAP_PIN_COLORS, getPharmacyPinColor } from '@/styles/theme';
+import { COLORS, FONT_SIZE, MAP_PIN_COLORS, RADIUS, SPACING, getPharmacyPinColor } from '@/styles/theme';
 import React, { useEffect, useRef, useCallback } from 'react';
 import { StyleSheet, View, Text, Pressable } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE, EdgePadding } from 'react-native-maps';
@@ -248,12 +248,12 @@ const styles = StyleSheet.create({
   },
   locateFab: {
     position: 'absolute',
-    right: 16,
+    right: SPACING.lg,
     top: 150,
     width: 48,
     height: 48,
-    borderRadius: 24,
-    backgroundColor: '#ffffff',
+    borderRadius: RADIUS.pill,
+    backgroundColor: COLORS.white,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
@@ -262,20 +262,20 @@ const styles = StyleSheet.create({
     shadowRadius: 5,
     elevation: 6,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: COLORS.borderSubtle,
     zIndex: 15,
   },
   legendBar: {
     position: 'absolute',
-    bottom: 16,
-    left: 16,
-    right: 16,
+    bottom: SPACING.lg,
+    left: SPACING.lg,
+    right: SPACING.lg,
     backgroundColor: 'rgba(255, 255, 255, 0.96)',
-    borderRadius: 12,
+    borderRadius: RADIUS.md,
     borderWidth: 1.5,
     borderColor: COLORS.borderSlate,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
@@ -284,16 +284,16 @@ const styles = StyleSheet.create({
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: SPACING.xs,
   },
   legendDot: {
     width: 8,
     height: 8,
-    borderRadius: 4,
+    borderRadius: RADIUS.sm,
   },
   legendText: {
-    fontSize: 10,
+    fontSize: FONT_SIZE.sm,
     fontFamily: 'Inter-SemiBold',
-    color: '#334155',
+    color: COLORS.textSecondary,
   },
 });

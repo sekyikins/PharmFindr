@@ -13,10 +13,8 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useThemeContext } from '@/hooks/useThemeContext';
-import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
 import { Header } from '@/components/ui/Header';
 import { toast } from '@/context/ToastContext';
 import { getFriendlyErrorMessage } from '@/lib/errorUtils';
@@ -25,9 +23,9 @@ import { getPharmacyForUser } from '@/lib/pharmacyService';
 import { formatTimeHHMM } from '@/lib/osm';
 import { useAuthStore } from '@/store/authStore';
 import { useHardwareBack } from '@/hooks/useHardwareBack';
+import { COLORS, FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-const PHARMACY_GREEN = '#10b981';
 
 interface DaySchedule {
   day: string;
@@ -249,7 +247,7 @@ export default function OperatingHours() {
         >
 
           {loading ? (
-            <ActivityIndicator size="large" color={PHARMACY_GREEN} style={{ marginTop: 40 }} />
+            <ActivityIndicator size="large" color={COLORS.pharmacyPrimary} style={{ marginTop: 20 }} />
           ) : (
             <View style={styles.dayList}>
               {schedule.map((item, idx) => (
@@ -259,7 +257,7 @@ export default function OperatingHours() {
                     styles.dayCard,
                     {
                       backgroundColor: theme.card,
-                      borderColor: item.isOpen ? PHARMACY_GREEN + '60' : theme.border,
+                      borderColor: item.isOpen ? COLORS.pharmacyPrimary + '60' : theme.border,
                     },
                   ]}
                 >
@@ -269,7 +267,7 @@ export default function OperatingHours() {
                       <Text
                         style={[
                           styles.switchStatus,
-                          { color: item.isOpen ? PHARMACY_GREEN : theme.textMuted },
+                          { color: item.isOpen ? COLORS.pharmacyPrimary : theme.textMuted },
                         ]}
                       >
                         {item.isOpen ? 'OPEN' : 'CLOSED'}
@@ -277,8 +275,8 @@ export default function OperatingHours() {
                       <Switch
                         value={item.isOpen}
                         onValueChange={() => handleToggleDay(idx)}
-                        trackColor={{ false: '#cbd5e1', true: '#a7f3d0' }}
-                        thumbColor={item.isOpen ? PHARMACY_GREEN : '#f1f5f9'}
+                        trackColor={{ false: COLORS.borderSlate, true: COLORS.pharmacyBorderLight }}
+                        thumbColor={item.isOpen ? COLORS.pharmacyPrimary : COLORS.surfaceSecondary}
                       />
                     </View>
                   </View>
@@ -323,7 +321,7 @@ export default function OperatingHours() {
                 style={({ pressed }) => [
                   styles.saveBtn,
                   pressed && { opacity: 0.8 },
-                  { backgroundColor: PHARMACY_GREEN },
+                  { backgroundColor: COLORS.pharmacyPrimary },
                 ]}
                 onPress={handleSave}
                 disabled={saving}
@@ -345,12 +343,12 @@ export default function OperatingHours() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   scroll: { padding: SPACING.xl, gap: SPACING.md },
-  dayList: { gap: 12 },
+  dayList: { gap: SPACING.md },
   dayCard: {
     borderRadius: RADIUS.xl,
     padding: SPACING.lg,
     borderWidth: 1.5,
-    gap: 12,
+    gap: SPACING.md,
   },
   dayHeader: {
     flexDirection: 'row',
@@ -364,7 +362,7 @@ const styles = StyleSheet.create({
   switchRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: SPACING.xs,
   },
   switchStatus: {
     fontSize: FONT_SIZE.md,
@@ -373,14 +371,14 @@ const styles = StyleSheet.create({
   timeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: SPACING.md,
   },
   timeCol: {
     flex: 1,
-    gap: 4,
+    gap: SPACING.xs,
   },
   timeLabel: {
-    fontSize: 10,
+    fontSize: FONT_SIZE.sm,
     fontFamily: 'Inter-Bold',
     letterSpacing: 0.5,
   },
@@ -388,24 +386,24 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: RADIUS.md,
     borderWidth: 1.2,
-    paddingHorizontal: 12,
+    paddingHorizontal: SPACING.md,
     fontSize: FONT_SIZE.lg,
     fontFamily: 'Inter-Bold',
   },
   timeDash: {
-    fontSize: 20,
+    fontSize: FONT_SIZE.title,
     fontFamily: 'Inter-Bold',
-    marginTop: 14,
+    marginTop: SPACING.lg,
   },
   saveBtn: {
     height: 50,
     borderRadius: RADIUS.pill,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 16,
+    marginTop: SPACING.lg,
   },
   saveBtnText: {
-    color: '#ffffff',
+    color: COLORS.white,
     fontSize: FONT_SIZE.lg,
     fontFamily: 'Inter-Bold',
   },

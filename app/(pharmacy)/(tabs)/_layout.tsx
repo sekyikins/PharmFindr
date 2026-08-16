@@ -3,8 +3,7 @@ import { Platform } from 'react-native';
 import { Tabs } from 'expo-router';
 import { useThemeContext } from '@/hooks/useThemeContext';
 import { Ionicons } from '@expo/vector-icons';
-
-const PHARMACY_GREEN = '#10b981';
+import { COLORS, FONT_SIZE } from '@/styles/theme';
 
 export default function TabsLayout() {
   const { theme } = useThemeContext();
@@ -14,17 +13,17 @@ export default function TabsLayout() {
       screenOptions={{
         headerShown: false,
         animation: 'shift',
-        tabBarActiveTintColor: PHARMACY_GREEN,
+        tabBarActiveTintColor: COLORS.pharmacyPrimary,
         tabBarInactiveTintColor: theme.textMuted,
         tabBarStyle: {
           backgroundColor: theme.card,
           borderTopColor: theme.border,
           borderTopWidth: 1.2,
           height: Platform.OS === 'ios' ? 88 : 64,
-          paddingBottom: Platform.OS === 'ios' ? 28 : 10
+          paddingBottom: Platform.OS === 'ios' ? 28 : 10,
         },
         tabBarLabelStyle: {
-          fontSize: 11,
+          fontSize: FONT_SIZE.sm,
           fontFamily: 'Inter-Bold',
           marginTop: 2,
         },

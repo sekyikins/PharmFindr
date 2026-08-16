@@ -261,7 +261,7 @@ export default function Navigate() {
           <BottomSheetView style={styles.sheetBodyContainer}>
             {/* Header Info Row (Always visible) */}
             <View style={styles.sheetHeader}>
-              <View style={{ flex: 1, gap: 2 }}>
+              <View style={{ flex: 1, gap: SPACING.xs }}>
                 <Text style={[styles.pharmName, { color: theme.text.primary }]} numberOfLines={1}>
                   {pharmName}
                 </Text>
@@ -321,13 +321,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: SPACING.lg,
     paddingTop: SPACING.md,
-    gap: 12,
+    gap: SPACING.md,
     zIndex: 10,
   },
   backBtn: {
     width: 44,
     height: 44,
-    borderRadius: 22,
+    borderRadius: RADIUS.xxl,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
@@ -339,13 +339,13 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.xl,
     paddingVertical: 10,
     paddingHorizontal: 14,
-    gap: 12,
+    gap: SPACING.md,
     borderWidth: 1.5,
   },
   directionsIconCircle: {
     width: 32,
     height: 32,
-    borderRadius: 16,
+    borderRadius: RADIUS.xl,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -359,9 +359,9 @@ const styles = StyleSheet.create({
   },
   sheetBodyContainer: {
     paddingHorizontal: SPACING.xl,
-    paddingTop: 4,
-    paddingBottom: 16,
-    gap: 16,
+    paddingTop: SPACING.xs,
+    paddingBottom: SPACING.xl,
+    gap: SPACING.lg,
   },
   sheetHeader: {
     flexDirection: 'row',
@@ -379,7 +379,7 @@ const styles = StyleSheet.create({
   expandToggle: {
     width: 32,
     height: 32,
-    borderRadius: 16,
+    borderRadius: RADIUS.xl,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -389,7 +389,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 4,
+    marginTop: SPACING.xs,
   },
   startBtnText: {
     color: COLORS.white,

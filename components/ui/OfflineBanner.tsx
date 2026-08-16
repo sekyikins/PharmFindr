@@ -1,4 +1,4 @@
-import { COLORS } from '@/styles/theme';
+import { COLORS, FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
 import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View, Animated, PanResponder } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -132,7 +132,7 @@ export default function OfflineBanner() {
       style={[
         styles.container,
         {
-          paddingTop: Math.max(insets.top, 8) + 4,
+          paddingTop: Math.max(insets.top, SPACING.sm) + SPACING.xs,
           opacity: opacity,
           transform: [{ translateY }, { translateX }],
         },
@@ -180,22 +180,21 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 9999,
-    alignItems: 'center'
+    alignItems: 'center',
   },
   pill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
+    gap: SPACING.xs,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.sm,
+    borderRadius: RADIUS.pill,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)'
+    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
   pillText: {
     color: COLORS.white,
-    fontSize: 12,
-    fontFamily: 'Inter-SemiBold'
+    fontSize: FONT_SIZE.md,
+    fontFamily: 'Inter-SemiBold',
   },
-
 });

@@ -89,7 +89,7 @@ const AvatarPickerSheet = forwardRef<BottomSheetModal, AvatarPickerSheetProps>(
                 style={[
                   styles.label,
                   {
-                    color: row.destructive ? theme.error : theme.text.primary,
+                    color: row.destructive ? theme.error : theme.text,
                   },
                 ]}
               >
@@ -110,7 +110,7 @@ export default AvatarPickerSheet;
 const styles = StyleSheet.create({
   rows: {
     paddingHorizontal: SPACING.xl,
-    marginTop: SPACING.sm
+    marginTop: SPACING.sm,
   },
   row: {
     flexDirection: 'row',
@@ -119,19 +119,18 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     gap: SPACING.md,
     borderRadius: RADIUS.md,
-    paddingHorizontal: SPACING.sm
+    paddingHorizontal: SPACING.sm,
   },
   iconCircle: {
     width: 40,
     height: 40,
     borderRadius: RADIUS.pill,
     justifyContent: 'center',
-    alignItems: 'center'
+    alignItems: 'center',
   },
   label: {
     flex: 1,
     fontSize: FONT_SIZE.lg,
-    fontFamily: 'Inter-Medium'
+    fontFamily: 'Inter-Medium',
   },
-
 });

@@ -185,8 +185,8 @@ export default function HelpAndFeedback() {
               );
             })
           ) : (
-            <View style={{ padding: 24, alignItems: 'center' }}>
-              <Ionicons name="help-circle-outline" size={36} color={theme.textDim} style={{ marginBottom: 8 }} />
+            <View style={{ padding: SPACING.xxl, alignItems: 'center' }}>
+              <Ionicons name="help-circle-outline" size={36} color={theme.textDim} style={{ marginBottom: SPACING.sm }} />
               <Text style={[styles.noFaqText, { color: theme.textMuted }]}>
                 No FAQs matched "{faqSearchQuery}". Try adjusting your search term.
               </Text>
@@ -195,7 +195,7 @@ export default function HelpAndFeedback() {
         </View>
 
         {/* ── 3. DIRECT CONTACT SUPPORT ── */}
-        <Text style={[styles.sectionHeading, { color: theme.textDim, marginTop: 24 }]}>DIRECT SUPPORT</Text>
+        <Text style={[styles.sectionHeading, { color: theme.textDim, marginTop: SPACING.xxl }]}>DIRECT SUPPORT</Text>
         <View style={[styles.menuCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
           <Pressable
             style={({ pressed }) => [styles.menuRow, pressed && { opacity: 0.6 }]}
@@ -213,7 +213,7 @@ export default function HelpAndFeedback() {
         </View>
 
         {/* ── 4. LEGAL & APP INFO ── */}
-        <Text style={[styles.sectionHeading, { color: theme.textDim, marginTop: 24 }]}>LEGAL & APP INFO</Text>
+        <Text style={[styles.sectionHeading, { color: theme.textDim, marginTop: SPACING.xxl }]}>LEGAL & APP INFO</Text>
         <View style={[styles.menuCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
           <Pressable
             style={({ pressed }) => [styles.menuRow, pressed && { opacity: 0.6 }]}
@@ -356,7 +356,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: RADIUS.xl,
-    padding: 16,
+    padding: SPACING.lg,
     marginVertical: 10,
     borderWidth: 1,
     gap: 14
@@ -364,27 +364,27 @@ const styles = StyleSheet.create({
   hubIconCircle: {
     width: 44,
     height: 44,
-    borderRadius: 22,
+    borderRadius: RADIUS.xxl,
     justifyContent: 'center',
     alignItems: 'center'
   },
   hubTitle: {
-    fontSize: 15, fontFamily: 'Inter-Bold'
+    fontSize: FONT_SIZE.lg, fontFamily: 'Inter-Bold'
   },
   hubSub: {
     fontFamily: 'Inter-Regular',
-     fontSize: 12, marginTop: 2, lineHeight: 16
+     fontSize: FONT_SIZE.md, marginTop: 2, lineHeight: 16
   },
 
   sectionHeading: {
-    fontSize: 11,
+    fontSize: FONT_SIZE.sm,
     fontFamily: 'Inter-Bold',
     letterSpacing: 0.8,
     textTransform: 'uppercase',
-    marginBottom: 8
+    marginBottom: SPACING.sm
   },
   sectionHeaderRow: {
-    marginBottom: 4
+    marginBottom: SPACING.xs
   },
 
   searchBar: {
@@ -402,7 +402,7 @@ const styles = StyleSheet.create({
   },
 
   categoryScroll: {
-    gap: 8, marginBottom: 14
+    gap: SPACING.sm, marginBottom: 14
   },
   categoryChip: {
     paddingHorizontal: 14,
@@ -411,7 +411,7 @@ const styles = StyleSheet.create({
     borderWidth: 1
   },
   categoryChipText: {
-    fontSize: 12, fontFamily: 'Inter-SemiBold'
+    fontSize: FONT_SIZE.md, fontFamily: 'Inter-SemiBold'
   },
 
   faqCard: {
@@ -420,24 +420,24 @@ const styles = StyleSheet.create({
     overflow: 'hidden'
   },
   faqItem: {
-    padding: 16
+    padding: SPACING.lg
   },
   faqHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 12
+    gap: SPACING.md
   },
   faqQuestion: {
-    flex: 1, fontSize: 14, fontFamily: 'Inter-Bold'
+    flex: 1, fontSize: FONT_SIZE.lg, fontFamily: 'Inter-Bold'
   },
   faqAnswer: {
     fontFamily: 'Inter-Regular',
-     fontSize: 13, marginTop: 8, lineHeight: 19
+     fontSize: FONT_SIZE.md, marginTop: SPACING.sm, lineHeight: 19
   },
   noFaqText: {
     fontFamily: 'Inter-Regular',
-     fontSize: 13, textAlign: 'center'
+     fontSize: FONT_SIZE.md, textAlign: 'center'
   },
 
   menuCard: {
@@ -448,9 +448,9 @@ const styles = StyleSheet.create({
   menuRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: SPACING.lg,
     paddingVertical: 14,
-    gap: 12
+    gap: SPACING.md
   },
   menuIconCircle: {
     width: 34,
@@ -460,11 +460,11 @@ const styles = StyleSheet.create({
     alignItems: 'center'
   },
   menuTitle: {
-    fontSize: 14, fontFamily: 'Inter-SemiBold'
+    fontSize: FONT_SIZE.lg, fontFamily: 'Inter-SemiBold'
   },
   menuSub: {
     fontFamily: 'Inter-Regular',
-     fontSize: 11, marginTop: 1
+     fontSize: FONT_SIZE.sm, marginTop: 1
   },
   rowDivider: {
     height: 1, marginLeft: 62
@@ -481,27 +481,27 @@ const styles = StyleSheet.create({
   appInfoCard: {
     width: '100%',
     borderRadius: RADIUS.xl,
-    padding: 24
+    padding: SPACING.xxl
   },
   appInfoContent: {
     alignItems: 'center'
   },
   appInfoLogo: {
-    width: 64, height: 64, marginBottom: 12
+    width: 64, height: 64, marginBottom: SPACING.md
   },
   appInfoTitle: {
-    fontSize: 20, fontFamily: 'Inter-Bold'
+    fontSize: FONT_SIZE.title, fontFamily: 'Inter-Bold'
   },
   appInfoVersion: {
-    fontSize: 13, fontFamily: 'Inter-Bold', marginTop: 2, marginBottom: 12
+    fontSize: FONT_SIZE.md, fontFamily: 'Inter-Bold', marginTop: 2, marginBottom: SPACING.md
   },
   appInfoDesc: {
     fontFamily: 'Inter-Regular',
-     fontSize: 13, textAlign: 'center', lineHeight: 18, marginBottom: 16
+     fontSize: FONT_SIZE.md, textAlign: 'center', lineHeight: 18, marginBottom: SPACING.lg
   },
   appInfoCopyright: {
     fontFamily: 'Inter-Regular',
-     fontSize: 11, marginBottom: 20
+     fontSize: FONT_SIZE.sm, marginBottom: SPACING.xl
   },
   modalCloseBtn: {
     width: '100%',
@@ -511,7 +511,7 @@ const styles = StyleSheet.create({
     alignItems: 'center'
   },
   modalCloseBtnText: {
-    color: COLORS.white, fontSize: 14, fontFamily: 'Inter-Bold'
+    color: COLORS.white, fontSize: FONT_SIZE.lg, fontFamily: 'Inter-Bold'
   },
 
   legalModalContainer: {
@@ -521,28 +521,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
-    padding: 16,
+    padding: SPACING.lg,
     borderRadius: RADIUS.xl,
     borderWidth: 1
   },
   legalMetaTitle: {
-    fontSize: 15, fontFamily: 'Inter-Bold'
+    fontSize: FONT_SIZE.lg, fontFamily: 'Inter-Bold'
   },
   legalMetaSub: {
     fontFamily: 'Inter-Regular',
-     fontSize: 12, marginTop: 2
+     fontSize: FONT_SIZE.md, marginTop: 2
   },
   legalSectionCard: {
-    padding: 16,
+    padding: SPACING.lg,
     borderRadius: RADIUS.xl,
     borderWidth: 1
   },
   legalSectionTitle: {
-    fontSize: 15, fontFamily: 'Inter-Bold', marginBottom: 8
+    fontSize: FONT_SIZE.lg, fontFamily: 'Inter-Bold', marginBottom: SPACING.sm
   },
   legalSectionContent: {
     fontFamily: 'Inter-Regular',
-     fontSize: 13, lineHeight: 20
+     fontSize: FONT_SIZE.md, lineHeight: 20
   },
 
 });

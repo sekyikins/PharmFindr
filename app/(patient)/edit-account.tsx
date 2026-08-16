@@ -21,7 +21,7 @@ import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuthStore } from '@/store/authStore';
 import { useThemeContext } from '@/hooks/useThemeContext';
-import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
+import { COLORS, FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
 import { supabase } from '@/lib/supabase';
 import { BottomSheetModal, BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import AppBottomSheet from '@/components/ui/AppBottomSheet';
@@ -394,7 +394,7 @@ export default function EditAccount() {
             <View style={[styles.securityIconCircle, { backgroundColor: primaryColor + '20' }]}>
               <Ionicons name="lock-closed-outline" size={20} color={primaryColor} />
             </View>
-            <View style={{ flex: 1, paddingHorizontal: 12 }}>
+            <View style={{ flex: 1, paddingHorizontal: SPACING.md }}>
               <Text style={[styles.securityTitle, { color: theme.text.primary }]}>Change Password</Text>
               <Text style={[styles.securitySub, { color: theme.textMuted }]}>Requires current password verification</Text>
             </View>
@@ -412,7 +412,7 @@ export default function EditAccount() {
             <View style={[styles.securityIconCircle, { backgroundColor: primaryColor + '20' }]}>
               <Ionicons name="hardware-chip-outline" size={20} color={primaryColor} />
             </View>
-            <View style={{ flex: 1, paddingHorizontal: 12 }}>
+            <View style={{ flex: 1, paddingHorizontal: SPACING.md }}>
               <Text style={[styles.securityTitle, { color: theme.text.primary }]}>Active Devices</Text>
               <Text style={[styles.securitySub, { color: theme.textMuted }]}>View & revoke active device logins</Text>
             </View>
@@ -423,7 +423,7 @@ export default function EditAccount() {
             <View style={[styles.securityIconCircle, { backgroundColor: primaryColor + '20' }]}>
               <Ionicons name={biometricIcon as any} size={20} color={primaryColor} />
             </View>
-            <View style={{ flex: 1, paddingHorizontal: 12 }}>
+            <View style={{ flex: 1, paddingHorizontal: SPACING.md }}>
               <Text style={[styles.securityTitle, { color: theme.text.primary }]}>Use {biometricType}</Text>
               <Text style={[styles.securitySub, { color: theme.textMuted }]}>Require {biometricType} on app launch</Text>
             </View>
@@ -451,7 +451,7 @@ export default function EditAccount() {
             <View style={[styles.securityIconCircle, { backgroundColor: theme.error + '20' }]}>
               <Ionicons name="log-out-outline" size={20} color={theme.error} />
             </View>
-            <View style={{ flex: 1, paddingHorizontal: 12 }}>
+            <View style={{ flex: 1, paddingHorizontal: SPACING.md }}>
               <Text style={[styles.securityTitle, { color: theme.error }]}>Sign Out</Text>
               <Text style={[styles.securitySub, { color: theme.error + 'aa' }]}>Log out of your account on this device</Text>
             </View>
@@ -473,7 +473,6 @@ export default function EditAccount() {
         </Pressable>
       </ScrollView>
       </KeyboardAvoidingView>
-
       {/* IMMERSIVE GESTURE DISMISSIBLE AVATAR VIEWER OVERLAY */}
       {avatarModalVisible && (
         <Animated.View style={[styles.waAvatarModalContainer, { opacity: previewOpacity }]}>
@@ -481,23 +480,23 @@ export default function EditAccount() {
             <Animated.View
               {...panResponder.panHandlers}
               style={[
-                styles.waZoomContainer,
+                styles.waImageContainer,
                 { transform: [{ translateY }] },
               ]}
             >
               {profile?.avatar_url ? (
-                <Image source={{ uri: profile.avatar_url }} style={styles.waAvatarImage} resizeMode="contain" />
+                <Image source={{ uri: profile.avatar_url }} style={styles.waFullImage} resizeMode="contain" />
               ) : (
                 <View style={[styles.avatarCircle, { width: 220, height: 220, borderRadius: 110, backgroundColor: primaryColor }]}>
-                  <Text style={[styles.avatarText, { fontSize: 72 }]}>{initials}</Text>
+                  <Text style={[styles.avatarText, { fontSize: FONT_SIZE.hero * 3.5 }]}>{initials}</Text>
                 </View>
               )}
             </Animated.View>
           </Pressable>
 
-          <View style={styles.avatarModalFooter}>
-            <Pressable style={styles.avatarActionBtn} onPress={showAvatarPickerOptions}>
-              <Ionicons name="camera-outline" size={20} color="#ffffff" />
+          <View style={styles.waFooter}>
+            <Pressable style={styles.waFooterBtn} onPress={showAvatarPickerOptions}>
+              <Ionicons name="camera-outline" size={20} color={COLORS.white} />
               <Text style={styles.avatarActionLabel}>Edit Photo</Text>
             </Pressable>
           </View>
@@ -577,7 +576,7 @@ export default function EditAccount() {
             secureTextEntry
           />
 
-          <Text style={[styles.fieldLabel, { color: theme.textDim }]}>NEW PASSWORD</Text>
+          <Text style={[styles.fieldLabel, { color: theme.textDim, marginTop: SPACING.md }]}>NEW PASSWORD</Text>
           <BottomSheetTextInput
             style={[styles.modalInput, { color: theme.text.primary, backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}
             value={newPassword}
@@ -587,7 +586,7 @@ export default function EditAccount() {
             secureTextEntry
           />
 
-          <Text style={[styles.fieldLabel, { color: theme.textDim, marginTop: 12 }]}>CONFIRM NEW PASSWORD</Text>
+          <Text style={[styles.fieldLabel, { color: theme.textDim, marginTop: SPACING.md }]}>CONFIRM NEW PASSWORD</Text>
           <BottomSheetTextInput
             style={[styles.modalInput, { color: theme.text.primary, backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}
             value={confirmPassword}
@@ -603,7 +602,7 @@ export default function EditAccount() {
               onPress={handleChangePasswordSubmit}
               disabled={changingPassword}
             >
-              {changingPassword ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.confirmPasswordText}>Update</Text>}
+              {changingPassword ? <ActivityIndicator color={COLORS.white} /> : <Text style={styles.confirmPasswordText}>Update</Text>}
             </Pressable>
           </View>
         </View>
@@ -619,7 +618,7 @@ const styles = StyleSheet.create({
   // Avatar Section
   avatarSection: {
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: SPACING.xxl,
   },
   avatarWrapper: {
     position: 'relative',
@@ -635,7 +634,7 @@ const styles = StyleSheet.create({
   avatarCircle: {
     width: 98,
     height: 98,
-    borderRadius: 49,
+    borderRadius: RADIUS.pill,
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
@@ -643,12 +642,12 @@ const styles = StyleSheet.create({
   avatarImage: {
     width: 98,
     height: 98,
-    borderRadius: 49,
+    borderRadius: RADIUS.pill,
   },
   avatarText: {
-    fontSize: 34,
+    fontSize: FONT_SIZE.hero,
     fontFamily: 'Inter-Bold',
-    color: '#ffffff',
+    color: COLORS.white,
   },
   editCameraBadge: {
     position: 'absolute',
@@ -656,36 +655,36 @@ const styles = StyleSheet.create({
     right: 2,
     width: 34,
     height: 34,
-    borderRadius: 17,
+    borderRadius: RADIUS.pill,
     justifyContent: 'center',
     alignItems: 'center',
   },
   profileNameText: {
-    fontSize: 18,
+    fontSize: FONT_SIZE.xxl,
     fontFamily: 'Inter-Bold',
     marginTop: 10,
   },
   profileEmailText: {
-    fontSize: 12,
+    fontSize: FONT_SIZE.md,
     fontFamily: 'Inter-Regular',
     marginTop: 2,
   },
 
   // Cards
   card: {
-    padding: 16,
+    padding: SPACING.lg,
     borderRadius: RADIUS.xl,
     borderWidth: 1,
-    marginBottom: 16,
+    marginBottom: SPACING.lg,
   },
   sectionHeading: {
-    fontSize: 11,
+    fontSize: FONT_SIZE.sm,
     fontFamily: 'Inter-Bold',
     letterSpacing: 1,
-    marginBottom: 8,
+    marginBottom: SPACING.sm,
   },
   fieldLabel: {
-    fontSize: 10,
+    fontSize: FONT_SIZE.xs,
     fontFamily: 'Inter-Bold',
     letterSpacing: 0.6,
     marginTop: 10,
@@ -696,7 +695,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: RADIUS.md,
     borderWidth: 1,
-    paddingHorizontal: 12,
+    paddingHorizontal: SPACING.md,
     height: 48,
   },
   inputIcon: {
@@ -712,23 +711,23 @@ const styles = StyleSheet.create({
   securityRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
+    padding: SPACING.md,
     borderRadius: RADIUS.lg,
-    marginTop: 8,
+    marginTop: SPACING.sm,
   },
   securityIconCircle: {
     width: 38,
     height: 38,
-    borderRadius: 19,
+    borderRadius: RADIUS.pill,
     justifyContent: 'center',
     alignItems: 'center',
   },
   securityTitle: {
-    fontSize: 14,
+    fontSize: FONT_SIZE.lg,
     fontFamily: 'Inter-SemiBold',
   },
   securitySub: {
-    fontSize: 11,
+    fontSize: FONT_SIZE.sm,
     fontFamily: 'Inter-Regular',
     marginTop: 2,
   },
@@ -739,11 +738,11 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.pill,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 12,
+    marginTop: SPACING.md,
   },
   saveBtnText: {
-    color: '#ffffff',
-    fontSize: 15,
+    color: COLORS.white,
+    fontSize: FONT_SIZE.lg,
     fontFamily: 'Inter-Bold',
   },
 
@@ -754,7 +753,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#0f0f0fff',
+    backgroundColor: COLORS.surfaceDark,
     zIndex: 500,
   },
   waHeader: {
@@ -762,63 +761,56 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 14,
-    paddingVertical: 12,
-    backgroundColor: '#0b141a',
+    paddingVertical: SPACING.md,
+    backgroundColor: COLORS.surfaceDark,
     zIndex: 10,
   },
   waHeaderLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: SPACING.lg,
   },
   waBackBtn: {
     padding: 6,
   },
   waHeaderTitle: {
-    color: '#ffffff',
-    fontSize: 18,
+    color: COLORS.white,
+    fontSize: FONT_SIZE.xxl,
     fontFamily: 'Inter-Bold',
   },
   waHeaderRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: SPACING.lg,
   },
-  waIconBtn: {
+  waHeaderIconBtn: {
     padding: 6,
   },
-  waZoomContainer: {
+  waImageContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  waFullImage: {
     width: '100%',
     height: '100%',
   },
-  waAvatarImage: {
-    width: '100%',
-    height: '100%',
-  },
-  avatarModalFooter: {
-    position: 'absolute',
-    bottom: 28,
-    left: 0,
-    right: 0,
+  waFooter: {
+    paddingBottom: SPACING.xxl,
     alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 20,
   },
-  avatarActionBtn: {
+  waFooterBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    paddingHorizontal: 18,
-    paddingVertical: 12,
+    gap: SPACING.xs,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.md,
     borderRadius: RADIUS.pill,
   },
   avatarActionLabel: {
-    color: '#ffffff',
-    fontSize: 14,
+    color: COLORS.white,
+    fontSize: FONT_SIZE.lg,
     fontFamily: 'Inter-SemiBold',
   },
 
@@ -827,23 +819,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.xl,
   },
   passwordSub: {
-    fontSize: 12,
+    fontSize: FONT_SIZE.md,
     fontFamily: 'Inter-Regular',
-    marginVertical: 8,
+    marginVertical: SPACING.sm,
   },
   modalInput: {
     borderRadius: RADIUS.md,
-    paddingHorizontal: 14,
+    paddingHorizontal: SPACING.lg,
     height: 46,
     borderWidth: 1,
-    fontSize: 14,
+    fontSize: FONT_SIZE.lg,
     fontFamily: 'Inter-Regular',
   },
   passwordActionRow: {
     flexDirection: 'row',
-    gap: 12,
-    marginTop: 24,
-    marginBottom: 16,
+    gap: SPACING.md,
+    marginTop: SPACING.xxl,
+    marginBottom: SPACING.lg,
   },
   cancelPasswordBtn: {
     flex: 1,
@@ -854,7 +846,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cancelPasswordText: {
-    fontSize: 14,
+    fontSize: FONT_SIZE.lg,
     fontFamily: 'Inter-SemiBold',
   },
   confirmPasswordBtn: {
@@ -865,8 +857,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   confirmPasswordText: {
-    color: '#ffffff',
-    fontSize: 14,
+    color: COLORS.white,
+    fontSize: FONT_SIZE.lg,
     fontFamily: 'Inter-Bold',
   },
 });

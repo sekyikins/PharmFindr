@@ -10,7 +10,7 @@ import {
   TextStyle,
 } from 'react-native';
 import { useThemeContext } from '@/hooks/useThemeContext';
-import { COLORS,  RADIUS, FONT_SIZE  } from '@/styles/theme';
+import { COLORS, RADIUS, FONT_SIZE, SPACING } from '@/styles/theme';
 
 interface ButtonProps extends PressableProps {
   title: string;
@@ -70,14 +70,13 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.pill,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: SPACING.xl,
   },
   text: {
     fontSize: FONT_SIZE.xl,
-    fontFamily: 'Inter-SemiBold'
+    fontFamily: 'Inter-SemiBold',
   },
   pressed: {
-    opacity: 0.5
+    opacity: 0.5,
   },
-
 });

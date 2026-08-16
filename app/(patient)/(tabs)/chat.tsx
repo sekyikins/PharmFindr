@@ -1,4 +1,4 @@
-import { COLORS } from '@/styles/theme';
+import { COLORS, FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Animated,
@@ -453,7 +453,7 @@ export default function AIChat() {
           </Pressable>
 
           {/* 2. Prescription Consultations */}
-          <Text style={[styles.sidebarSection, { color: theme.textDim, marginTop: 16 }]}>PAST CONSULTATIONS</Text>
+          <Text style={[styles.sidebarSection, { color: theme.textDim, marginTop: SPACING.lg }]}>PAST CONSULTATIONS</Text>
 
           <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
             {prescriptionConsultations.length === 0 ? (
@@ -502,7 +502,7 @@ export default function AIChat() {
                     </Pressable>
                     <Pressable
                       onPress={() => handleDeleteConsultationItem(item.id, item.title)}
-                      style={({ pressed }) => [pressed && { opacity: 0.5 }, { padding: 8 }]}
+                      style={({ pressed }) => [pressed && { opacity: 0.5 }, { padding: SPACING.sm }]}
                     >
                       <Ionicons name="trash-outline" size={16} color={theme.error} />
                     </Pressable>
@@ -512,7 +512,7 @@ export default function AIChat() {
             )}
           </ScrollView>
 
-          <View style={{ borderTopWidth: 1, borderTopColor: theme.border, paddingTop: 8 }}>
+          <View style={{ borderTopWidth: 1, borderTopColor: theme.border, paddingTop: SPACING.sm }}>
             <Pressable style={({ pressed }) => [styles.chatItem, pressed && { opacity: 0.5 }]} onPress={handleClearAssistantChats}>
               <Ionicons name="trash-outline" size={18} color={theme.error} />
               <Text style={[styles.chatItemText, { color: theme.error }]}>Clear Assistant Chats</Text>
@@ -536,7 +536,7 @@ export default function AIChat() {
           </Text>
           <View style={styles.badgeRow}>
             <View style={styles.onlineDot} />
-            <Text style={[styles.onlineText, { color: COLORS.pharmacyPrimary }]}>Clinical AI Online</Text>
+            <Text style={[styles.onlineText, { color: COLORS.pharmacyPrimary }]}>Clinical AI</Text>
             <View style={[styles.typePill, { backgroundColor: isGeneral ? theme.surfaceSecondary : primaryColor + '18' }]}>
               <Text style={[styles.typePillText, { color: isGeneral ? theme.textDim : primaryColor }]}>
                 {isGeneral ? 'General' : 'Consultation'}
@@ -557,7 +557,7 @@ export default function AIChat() {
       {!isGeneral && hasMedicines && (
         <View style={[styles.prescriptionBanner, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
           <Pressable style={styles.bannerHeader} onPress={() => setShowBannerDetails((v) => !v)}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, flex: 1 }}>
               <Ionicons name="medkit" size={18} color={primaryColor} />
               <Text style={[styles.bannerTitle, { color: theme.text.primary }]}>
                 Prescription Medicines ({activeConsultation?.medicines?.length || 0})
@@ -783,7 +783,7 @@ export default function AIChat() {
               <Ionicons name="chevron-forward" size={18} color={primaryColor} />
             </Pressable>
 
-            <View style={{ marginVertical: 12 }}>
+            <View style={{ marginVertical: SPACING.md }}>
               <Text style={[styles.inputLabel, { color: theme.text }]}>OR ENTER A SPECIFIC HEALTH TOPIC</Text>
               <TextInput
                 style={[styles.topicInput, { backgroundColor: theme.surfaceSecondary, color: theme.text.primary, borderColor: theme.border }]}
@@ -845,41 +845,44 @@ const styles = StyleSheet.create({
     elevation: 16,
   },
   sidebarHeader: {
-    paddingHorizontal: 16,
-    paddingBottom: 8,
+    paddingHorizontal: SPACING.lg,
+    paddingBottom: SPACING.sm,
     borderBottomWidth: 1
   },
   sidebarTitle: {
-    fontSize: 18, fontFamily: 'Inter-Bold'
+    fontSize: FONT_SIZE.xxl, fontFamily: 'Inter-Bold'
   },
   sidebarSub: {
     fontFamily: 'Inter-Regular',
-     fontSize: 11
+     fontSize: FONT_SIZE.sm
   }, 
   sidebarBody: {
-    flex: 1, padding: 16, paddingBottom: 8
+    flex: 1, padding: SPACING.lg, paddingBottom: SPACING.sm
   },
   newChatBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: SPACING.sm,
     height: 44,
-    borderRadius: 22,
-    marginBottom: 8
+    borderRadius: RADIUS.xxl,
+    marginBottom: SPACING.sm
   },
   newChatText: {
-    color: COLORS.white, fontFamily: 'Inter-Bold', fontSize: 14
+    color: COLORS.white, fontFamily: 'Inter-Bold', fontSize: FONT_SIZE.lg
   },
   sidebarSection: {
-    fontSize: 10, fontFamily: 'Inter-Bold', letterSpacing: 0.8, marginBottom: 8
+    fontSize: FONT_SIZE.xs, fontFamily: 'Inter-Bold', letterSpacing: 0.8, marginBottom: SPACING.sm
   },
   emptyDrawerBox: {
-    alignItems: 'center', justifyContent: 'center', padding: 20, gap: 8
+    alignItems: 'center',
+    paddingVertical: SPACING.xl,
+    paddingHorizontal: SPACING.md,
+    gap: SPACING.xs,
   },
   emptySectionText: {
     fontFamily: 'Inter-Regular',
-     fontSize: 12, textAlign: 'center', lineHeight: 16
+    fontSize: FONT_SIZE.md, textAlign: 'center', lineHeight: 16
   },
   consultationRow: {
     flexDirection: 'row', alignItems: 'center'
@@ -887,24 +890,24 @@ const styles = StyleSheet.create({
   chatItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    padding: 10,
-    borderRadius: 10,
+    gap: SPACING.md,
+    padding: SPACING.md,
+    borderRadius: RADIUS.md,
     marginVertical: 3
   },
   chatIconBox: {
     width: 32,
     height: 32,
-    borderRadius: 16,
+    borderRadius: RADIUS.pill,
     justifyContent: 'center',
     alignItems: 'center'
   },
   chatItemText: {
-    fontSize: 13, fontFamily: 'Inter-SemiBold'
+    fontSize: FONT_SIZE.md, fontFamily: 'Inter-SemiBold'
   },
   chatItemSub: {
     fontFamily: 'Inter-Regular',
-     fontSize: 11, marginTop: 1
+    fontSize: FONT_SIZE.sm, marginTop: SPACING.xs
   },
 
   // Top Header
@@ -913,97 +916,97 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
+    paddingHorizontal: SPACING.lg,
     borderBottomWidth: 1
   },
   menuBtn: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: RADIUS.pill,
     justifyContent: 'center',
     alignItems: 'center'
   },
   headerCenter: {
-    alignItems: 'center', flex: 1, paddingHorizontal: 8
+    alignItems: 'center', flex: 1, paddingHorizontal: SPACING.sm
   },
   headerTitle: {
-    fontSize: 15, fontFamily: 'Inter-Bold', textAlign: 'center'
+    fontSize: FONT_SIZE.lg, fontFamily: 'Inter-Bold', textAlign: 'center'
   },
   badgeRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2
+    flexDirection: 'row', alignItems: 'center', gap: SPACING.xs, marginTop: SPACING.xs
   },
   onlineDot: {
-    width: 6, height: 6, borderRadius: 3, backgroundColor: COLORS.pharmacyPrimary
+    width: 6, height: 6, borderRadius: RADIUS.sm, backgroundColor: COLORS.pharmacyPrimary
   },
   onlineText: {
-    fontSize: 10, fontFamily: 'Inter-SemiBold'
+    fontSize: FONT_SIZE.sm, fontFamily: 'Inter-SemiBold'
   },
   typePill: {
-    paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8
+    paddingHorizontal: SPACING.xs, paddingVertical: SPACING.xs, borderRadius: RADIUS.sm
   },
   typePillText: {
-    fontSize: 9, fontFamily: 'Inter-Bold'
+    fontSize: FONT_SIZE.xs, fontFamily: 'Inter-Bold'
   },
 
   // Prescription Banner
   prescriptionBanner: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.md,
     borderBottomWidth: 1
   },
   bannerHeader: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'
   },
   bannerTitle: {
-    fontSize: 13, fontFamily: 'Inter-Bold'
+    fontSize: FONT_SIZE.md, fontFamily: 'Inter-Bold'
   },
   bannerContent: {
-    marginTop: 8
+    marginTop: SPACING.sm
   },
   medsRow: {
-    gap: 6, paddingBottom: 8
+    gap: SPACING.xs, paddingBottom: SPACING.sm
   },
   medPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
+    gap: SPACING.xs,
+    paddingHorizontal: SPACING.md,
     paddingVertical: 5,
-    borderRadius: 12,
+    borderRadius: RADIUS.md,
     borderWidth: 1
   },
   medPillText: {
-    fontSize: 11, fontFamily: 'Inter-SemiBold'
+    fontSize: FONT_SIZE.sm, fontFamily: 'Inter-SemiBold'
   },
   bannerActions: {
-    flexDirection: 'row', gap: 10, marginTop: 4
+    flexDirection: 'row', gap: SPACING.md, marginTop: SPACING.xs
   },
   bannerBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 18
+    gap: SPACING.xs,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    borderRadius: RADIUS.pill
   },
   bannerBtnText: {
-    color: COLORS.white, fontSize: 12, fontFamily: 'Inter-Bold'
+    color: COLORS.white, fontSize: FONT_SIZE.md, fontFamily: 'Inter-Bold'
   },
   bannerBtnOutline: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 18,
+    gap: SPACING.xs,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    borderRadius: RADIUS.pill,
     borderWidth: 1
   },
   bannerBtnOutlineText: {
-    fontSize: 12, fontFamily: 'Inter-SemiBold'
+    fontSize: FONT_SIZE.md, fontFamily: 'Inter-SemiBold'
   },
 
   // Chat Area
@@ -1011,10 +1014,10 @@ const styles = StyleSheet.create({
     flex: 1
   },
   messageContent: {
-    padding: 16, paddingBottom: 0, gap: 12
+    padding: SPACING.lg, paddingBottom: 0, gap: SPACING.md
   },
   msgRow: {
-    flexDirection: 'row', gap: 8, marginBottom: 8
+    flexDirection: 'row', gap: SPACING.sm, marginBottom: SPACING.sm
   },
   msgRowUser: {
     justifyContent: 'flex-end'
@@ -1027,7 +1030,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10
   },
   welcomeCard: {
-    borderRadius: 16,
+    borderRadius: RADIUS.xl,
     padding: 18,
     borderWidth: 1,
     alignItems: 'center'
@@ -1035,17 +1038,17 @@ const styles = StyleSheet.create({
   welcomeIconCircle: {
     width: 52,
     height: 52,
-    borderRadius: 26,
+    borderRadius: RADIUS.xxl,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12
+    marginBottom: SPACING.md
   },
   welcomeTitle: {
-    fontSize: 18, fontFamily: 'Inter-Bold', textAlign: 'center', marginBottom: 6
+    fontSize: FONT_SIZE.xxl, fontFamily: 'Inter-Bold', textAlign: 'center', marginBottom: 6
   },
   welcomeSubText: {
     fontFamily: 'Inter-Regular',
-     fontSize: 13, textAlign: 'center', lineHeight: 18, marginBottom: 18
+     fontSize: FONT_SIZE.md, textAlign: 'center', lineHeight: 18, marginBottom: 18
   },
 
   featuredGrid: {
@@ -1054,28 +1057,28 @@ const styles = StyleSheet.create({
   featuredCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    padding: 12,
-    borderRadius: 12,
+    gap: SPACING.md,
+    padding: SPACING.md,
+    borderRadius: RADIUS.lg,
     borderWidth: 1
   },
   promptIconBox: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: RADIUS.xl,
     justifyContent: 'center',
     alignItems: 'center'
   },
   promptTitle: {
-    fontSize: 13, fontFamily: 'Inter-Bold'
+    fontSize: FONT_SIZE.md, fontFamily: 'Inter-Bold'
   },
   promptDesc: {
     fontFamily: 'Inter-Regular',
-     fontSize: 11, marginTop: 1
+     fontSize: FONT_SIZE.sm, marginTop: 1
   },
 
   aiBubbleWrapper: {
-    width: '100%', gap: 4
+    width: '100%', gap: SPACING.xs
   },
   aiHeaderRow: {
     flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2
@@ -1088,13 +1091,13 @@ const styles = StyleSheet.create({
     alignItems: 'center'
   },
   aiBadgeName: {
-    fontSize: 11, fontFamily: 'Inter-Bold'
+    fontSize: FONT_SIZE.sm, fontFamily: 'Inter-Bold'
   },
 
   bubble: {
     maxWidth: '82%',
-    borderRadius: 18,
-    paddingHorizontal: 16,
+    borderRadius: RADIUS.xl,
+    paddingHorizontal: SPACING.lg,
     paddingVertical: 11
   },
   bubbleUser: {
@@ -1102,12 +1105,12 @@ const styles = StyleSheet.create({
   },
   bubbleAIContainer: {
     maxWidth: '100%',
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: RADIUS.xl,
+    padding: SPACING.lg,
     borderWidth: 1
   },
   bubbleTextUser: {
-    color: COLORS.white, fontSize: 14, lineHeight: 20, fontFamily: 'Inter-Medium'
+    color: COLORS.white, fontSize: FONT_SIZE.lg, lineHeight: 20, fontFamily: 'Inter-Medium'
   },
 
   msgToolbar: {
@@ -1115,19 +1118,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-end',
     marginTop: 10,
-    paddingTop: 8,
+    paddingTop: SPACING.sm,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: 'rgba(0,0,0,0.06)'
   },
   toolbarBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4
+    gap: SPACING.xs,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs
   },
   toolbarBtnText: {
-    fontSize: 11, fontFamily: 'Inter-SemiBold'
+    fontSize: FONT_SIZE.sm, fontFamily: 'Inter-SemiBold'
   },
 
   loadingBubble: {
@@ -1136,11 +1139,11 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    borderRadius: 16,
+    borderRadius: RADIUS.xl,
     borderWidth: 1
   },
   loadingText: {
-    fontSize: 12, fontFamily: 'Inter-Medium'
+    fontSize: FONT_SIZE.md, fontFamily: 'Inter-Medium'
   },
 
   missingProfileBanner: {
@@ -1161,26 +1164,26 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
     borderTopWidth: 1,
-    gap: 8
+    gap: SPACING.sm
   },
   input: {
     fontFamily: 'Inter-Regular',
     
     flex: 1,
-    borderRadius: 20,
+    borderRadius: RADIUS.xl,
     borderWidth: 1,
-    paddingHorizontal: 16,
+    paddingHorizontal: SPACING.lg,
     paddingTop: 10,
     paddingBottom: 10,
-    fontSize: 14
+    fontSize: FONT_SIZE.lg
   },
   sendBtn: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: RADIUS.xl,
     justifyContent: 'center',
     alignItems: 'center'
   },
@@ -1191,71 +1194,71 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20
+    padding: SPACING.xl
   },
   modalCard: {
     width: '100%',
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: RADIUS.xl,
+    padding: SPACING.xl,
     borderWidth: 1
   },
   modalTitle: {
-    fontSize: 18, fontFamily: 'Inter-Bold', marginBottom: 4
+    fontSize: FONT_SIZE.xxl, fontFamily: 'Inter-Bold', marginBottom: SPACING.xs
   },
   modalSub: {
     fontFamily: 'Inter-Regular',
-     fontSize: 13, marginBottom: 16, lineHeight: 18
+     fontSize: FONT_SIZE.md, marginBottom: SPACING.lg, lineHeight: 18
   },
   modalOption: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 8
+    gap: SPACING.md,
+    padding: SPACING.md,
+    borderRadius: RADIUS.lg,
+    marginBottom: SPACING.sm
   },
   optionTitle: {
-    fontSize: 14, fontFamily: 'Inter-Bold'
+    fontSize: FONT_SIZE.lg, fontFamily: 'Inter-Bold'
   },
   optionSub: {
     fontFamily: 'Inter-Regular',
-     fontSize: 11, marginTop: 1
+     fontSize: FONT_SIZE.sm, marginTop: 1
   },
   inputLabel: {
-    fontSize: 10, fontFamily: 'Inter-Bold', letterSpacing: 0.8, marginBottom: 4
+    fontSize: FONT_SIZE.xs, fontFamily: 'Inter-Bold', letterSpacing: 0.8, marginBottom: SPACING.xs
   },
   topicInput: {
     fontFamily: 'Inter-Regular',
     
     height: 44,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    fontSize: 14,
+    borderRadius: RADIUS.sm,
+    paddingHorizontal: SPACING.md,
+    fontSize: FONT_SIZE.lg,
     borderWidth: 1
   },
   modalBtnRow: {
-    flexDirection: 'row', gap: 10, marginTop: 12
+    flexDirection: 'row', gap: 10, marginTop: SPACING.md
   },
   modalCancelBtn: {
     flex: 1,
     height: 44,
-    borderRadius: 22,
+    borderRadius: RADIUS.xxl,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1
   },
   modalCancelText: {
-    fontSize: 14, fontFamily: 'Inter-SemiBold'
+    fontSize: FONT_SIZE.lg, fontFamily: 'Inter-SemiBold'
   },
   modalConfirmBtn: {
     flex: 1,
     height: 44,
-    borderRadius: 22,
+    borderRadius: RADIUS.xxl,
     justifyContent: 'center',
     alignItems: 'center'
   },
   modalConfirmText: {
-    color: COLORS.white, fontSize: 14, fontFamily: 'Inter-SemiBold'
+    color: COLORS.white, fontSize: FONT_SIZE.lg, fontFamily: 'Inter-SemiBold'
   },
 
 });

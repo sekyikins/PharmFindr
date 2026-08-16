@@ -325,8 +325,8 @@ const styles = StyleSheet.create({
   // ── Hero ──
   hero: {
     alignItems: 'center',
-    paddingTop: 16,
-    paddingBottom: 4,
+    paddingTop: SPACING.lg,
+    paddingBottom: SPACING.xs,
     paddingHorizontal: SPACING.xl
   },
   heroTopRow: {
@@ -334,7 +334,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 16
+    marginBottom: SPACING.lg
   },
   verifiedBadge: {
     flexDirection: 'row',
@@ -346,7 +346,7 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.pill
   },
   verifiedBadgeText: {
-    color: COLORS.white, fontSize: 11, fontFamily: 'Inter-Bold'
+    color: COLORS.white, fontSize: FONT_SIZE.sm, fontFamily: 'Inter-Bold'
   },
 
   editAccountPill: {
@@ -354,12 +354,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 5,
     backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: 12,
+    paddingHorizontal: SPACING.md,
     paddingVertical: 5,
     borderRadius: RADIUS.pill
   },
   editAccountPillText: {
-    color: COLORS.white, fontSize: 12, fontFamily: 'Inter-Bold'
+    color: COLORS.white, fontSize: FONT_SIZE.md, fontFamily: 'Inter-Bold'
   },
 
   avatarWrapper: {
@@ -386,21 +386,21 @@ const styles = StyleSheet.create({
     right: 2,
     width: 28,
     height: 28,
-    borderRadius: 14,
+    borderRadius: RADIUS.lg,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
     borderColor: COLORS.white
   },
   avatarText: {
-    fontSize: 30, fontFamily: 'Inter-Bold'
+    fontSize: FONT_SIZE.hero, fontFamily: 'Inter-Bold'
   },
   heroName: {
-    fontSize: 22, fontFamily: 'Inter-Bold', color: COLORS.white, marginBottom: 2
+    fontSize: FONT_SIZE.hero, fontFamily: 'Inter-Bold', color: COLORS.white, marginBottom: 2
   },
   heroSub: {
     fontFamily: 'Inter-Regular',
-     fontSize: 13, color: 'rgba(255,255,255,0.85)', marginBottom: 8
+     fontSize: FONT_SIZE.md, color: 'rgba(255,255,255,0.85)', marginBottom: SPACING.sm
   },
 
   bodyContent: {
@@ -412,9 +412,9 @@ const styles = StyleSheet.create({
   statsCard: {
     flexDirection: 'row',
     borderRadius: RADIUS.xl,
-    padding: 16,
+    padding: SPACING.lg,
     borderWidth: 1.2,
-    marginBottom: 16
+    marginBottom: SPACING.lg
   },
   statItem: {
     flex: 1, alignItems: 'center'
@@ -423,36 +423,36 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2
   },
   statValue: {
-    fontSize: 22, fontFamily: 'Inter-Bold'
+    fontSize: FONT_SIZE.hero, fontFamily: 'Inter-Bold'
   },
   statLabel: {
-    fontSize: 12, fontFamily: 'Inter-SemiBold'
+    fontSize: FONT_SIZE.md, fontFamily: 'Inter-SemiBold'
   },
   statDivider: {
-    width: 1, marginVertical: 4
+    width: 1, marginVertical: SPACING.xs
   },
 
   // Health Quick Banner
   healthQuickCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: SPACING.md,
     padding: 14,
     borderRadius: RADIUS.xl,
     borderWidth: 1.2,
-    marginBottom: 20
+    marginBottom: SPACING.xl
   },
   healthQuickIconCircle: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: RADIUS.xl,
     justifyContent: 'center',
     alignItems: 'center'
   },
   healthQuickTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8
+    gap: SPACING.sm
   },
   healthQuickTitle: {
     fontSize: FONT_SIZE.lg, fontFamily: 'Inter-SemiBold'
@@ -467,10 +467,10 @@ const styles = StyleSheet.create({
     marginBottom: 18
   },
   groupTitle: {
-    fontSize: 10,
+    fontSize: FONT_SIZE.xs,
     fontFamily: 'Inter-Bold',
     letterSpacing: 0.8,
-    marginBottom: 8,
+    marginBottom: SPACING.sm,
     paddingLeft: 4
   },
   menuCard: {
@@ -482,12 +482,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 14,
-    paddingHorizontal: 16
+    paddingHorizontal: SPACING.lg
   },
   menuIconCircle: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: RADIUS.xl,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 14
@@ -501,11 +501,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: SPACING.sm,
     height: 48,
     borderRadius: RADIUS.pill,
     borderWidth: 1,
-    marginVertical: 8
+    marginVertical: SPACING.sm
   },
   signOutText: {
     fontSize: FONT_SIZE.lg, fontFamily: 'Inter-Bold'

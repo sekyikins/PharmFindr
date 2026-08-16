@@ -1,4 +1,4 @@
-import { COLORS } from '@/styles/theme';
+import { COLORS, FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
 import React from 'react';
 import { StyleSheet, Text, View, Modal, Pressable, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -37,7 +37,7 @@ export function ConsultationPickerModal({
               <Ionicons name="sparkles" size={20} color={primaryColor} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={[styles.title, { color: theme.text.primary }]}>
+              <Text style={[styles.title, { color: theme.text }]}>
                 Ask AI about {medicineName}
               </Text>
               <Text style={[styles.subtitle, { color: theme.textMuted }]}>
@@ -50,7 +50,7 @@ export function ConsultationPickerModal({
           </View>
 
           {/* Options List */}
-          <ScrollView style={{ maxHeight: 280, marginVertical: 10 }} showsVerticalScrollIndicator={false}>
+          <ScrollView style={{ maxHeight: 280, marginVertical: SPACING.sm }} showsVerticalScrollIndicator={false}>
             {/* General AI Assistant Option */}
             <Pressable
               style={({ pressed }) => [
@@ -64,7 +64,7 @@ export function ConsultationPickerModal({
                 <Ionicons name="chatbubbles-outline" size={18} color={COLORS.patientPrimary} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={[styles.optTitle, { color: theme.text.primary }]}>General AI Assistant</Text>
+                <Text style={[styles.optTitle, { color: theme.text }]}>General AI Assistant</Text>
                 <Text style={[styles.optSub, { color: theme.textMuted }]}>Start/continue general health conversation</Text>
               </View>
               <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
@@ -85,7 +85,7 @@ export function ConsultationPickerModal({
                   <Ionicons name="document-text-outline" size={18} color={COLORS.pharmacyPrimary} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.optTitle, { color: theme.text.primary }]}>{c.title}</Text>
+                  <Text style={[styles.optTitle, { color: theme.text }]}>{c.title}</Text>
                   <Text style={[styles.optSub, { color: theme.textMuted }]}>
                     Prescription Thread · {new Date(c.updated_at || c.created_at).toLocaleDateString()}
                   </Text>
@@ -100,7 +100,7 @@ export function ConsultationPickerModal({
             style={({ pressed }) => [styles.cancelBtn, { borderColor: theme.border }, pressed && { opacity: 0.7 }]}
             onPress={onClose}
           >
-            <Text style={[styles.cancelText, { color: theme.text.primary }]}>Cancel</Text>
+            <Text style={[styles.cancelText, { color: theme.text }]}>Cancel</Text>
           </Pressable>
         </Pressable>
       </Pressable>
@@ -138,81 +138,78 @@ export function findMatchingConsultations(
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: COLORS.modalBackdrop,
     justifyContent: 'center',
-    paddingHorizontal: 20
+    paddingHorizontal: SPACING.xl,
   },
   container: {
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.lg,
     borderWidth: 1,
     elevation: 5,
     shadowColor: COLORS.black,
-    shadowOffset: { width: 0, height: 4
-  },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 10,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 10,
-    marginBottom: 8
+    gap: SPACING.xs,
+    marginBottom: SPACING.sm,
   },
   iconBadge: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: RADIUS.pill,
     alignItems: 'center',
-    justifyContent: 'center'
+    justifyContent: 'center',
   },
   title: {
-    fontSize: 15,
-    fontFamily: 'Inter-Bold'
+    fontSize: FONT_SIZE.xl,
+    fontFamily: 'Inter-Bold',
   },
   subtitle: {
-    fontSize: 12,
+    fontSize: FONT_SIZE.md,
     fontFamily: 'Inter-Regular',
     marginTop: 2,
-    lineHeight: 16
+    lineHeight: 16,
   },
   optionCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
-    borderRadius: 12,
+    padding: SPACING.md,
+    borderRadius: RADIUS.md,
     borderWidth: 1,
-    marginBottom: 8,
-    gap: 10
+    marginBottom: SPACING.sm,
+    gap: SPACING.xs,
   },
   optIcon: {
     width: 32,
     height: 32,
-    borderRadius: 16,
+    borderRadius: RADIUS.pill,
     alignItems: 'center',
-    justifyContent: 'center'
+    justifyContent: 'center',
   },
   optTitle: {
-    fontSize: 13,
-    fontFamily: 'Inter-SemiBold'
+    fontSize: FONT_SIZE.lg,
+    fontFamily: 'Inter-SemiBold',
   },
   optSub: {
-    fontSize: 11,
+    fontSize: FONT_SIZE.sm,
     fontFamily: 'Inter-Regular',
-    marginTop: 1
+    marginTop: 1,
   },
   cancelBtn: {
     height: 40,
-    borderRadius: 10,
+    borderRadius: RADIUS.md,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 4
+    marginTop: SPACING.xs,
   },
   cancelText: {
-    fontSize: 13,
-    fontFamily: 'Inter-SemiBold'
+    fontSize: FONT_SIZE.lg,
+    fontFamily: 'Inter-SemiBold',
   },
-
-
 });

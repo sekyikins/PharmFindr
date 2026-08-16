@@ -1,4 +1,4 @@
-import { COLORS, MAP_PIN_COLORS } from '@/styles/theme';
+import { COLORS, FONT_SIZE, MAP_PIN_COLORS, RADIUS, SPACING } from '@/styles/theme';
 import React from 'react';
 import { View, StyleSheet, Text } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
@@ -139,14 +139,14 @@ const styles = StyleSheet.create({
   },
   legendContainer: {
     position: 'absolute',
-    bottom: 10,
+    bottom: SPACING.md,
     alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.94)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs,
+    borderRadius: RADIUS.pill,
     borderWidth: 1,
     borderColor: 'rgba(0, 0, 0, 0.08)',
     shadowColor: '#000',
@@ -154,26 +154,26 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.12,
     shadowRadius: 4,
     elevation: 3,
-    gap: 8,
+    gap: SPACING.xs,
   },
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: SPACING.xs,
   },
   legendDot: {
     width: 8,
     height: 8,
-    borderRadius: 4,
+    borderRadius: RADIUS.sm,
   },
   legendText: {
-    fontSize: 10,
+    fontSize: FONT_SIZE.sm,
     fontFamily: 'Inter-SemiBold',
-    color: '#334155',
+    color: COLORS.textSecondary,
   },
   legendDivider: {
     width: 1,
     height: 10,
-    backgroundColor: '#cbd5e1',
+    backgroundColor: COLORS.borderSlate,
   },
 });

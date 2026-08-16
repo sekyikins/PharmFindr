@@ -17,11 +17,9 @@ import { useThemeContext } from '@/hooks/useThemeContext';
 import { Header } from '@/components/ui/Header';
 import { toast } from '@/context/ToastContext';
 import { getFriendlyErrorMessage } from '@/lib/errorUtils';
-import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
+import { COLORS, FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
 import { supabase } from '@/lib/supabase';
 import { useHardwareBack } from '@/hooks/useHardwareBack';
-
-const PHARMACY_GREEN = '#10b981';
 
 export default function PharmacyReservationDetails() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -105,7 +103,7 @@ export default function PharmacyReservationDetails() {
   if (loading) {
     return (
       <SafeAreaView style={[styles.loadingCenter, { backgroundColor: theme.background }]}>
-        <ActivityIndicator size="large" color={PHARMACY_GREEN} />
+        <ActivityIndicator size="large" color={COLORS.pharmacyPrimary} />
       </SafeAreaView>
     );
   }
@@ -127,10 +125,10 @@ export default function PharmacyReservationDetails() {
   const refCode = `RES-${(id || '').substring(0, 6).toUpperCase()}`;
 
   const bannerConfig: Record<string, { bg: string; border: string; color: string; icon: any; text: string }> = {
-    pending:   { bg: '#fff7ed', border: '#ffd6a8', color: '#ca3500', icon: 'time-outline', text: 'Awaiting your response' },
-    accepted:  { bg: '#ecfdf5', border: '#a7f3d0', color: '#047857', icon: 'checkmark-circle-outline', text: 'Accepted — Ready for pickup' },
-    declined:  { bg: '#fef2f2', border: '#fecaca', color: '#b91c1c', icon: 'close-circle-outline', text: 'Declined' },
-    collected: { bg: '#eff6ff', border: '#bfdbfe', color: '#1d4ed8', icon: 'gift-outline', text: 'Collected by patient' },
+    pending:   { bg: COLORS.pendingBg, border: COLORS.pendingBorder, color: COLORS.pendingText, icon: 'time-outline', text: 'Awaiting your response' },
+    accepted:  { bg: COLORS.successBg, border: COLORS.successBorder, color: COLORS.pharmacyTextDark, icon: 'checkmark-circle-outline', text: 'Accepted — Ready for pickup' },
+    declined:  { bg: COLORS.errorBg, border: COLORS.errorBorder, color: COLORS.errorText, icon: 'close-circle-outline', text: 'Declined' },
+    collected: { bg: COLORS.patientSecondary, border: COLORS.patientBorder, color: COLORS.patientPrimaryDark, icon: 'gift-outline', text: 'Collected by patient' },
   };
   const banner = bannerConfig[reservation.status];
 
@@ -145,8 +143,8 @@ export default function PharmacyReservationDetails() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
-            tintColor={PHARMACY_GREEN}
-            colors={[PHARMACY_GREEN]}
+            tintColor={COLORS.pharmacyPrimary}
+            colors={[COLORS.pharmacyPrimary]}
           />
         }
       >
@@ -176,7 +174,7 @@ export default function PharmacyReservationDetails() {
 
           <View style={styles.infoRow}>
             <Text style={[styles.infoLabel, { color: theme.textMuted }]}>Est. Total</Text>
-            <Text style={[styles.infoVal, { color: PHARMACY_GREEN, fontFamily: 'Inter-Bold' }]}>
+            <Text style={[styles.infoVal, { color: COLORS.pharmacyPrimary, fontFamily: 'Inter-Bold' }]}>
               GHS {parseFloat(reservation.total_cost || 0).toFixed(2)}
             </Text>
           </View>
@@ -203,8 +201,8 @@ export default function PharmacyReservationDetails() {
                   pressed && { opacity: 0.6 },
                 ]}
               >
-                <Ionicons name="call-outline" size={14} color={PHARMACY_GREEN} />
-                <Text style={[styles.phoneText, { color: PHARMACY_GREEN }]}>{patient.phone}</Text>
+                <Ionicons name="call-outline" size={14} color={COLORS.pharmacyPrimary} />
+                <Text style={[styles.phoneText, { color: COLORS.pharmacyPrimary }]}>{patient.phone}</Text>
               </Pressable>
             </View>
           )}
@@ -214,7 +212,7 @@ export default function PharmacyReservationDetails() {
         <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
           <Text style={[styles.cardHeading, { color: theme.textMuted }]}>REQUESTED MEDICINES</Text>
 
-          <View style={{ gap: 10, marginTop: 4 }}>
+          <View style={{ gap: SPACING.md, marginTop: SPACING.xs }}>
             {items.map((med: string, idx: number) => (
               <View
                 key={idx}
@@ -223,7 +221,7 @@ export default function PharmacyReservationDetails() {
                   { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
                 ]}
               >
-                <Ionicons name="medkit-outline" size={18} color={PHARMACY_GREEN} />
+                <Ionicons name="medkit-outline" size={18} color={COLORS.pharmacyPrimary} />
                 <Text style={[styles.medName, { color: theme.text.primary }]}>{med}</Text>
               </View>
             ))}
@@ -237,7 +235,7 @@ export default function PharmacyReservationDetails() {
               style={({ pressed }) => [
                 styles.acceptBtn,
                 pressed && { opacity: 0.8 },
-                { backgroundColor: PHARMACY_GREEN },
+                { backgroundColor: COLORS.pharmacyPrimary },
               ]}
               onPress={() => updateStatus('accepted')}
               disabled={updating}
@@ -256,13 +254,13 @@ export default function PharmacyReservationDetails() {
               style={({ pressed }) => [
                 styles.declineBtn,
                 pressed && { opacity: 0.8 },
-                { backgroundColor: '#fef2f2', borderColor: '#fecaca' },
+                { backgroundColor: COLORS.errorBg, borderColor: COLORS.errorBorder },
               ]}
               onPress={() => updateStatus('declined')}
               disabled={updating}
             >
-              <Ionicons name="close-circle-outline" size={18} color="#ef4444" />
-              <Text style={[styles.btnText, { color: '#ef4444' }]}>Decline Order</Text>
+              <Ionicons name="close-circle-outline" size={18} color={COLORS.error} />
+              <Text style={[styles.btnText, { color: COLORS.error }]}>Decline Order</Text>
             </Pressable>
           </View>
         )}
@@ -272,12 +270,12 @@ export default function PharmacyReservationDetails() {
             style={({ pressed }) => [
               styles.acceptBtn,
               pressed && { opacity: 0.8 },
-              { backgroundColor: '#0f172a' },
+              { backgroundColor: COLORS.surfaceDark },
             ]}
             onPress={() => updateStatus('collected')}
             disabled={updating}
           >
-            <Ionicons name="gift-outline" size={18} color="#fff" />
+            <Ionicons name="gift-outline" size={18} color={COLORS.white} />
             <Text style={styles.btnText}>Mark as Collected</Text>
           </Pressable>
         )}
@@ -294,7 +292,7 @@ const styles = StyleSheet.create({
   banner: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: SPACING.xs,
     padding: SPACING.md,
     borderRadius: RADIUS.lg,
     borderWidth: 1,
@@ -308,10 +306,10 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.xl,
     padding: SPACING.lg,
     borderWidth: 1.5,
-    gap: 12,
+    gap: SPACING.md,
   },
   cardHeading: {
-    fontSize: 10,
+    fontSize: FONT_SIZE.sm,
     fontFamily: 'Inter-Bold',
     letterSpacing: 0.5,
   },
@@ -330,7 +328,7 @@ const styles = StyleSheet.create({
   phoneBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: SPACING.xs,
   },
   phoneText: {
     fontSize: FONT_SIZE.md,
@@ -340,7 +338,7 @@ const styles = StyleSheet.create({
   medItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: SPACING.md,
     padding: SPACING.md,
     borderRadius: RADIUS.lg,
     borderWidth: 1,
@@ -351,8 +349,8 @@ const styles = StyleSheet.create({
   },
 
   actionCol: {
-    gap: 10,
-    marginTop: 8,
+    gap: SPACING.md,
+    marginTop: SPACING.sm,
   },
   acceptBtn: {
     height: 48,
@@ -360,7 +358,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 8,
+    gap: SPACING.xs,
   },
   declineBtn: {
     height: 48,
@@ -368,11 +366,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 8,
+    gap: SPACING.xs,
     borderWidth: 1,
   },
   btnText: {
-    color: '#fff',
+    color: COLORS.white,
     fontSize: FONT_SIZE.lg,
     fontFamily: 'Inter-Bold',
   },

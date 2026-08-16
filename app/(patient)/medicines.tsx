@@ -106,7 +106,7 @@ export default function SavedMedicinesScreen() {
               onChangeText={setFilterQuery}
             />
             {filterQuery.length > 0 && (
-              <Pressable onPress={() => setFilterQuery('')} style={{ padding: 4 }}>
+              <Pressable onPress={() => setFilterQuery('')} style={{ padding: SPACING.xs }}>
                 <Ionicons name="close-circle" size={18} color={theme.textMuted} />
               </Pressable>
             )}
@@ -252,16 +252,16 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   countText: {
-    fontSize: 12,
+    fontSize: FONT_SIZE.md,
     fontFamily: 'Inter-SemiBold',
   },
   removeText: {
-    fontSize: 12,
+    fontSize: FONT_SIZE.md,
     fontFamily: 'Inter-SemiBold',
   },
   listContent: {
     padding: SPACING.md,
-    gap: 14,
+    gap: SPACING.md,
   },
   card: {
     borderRadius: RADIUS.xl,
@@ -271,7 +271,7 @@ const styles = StyleSheet.create({
   cardTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 14,
+    padding: SPACING.lg,
   },
   medIcon: {
     width: 44,
@@ -279,7 +279,7 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.md,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: SPACING.md,
   },
   medBody: {
     flex: 1,
@@ -290,38 +290,38 @@ const styles = StyleSheet.create({
   },
   medSub: {
     fontFamily: 'Inter-Regular',
-    fontSize: 12,
+    fontSize: FONT_SIZE.md,
     marginTop: 2,
   },
   priceSub: {
-    fontSize: 11,
+    fontSize: FONT_SIZE.sm,
     fontFamily: 'Inter-Bold',
     marginTop: 2,
   },
   badgePill: {
     paddingHorizontal: 7,
-    paddingVertical: 2,
+    paddingVertical: SPACING.xs,
     borderRadius: RADIUS.pill,
   },
   badgePillText: {
-    fontSize: 10,
+    fontSize: FONT_SIZE.sm,
     fontFamily: 'Inter-Bold',
   },
   cardActionRow: {
     flexDirection: 'row',
     alignItems: 'center',
     borderTopWidth: 1,
-    paddingVertical: 10,
+    paddingVertical: SPACING.md,
   },
   actionBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: SPACING.xs,
   },
   actionBtnText: {
-    fontSize: 12,
+    fontSize: FONT_SIZE.md,
     fontFamily: 'Inter-SemiBold',
   },
   divider: {
@@ -337,33 +337,33 @@ const styles = StyleSheet.create({
   emptyIconCircle: {
     width: 72,
     height: 72,
-    borderRadius: 36,
+    borderRadius: RADIUS.pill,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: SPACING.lg,
   },
   emptyTitle: {
-    fontSize: 18,
+    fontSize: FONT_SIZE.xxl,
     fontFamily: 'Inter-Bold',
     marginBottom: 6,
   },
   emptySub: {
     fontFamily: 'Inter-Regular',
-    fontSize: 13,
+    fontSize: FONT_SIZE.md,
     textAlign: 'center',
     lineHeight: 18,
-    marginBottom: 20,
+    marginBottom: SPACING.xl,
   },
   exploreBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: SPACING.xl,
     height: 46,
     borderRadius: RADIUS.pill,
   },
   exploreBtnText: {
     color: COLORS.white,
-    fontSize: 14,
+    fontSize: FONT_SIZE.lg,
     fontFamily: 'Inter-Bold',
   },
 });

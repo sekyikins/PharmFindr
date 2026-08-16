@@ -12,7 +12,7 @@ import { useAuthStore } from '@/store/authStore';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeContext } from '@/hooks/useThemeContext';
-import { COLORS, SPACING } from '@/styles/theme';
+import { RADIUS, COLORS, FONT_SIZE, SPACING } from '@/styles/theme';
 import { usePharmacyStore } from '@/store/pharmacyStore';
 import { supabase } from '@/lib/supabase';
 import Skeleton from '@/components/ui/Skeleton';
@@ -211,7 +211,7 @@ export default function Home() {
           </View>
 
           {rxLoading ? (
-            <View style={{ gap: 10 }}>
+            <View style={{ gap: SPACING.md }}>
               {[1, 2].map((i) => (
                 <View key={i} style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
                   <Skeleton width={44} height={44} borderRadius={12} style={{ marginRight: 12 }} />
@@ -287,7 +287,7 @@ export default function Home() {
           </View>
 
           {pharmLoading ? (
-            <View style={{ gap: 10 }}>
+            <View style={{ gap: SPACING.md }}>
               {[1, 2, 3].map((i) => (
                 <View key={i} style={[styles.pharmacyCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
                   <Skeleton width={44} height={44} borderRadius={12} style={{ marginRight: 12 }} />
@@ -361,17 +361,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   greeting: {
-    fontSize: 16,
+    fontSize: FONT_SIZE.xl,
     fontFamily: 'Inter-Medium',
   },
   name: {
-    fontSize: 18,
+    fontSize: FONT_SIZE.xl,
     fontFamily: 'Inter-Bold',
   },
   notifBtn: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: RADIUS.xl,
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
@@ -386,11 +386,11 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 4,
+    paddingHorizontal: SPACING.xs,
   },
   notifBadgeText: {
     color: COLORS.white,
-    fontSize: 9,
+    fontSize: FONT_SIZE.sm,
     fontFamily: 'Inter-Bold',
     lineHeight: 12,
   },
@@ -407,57 +407,56 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.sm,
   },
   sectionLabel: {
-    fontSize: 11,
+    fontSize: FONT_SIZE.sm,
     fontFamily: 'Inter-Bold',
     letterSpacing: 0.8,
     textTransform: 'uppercase',
   },
   viewAll: {
-    fontSize: 13,
+    fontSize: FONT_SIZE.md,
     fontFamily: 'Inter-Bold',
   },
 
   // Quick Actions (2-Card Professional Grid)
   actionsRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: SPACING.md,
   },
   actionCard: {
     flex: 1,
-    borderRadius: 18,
-    padding: 16,
+    borderRadius: RADIUS.xl,
+    padding: SPACING.md,
     borderWidth: 1.2,
   },
   actionTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
   },
   actionIconCircle: {
     width: 44,
     height: 44,
-    borderRadius: 22,
+    borderRadius: RADIUS.xxl,
     justifyContent: 'center',
     alignItems: 'center',
   },
   tagBadge: {
-    paddingHorizontal: 8,
+    paddingHorizontal: SPACING.sm,
     paddingVertical: 3,
-    borderRadius: 10,
+    borderRadius: RADIUS.sm,
   },
   tagBadgeText: {
-    fontSize: 10,
+    fontSize: FONT_SIZE.sm,
     fontFamily: 'Inter-Bold',
   },
   actionTitle: {
-    fontSize: 14,
+    fontSize: FONT_SIZE.lg,
     fontFamily: 'Inter-Bold',
     marginBottom: 2,
   },
   actionDesc: {
     fontFamily: 'Inter-Regular',
-    fontSize: 11,
+    fontSize: FONT_SIZE.sm,
     lineHeight: 15,
   },
 
@@ -465,7 +464,7 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 16,
+    borderRadius: RADIUS.xl,
     padding: 14,
     marginBottom: 10,
     borderWidth: 1.2,
@@ -473,7 +472,7 @@ const styles = StyleSheet.create({
   cardIcon: {
     width: 44,
     height: 44,
-    borderRadius: 12,
+    borderRadius: RADIUS.lg,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -482,59 +481,59 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   cardTitle: {
-    fontSize: 14,
+    fontSize: FONT_SIZE.lg,
     fontFamily: 'Inter-Bold',
   },
   cardSub: {
     fontFamily: 'Inter-Regular',
-    fontSize: 13,
+    fontSize: FONT_SIZE.md,
   },
 
   emptyCard: {
-    borderRadius: 16,
+    borderRadius: RADIUS.xl,
     borderWidth: 1,
-    padding: 20,
+    padding: SPACING.xl,
     alignItems: 'center',
-    marginTop: 4,
+    marginTop: SPACING.xs,
   },
   emptyIconCircle: {
     width: 48,
     height: 48,
-    borderRadius: 24,
+    borderRadius: RADIUS.xxl,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: SPACING.sm,
   },
   emptyTitle: {
-    fontSize: 14,
+    fontSize: FONT_SIZE.lg,
     fontFamily: 'Inter-Bold',
-    marginBottom: 4,
+    marginBottom: SPACING.xs,
   },
   emptyText: {
     fontFamily: 'Inter-Regular',
-    fontSize: 12,
+    fontSize: FONT_SIZE.md,
     textAlign: 'center',
     lineHeight: 18,
-    marginBottom: 12,
+    marginBottom: SPACING.md,
   },
   scanLinkBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: SPACING.lg,
     paddingVertical: 10,
-    borderRadius: 20,
+    borderRadius: RADIUS.xl,
   },
   scanLinkText: {
     color: COLORS.white,
     fontFamily: 'Inter-Bold',
-    fontSize: 13,
+    fontSize: FONT_SIZE.md,
   },
 
   // Pharmacy Cards
   pharmacyCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 16,
+    borderRadius: RADIUS.xl,
     padding: 14,
     marginBottom: 10,
     borderWidth: 1,
@@ -542,13 +541,13 @@ const styles = StyleSheet.create({
   pharmacyIcon: {
     width: 44,
     height: 44,
-    borderRadius: 12,
+    borderRadius: RADIUS.lg,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
   },
   pharmacyName: {
-    fontSize: 14,
+    fontSize: FONT_SIZE.lg,
     fontFamily: 'Inter-Bold',
     marginBottom: 3,
   },
@@ -559,6 +558,6 @@ const styles = StyleSheet.create({
   },
   distance: {
     fontFamily: 'Inter-Regular',
-    fontSize: 12,
+    fontSize: FONT_SIZE.md,
   },
 });

@@ -20,8 +20,6 @@ import { useAuthStore } from '@/store/authStore';
 import { getPharmacyForUser } from '@/lib/pharmacyService';
 import { useNotificationStore } from '@/store/notificationStore';
 
-const PHARMACY_GREEN = '#10b981';
-
 export default function Dashboard() {
   const router = useRouter();
   const { theme } = useThemeContext();
@@ -121,7 +119,7 @@ export default function Dashboard() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
       {/* Top Brand Header */}
-      <View style={[styles.heroHeader, { backgroundColor: PHARMACY_GREEN }]}>
+      <View style={[styles.heroHeader, { backgroundColor: COLORS.pharmacyPrimary }]}>
         <View style={styles.heroRow}>
           <View style={styles.brandLeft}>
             <Image source={require('@/assets/images/icon.png')} style={styles.brandIcon} />
@@ -134,7 +132,7 @@ export default function Dashboard() {
           </View>
 
           {/* Right: Notification Bell + Verified Badge */}
-          <View style={{ flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+          <View style={{ flexDirection: 'column', alignItems: 'center', gap: SPACING.sm }}>
             {/* Bell Icon */}
             <Pressable
               style={({ pressed }) => [styles.bellBtn, pressed && { opacity: 0.7 }]}
@@ -154,19 +152,19 @@ export default function Dashboard() {
                 style={({ pressed }) => [
                   styles.verifiedBadge,
                   pressed && { opacity: 0.8 }, 
-                  { backgroundColor: '#fffbeb', borderColor: COLORS.pendingBg },
+                  { backgroundColor: COLORS.pendingBg, borderColor: COLORS.pendingBg },
                 ]}
                 onPress={() => router.push('/(pharmacy)/(tabs)/profile')}
               >
                 <Ionicons
                   name='alert-circle-outline'
                   size={12}
-                  color='#b45309'
+                  color={COLORS.pendingText}
                 />
                 <Text
                   style={[
                     styles.verifiedText,
-                    { color: '#b45309' },
+                    { color: COLORS.pendingText },
                   ]}
                 >
                   NOT VERIFIED
@@ -198,8 +196,8 @@ export default function Dashboard() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
-            tintColor={PHARMACY_GREEN}
-            colors={[PHARMACY_GREEN]}
+            tintColor={COLORS.pharmacyPrimary}
+            colors={[COLORS.pharmacyPrimary]}
           />
         }
       >
@@ -224,7 +222,7 @@ export default function Dashboard() {
           <View style={[styles.gridCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
             <View style={styles.gridCardHeader}>
               <Text style={[styles.gridLabel, { color: theme.textMuted }]}>ACCEPTANCE</Text>
-              <View style={[styles.gridIconWrap, { backgroundColor: '#ecfdf5' }]}>
+              <View style={[styles.gridIconWrap, { backgroundColor: COLORS.pharmacySecondary }]}>
                 <Ionicons name="checkmark-done-circle" size={16} color={COLORS.pharmacyPrimary} />
               </View>
             </View>
@@ -236,8 +234,8 @@ export default function Dashboard() {
           <View style={[styles.gridCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
             <View style={styles.gridCardHeader}>
               <Text style={[styles.gridLabel, { color: theme.textMuted }]}>EST. REVENUE</Text>
-              <View style={[styles.gridIconWrap, { backgroundColor: '#f5f3ff' }]}>
-                <Ionicons name="cash-outline" size={16} color="#8b5cf6" />
+              <View style={[styles.gridIconWrap, { backgroundColor: COLORS.surfaceSecondary }]}>
+                <Ionicons name="cash-outline" size={16} color={COLORS.purple} />
               </View>
             </View>
             <Text style={[styles.gridValue, { color: COLORS.purple }]}>
@@ -250,17 +248,17 @@ export default function Dashboard() {
           <View style={[styles.gridCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
             <View style={styles.gridCardHeader}>
               <Text style={[styles.gridLabel, { color: theme.textMuted }]}>TOTAL STOCK</Text>
-              <View style={[styles.gridIconWrap, { backgroundColor: '#fff7ed' }]}>
-                <Ionicons name="cube" size={16} color="#f97316" />
+              <View style={[styles.gridIconWrap, { backgroundColor: COLORS.pendingBg }]}>
+                <Ionicons name="cube" size={16} color={COLORS.warning} />
               </View>
             </View>
-            <Text style={[styles.gridValue, { color: '#f97316' }]}>{stats.medicines}</Text>
+            <Text style={[styles.gridValue, { color: COLORS.warning }]}>{stats.medicines}</Text>
             <Text style={[styles.gridSub, { color: theme.textMuted }]}>Items in inventory</Text>
           </View>
         </View>
 
         {/* Quick Actions */}
-        <Text style={[styles.sectionHeading, { color: theme.text.primary, marginTop: 8 }]}>
+        <Text style={[styles.sectionHeading, { color: theme.text.primary, marginTop: SPACING.sm }]}>
           Quick Actions
         </Text>
         <View style={styles.actionRow}>
@@ -268,7 +266,7 @@ export default function Dashboard() {
             style={({ pressed }) => [
               styles.actionCard,
               pressed && { opacity: 0.88 },
-              { backgroundColor: PHARMACY_GREEN },
+              { backgroundColor: COLORS.pharmacyPrimary },
             ]}
             onPress={() => router.push('/(pharmacy)/add-medicine')}
           >
@@ -294,7 +292,7 @@ export default function Dashboard() {
         <View style={styles.sectionHeaderRow}>
           <Text style={[styles.sectionHeading, { color: theme.text.primary }]}>Recent Reservations</Text>
           <Pressable onPress={() => router.push('/(pharmacy)/(tabs)/reservations')}>
-            <Text style={{ color: PHARMACY_GREEN, fontSize: 13, fontFamily: 'Inter-Bold' }}>View All →</Text>
+            <Text style={{ color: COLORS.pharmacyPrimary, fontSize: FONT_SIZE.md, fontFamily: 'Inter-Bold' }}>View All →</Text>
           </Pressable>
         </View>
 
@@ -331,14 +329,14 @@ export default function Dashboard() {
                     style={[
                       styles.recentStatus,
                       item.status === 'pending'
-                        ? { backgroundColor: '#fffbeb', borderColor: COLORS.pendingBg }
-                        : { backgroundColor: '#ecfdf5', borderColor: COLORS.successBorder },
+                        ? { backgroundColor: COLORS.pendingBg, borderColor: COLORS.pendingBg }
+                        : { backgroundColor: COLORS.pharmacySecondary, borderColor: COLORS.successBorder },
                     ]}
                   >
                     <Text
                       style={[
                         styles.recentStatusText,
-                        { color: item.status === 'pending' ? '#b45309' : COLORS.pharmacyTextDark },
+                        { color: item.status === 'pending' ? COLORS.pendingText : COLORS.pharmacyTextDark },
                       ]}
                     >
                       {item.status.toUpperCase()}
@@ -380,7 +378,7 @@ const styles = StyleSheet.create({
     borderRadius: 8
   },
   welcomeText: {
-    fontSize: 10,
+    fontSize: FONT_SIZE.sm,
     fontFamily: 'Inter-Bold',
     color: 'rgba(255,255,255,0.75)',
     letterSpacing: 1
@@ -395,12 +393,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
     borderRadius: RADIUS.pill
   },
   verifiedText: {
-    fontSize: 10,
+    fontSize: FONT_SIZE.sm,
     fontFamily: 'Inter-Bold',
     color: COLORS.white,
     letterSpacing: 0.5
@@ -418,13 +416,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 8
+    marginTop: SPACING.sm
   },
 
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12
+    gap: SPACING.md
   },
   gridCard: {
     width: '48%',
@@ -439,14 +437,14 @@ const styles = StyleSheet.create({
     alignItems: 'center'
   },
   gridLabel: {
-    fontSize: 10,
+    fontSize: FONT_SIZE.sm,
     fontFamily: 'Inter-Bold',
     letterSpacing: 0.5
   },
   gridIconWrap: {
     width: 28,
     height: 28,
-    borderRadius: 14,
+    borderRadius: RADIUS.lg,
     justifyContent: 'center',
     alignItems: 'center'
   },
@@ -455,7 +453,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Bold'
   },
   gridSub: {
-    fontSize: 11,
+    fontSize: FONT_SIZE.sm,
     fontFamily: 'Inter-SemiBold'
   },
 
@@ -474,7 +472,7 @@ const styles = StyleSheet.create({
   },
   actionCardText: {
     color: COLORS.white,
-    fontSize: 13,
+    fontSize: FONT_SIZE.md,
     fontFamily: 'Inter-Bold'
   },
 
@@ -483,7 +481,7 @@ const styles = StyleSheet.create({
     padding: SPACING.xl,
     borderWidth: 1.5,
     alignItems: 'center',
-    gap: 8
+    gap: SPACING.sm
   },
   emptyBoxText: {
     fontSize: FONT_SIZE.md,
@@ -506,25 +504,24 @@ const styles = StyleSheet.create({
   },
   recentTime: {
     fontFamily: 'Inter-Regular',
-    
-    fontSize: 11,
-    marginTop: 2
+    fontSize: FONT_SIZE.sm,
+    marginTop: SPACING.xs
   },
   recentStatus: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
     borderRadius: RADIUS.pill,
     borderWidth: 1
   },
   recentStatusText: {
-    fontSize: 10,
+    fontSize: FONT_SIZE.sm,
     fontFamily: 'Inter-Bold'
   },
 
   bellBtn: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: RADIUS.pill,
     backgroundColor: 'rgba(255,255,255,0.2)',
     justifyContent: 'center',
     alignItems: 'center',
@@ -535,15 +532,15 @@ const styles = StyleSheet.create({
     right: -2,
     minWidth: 15,
     height: 15,
-    borderRadius: 8,
-    backgroundColor: '#ef4444',
+    borderRadius: RADIUS.pill,
+    backgroundColor: COLORS.error,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 2,
   },
   bellBadgeText: {
-    color: '#ffffff',
-    fontSize: 8,
+    color: COLORS.white,
+    fontSize: FONT_SIZE.xs,
     fontFamily: 'Inter-Bold',
   },
 
