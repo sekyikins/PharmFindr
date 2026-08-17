@@ -1,5 +1,5 @@
 import { haversineKm, formatTimeHHMM, type OsmPharmacy } from './osm';
-import { DEFAULT_COORDS, type Coords } from './location';
+import { type Coords } from './location';
 
 const GOOGLE_MAPS_API_KEY =
   process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || 'AIzaSyAXy83HZpz5JTArZYZ8IZFfXDSjGiNzxd0';
@@ -264,7 +264,8 @@ export async function searchGoogleNearbyPharmacies(
   radiusMeters = 8000,
   signal?: AbortSignal
 ): Promise<OsmPharmacy[]> {
-  const coordsBase = userCoords || DEFAULT_COORDS;
+  if (!userCoords) return [];
+  const coordsBase = userCoords;
   const radius = Math.min(Math.max(radiusMeters, 1000), 50000);
 
   try {

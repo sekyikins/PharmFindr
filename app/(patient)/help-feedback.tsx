@@ -304,10 +304,10 @@ export default function HelpAndFeedback() {
 
       {/* ══ TERMS / PRIVACY MODAL ══ */}
       <Modal visible={legalModalType !== null} transparent animationType="slide" onRequestClose={() => setLegalModalType(null)}>
-        <SafeAreaView style={[styles.legalModalContainer, { backgroundColor: theme.background }]}>
+        <SafeAreaView style={[styles.legalModalContainer, { backgroundColor: theme.background }]} edges={['top', 'bottom']}>
           <Header
             title={legalModalType === 'terms' ? 'Terms of Service' : 'Privacy Policy'}
-            right={<HeaderIconBtn name="close" onPress={() => setLegalModalType(null)} />}
+            left={<HeaderIconBtn name="close" onPress={() => setLegalModalType(null)} />}
           />
           <ScrollView contentContainerStyle={{ padding: SPACING.xl }} showsVerticalScrollIndicator={false}>
             {legalModalType && (

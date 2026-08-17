@@ -23,7 +23,7 @@ interface PharmacyState {
   /** Load (or refresh) nearby pharmacies using current device GPS and active radius limit. */
   loadNearby: (signal?: AbortSignal) => Promise<void>;
   setPharmacies: (pharmacies: OsmPharmacy[]) => void;
-  setUserCoords: (coords: Coords) => void;
+  setUserCoords: (coords: Coords | null) => void;
   setMaxDistanceKm: (distance: number) => void;
   setOnlyOpen: (value: boolean) => void;
   setOnlyVerified: (value: boolean) => void;

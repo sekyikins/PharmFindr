@@ -68,7 +68,7 @@ CREATE TABLE IF NOT EXISTS public.app_users (
 ALTER TABLE public.app_users ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "app_users_select" ON public.app_users;
-CREATE POLICY "app_users_select" ON public.app_users FOR SELECT USING (true);
+CREATE POLICY "app_users_select" ON public.app_users FOR SELECT USING (id = (SELECT auth.uid()));
 
 DROP POLICY IF EXISTS "app_users_owner_all" ON public.app_users;
 CREATE POLICY "app_users_owner_all" ON public.app_users

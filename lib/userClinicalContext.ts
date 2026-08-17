@@ -1,6 +1,6 @@
 import * as ExpoLocation from 'expo-location';
 import { useAuthStore } from '@/store/authStore';
-import { getCurrentLocation, Coords, DEFAULT_COORDS } from '@/lib/location';
+import { getCurrentLocation, Coords } from '@/lib/location';
 
 export interface DynamicUserContext {
   fullName: string | null;
@@ -13,8 +13,8 @@ export interface DynamicUserContext {
   existingConditions: string[];
   currentMedications: string[];
   location: {
-    latitude: number;
-    longitude: number;
+    latitude: number | null;
+    longitude: number | null;
     city: string | null;
     region: string | null;
     country: string | null;
@@ -39,11 +39,11 @@ export async function getDynamicUserContext(): Promise<DynamicUserContext> {
   }
 
   // Fetch live GPS coordinates
-  let coords: Coords = DEFAULT_COORDS;
+  let coords: Coords | null = null;
   try {
     coords = await getCurrentLocation();
   } catch (e) {
-    coords = DEFAULT_COORDS;
+    coords = null;
   }
 
   // Reverse geocode to get live city/region/country name without any hardcoding
@@ -52,32 +52,38 @@ export async function getDynamicUserContext(): Promise<DynamicUserContext> {
   let country: string | null = null;
   let isoCountryCode: string | null = null;
 
-  try {
-    const addresses = await ExpoLocation.reverseGeocodeAsync(coords);
-    if (addresses && addresses.length > 0) {
-      const addr = addresses[0];
-      city = addr.city || addr.subregion || null;
-      region = addr.region || null;
-      country = addr.country || null;
-      isoCountryCode = addr.isoCountryCode || null;
+  if (coords) {
+    try {
+      const geocoded = await ExpoLocation.reverseGeocodeAsync({
+        latitude: coords.latitude,
+        longitude: coords.longitude,
+      });
+
+      if (geocoded && geocoded.length > 0) {
+        const primary = geocoded[0];
+        city = primary.city || primary.subregion || primary.name || null;
+        region = primary.region || null;
+        country = primary.country || null;
+        isoCountryCode = primary.isoCountryCode || null;
+      }
+    } catch (e) {
+      console.warn('Reverse geocoding error:', e);
     }
-  } catch (e) {
-    console.warn('Reverse geocode note:', e);
   }
 
   return {
-    fullName: profile?.full_name || appUser?.full_name || null,
+    fullName: appUser?.full_name || profile?.full_name || null,
     age: appUser?.age ?? null,
     gender: appUser?.gender ?? null,
     weightKg: weight,
     heightCm: height,
     bmi: bmiStr,
-    allergies: appUser?.allergies || [],
-    existingConditions: appUser?.existing_conditions || [],
-    currentMedications: appUser?.current_medications || [],
+    allergies: appUser?.allergies ?? [],
+    existingConditions: appUser?.existing_conditions ?? [],
+    currentMedications: appUser?.current_medications ?? [],
     location: {
-      latitude: coords.latitude,
-      longitude: coords.longitude,
+      latitude: coords?.latitude ?? null,
+      longitude: coords?.longitude ?? null,
       city,
       region,
       country,
@@ -120,10 +126,16 @@ export async function buildDynamicSystemInstruction(activeConsultationMeds?: any
   if (ctx.location.region) locationParts.push(ctx.location.region);
   if (ctx.location.country) locationParts.push(ctx.location.country);
 
-  const locationStr = locationParts.length > 0 ? locationParts.join(', ') : 'Location coordinates available';
-  userContextLines.push(
-    `- Current Location: ${locationStr} (Coordinates: ${ctx.location.latitude.toFixed(4)}, ${ctx.location.longitude.toFixed(4)})`
-  );
+  const coordsStr =
+    ctx.location.latitude != null && ctx.location.longitude != null
+      ? `(Coordinates: ${ctx.location.latitude.toFixed(4)}, ${ctx.location.longitude.toFixed(4)})`
+      : '';
+  const locationStr =
+    locationParts.length > 0
+      ? `${locationParts.join(', ')}${coordsStr ? ` ${coordsStr}` : ''}`
+      : coordsStr || 'Not available';
+
+  userContextLines.push(`- Current Location: ${locationStr}`);
 
   let systemPrompt = `You are a professional AI Health Assistant inside the PharmFindr mobile app.
 

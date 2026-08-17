@@ -207,9 +207,11 @@ export default function PharmacyDetail() {
         const user = await getCurrentLocation();
         if (cancelled) return;
         setUserCoords(user);
-        const result = await getRoute(user, { latitude: details.lat, longitude: details.lon });
-        if (cancelled) return;
-        setRoute(result);
+        if (user) {
+          const result = await getRoute(user, { latitude: details.lat, longitude: details.lon });
+          if (cancelled) return;
+          setRoute(result);
+        }
       } catch (e: any) {
         if (!cancelled) setRouteError(e?.message ?? 'Could not calculate route');
       } finally {

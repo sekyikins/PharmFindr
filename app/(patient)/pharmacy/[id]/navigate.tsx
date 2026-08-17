@@ -99,11 +99,13 @@ export default function Navigate() {
         setUserCoords(initialLoc);
         lastRouteCalcCoordsRef.current = initialLoc;
 
-        isFetchingRouteRef.current = true;
-        const initialResult = await getRoute(initialLoc, pharmCoords);
-        if (isMounted && initialResult) {
-          setRoute(initialResult);
-          setError(null);
+        if (initialLoc) {
+          isFetchingRouteRef.current = true;
+          const initialResult = await getRoute(initialLoc, pharmCoords);
+          if (isMounted && initialResult) {
+            setRoute(initialResult);
+            setError(null);
+          }
         }
       } catch (e: any) {
         if (isMounted && !initialRoute) {

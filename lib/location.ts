@@ -2,11 +2,7 @@ import * as ExpoLocation from 'expo-location';
 
 export type Coords = { latitude: number; longitude: number };
 
-// Fallback Accra coordinates if device GPS is disabled/denied
-export const DEFAULT_COORDS: Coords = {
-  latitude: 5.6037,
-  longitude: -0.1870,
-};
+
 
 /**
  * Request foreground location permission from the user.
@@ -30,11 +26,10 @@ let cachedLocation: { coords: Coords; timestamp: number } | null = null;
  * 2. Balanced current GPS position
  * 3. Last known position
  * 4. Previously cached location
- * 5. Default city coordinates (Accra 5.6037, -0.1870)
  *
- * Guaranteed NEVER to throw — returns fallback coordinates if permission is denied or GPS is unavailable.
+ * Returns null if permission is denied or GPS is unavailable.
  */
-export async function getCurrentLocation(maxAgeMs = 60000): Promise<Coords> {
+export async function getCurrentLocation(maxAgeMs = 60000): Promise<Coords | null> {
   if (cachedLocation && Date.now() - cachedLocation.timestamp < maxAgeMs) {
     return cachedLocation.coords;
   }
@@ -80,8 +75,7 @@ export async function getCurrentLocation(maxAgeMs = 60000): Promise<Coords> {
     return cachedLocation.coords;
   }
 
-  // 4. Absolute fallback so maps & pharmacies list never break
-  return DEFAULT_COORDS;
+  return null;
 }
 
 /**

@@ -67,36 +67,122 @@ export default function EditAccount() {
   const [biometricType, setBiometricType] = useState('Biometrics');
   const [biometricIcon, setBiometricIcon] = useState('finger-print-outline');
 
-  // Swipe-to-dismiss gesture handling for avatar image preview
+  // Swipe-to-dismiss & 2D Pan + Pinch-to-zoom gesture handling for avatar image preview
+  const translateX = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(0)).current;
   const previewOpacity = useRef(new Animated.Value(1)).current;
+  const scale = useRef(new Animated.Value(1)).current;
+  const lastScale = useRef(1);
+  const lastPan = useRef({ x: 0, y: 0 });
+  const initialDistanceRef = useRef<number | null>(null);
+  const wasPinchingRef = useRef(false);
+
+  const getDistance = (touches: any[]) => {
+    const [t1, t2] = touches;
+    const dx = t1.pageX - t2.pageX;
+    const dy = t1.pageY - t2.pageY;
+    return Math.sqrt(dx * dx + dy * dy);
+  };
 
   const panResponder = useRef(
     PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: (_, gestureState) => Math.abs(gestureState.dy) > 8,
-      onPanResponderMove: (_, gestureState) => {
-        translateY.setValue(gestureState.dy);
-        const newOpacity = Math.max(0.3, 1 - Math.abs(gestureState.dy) / 450);
-        previewOpacity.setValue(newOpacity);
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (evt, gestureState) =>
+        evt.nativeEvent.touches.length === 2 ||
+        Math.abs(gestureState.dx) > 6 ||
+        Math.abs(gestureState.dy) > 6,
+      onPanResponderGrant: (evt) => {
+        wasPinchingRef.current = false;
+        if (evt.nativeEvent.touches.length === 2) {
+          wasPinchingRef.current = true;
+          initialDistanceRef.current = getDistance(evt.nativeEvent.touches);
+        } else {
+          initialDistanceRef.current = null;
+        }
+      },
+      onPanResponderMove: (evt, gestureState) => {
+        const touches = evt.nativeEvent.touches;
+        if (touches.length === 2) {
+          wasPinchingRef.current = true;
+          const currentDist = getDistance(touches);
+          if (!initialDistanceRef.current) {
+            initialDistanceRef.current = currentDist;
+          } else if (initialDistanceRef.current > 0) {
+            const factor = currentDist / initialDistanceRef.current;
+            const newScale = Math.min(4, Math.max(0.8, lastScale.current * factor));
+            scale.setValue(newScale);
+          }
+        } else if (touches.length === 1) {
+          if (lastScale.current > 1.05) {
+            // ── Zoomed in: 2D Panning (slide-to-close is DEACTIVATED) ──
+            const newX = lastPan.current.x + gestureState.dx;
+            const newY = lastPan.current.y + gestureState.dy;
+            const maxPan = 200 * (lastScale.current - 1);
+            const clampedX = Math.min(maxPan, Math.max(-maxPan, newX));
+            const clampedY = Math.min(maxPan, Math.max(-maxPan, newY));
+            translateX.setValue(clampedX);
+            translateY.setValue(clampedY);
+          } else if (!wasPinchingRef.current) {
+            // ── Unzoomed (1x) & never pinched: Vertical Slide to Close ──
+            translateX.setValue(0);
+            translateY.setValue(gestureState.dy);
+            const newOpacity = Math.max(0.3, 1 - Math.abs(gestureState.dy) / 450);
+            previewOpacity.setValue(newOpacity);
+          }
+        }
       },
       onPanResponderRelease: (_, gestureState) => {
-        if (Math.abs(gestureState.dy) > 110 || Math.abs(gestureState.vy) > 0.7) {
-          Animated.timing(translateY, {
-            toValue: gestureState.dy > 0 ? 600 : -600,
-            duration: 200,
-            useNativeDriver: true,
-          }).start(() => {
-            setAvatarModalVisible(false);
-            translateY.setValue(0);
-            previewOpacity.setValue(1);
+        // @ts-ignore
+        const currentScaleVal = scale._value || 1;
+        if (currentScaleVal < 1.05) {
+          Animated.spring(scale, { toValue: 1, useNativeDriver: true }).start(() => {
+            lastScale.current = 1;
+            lastPan.current = { x: 0, y: 0 };
+            Animated.spring(translateX, { toValue: 0, useNativeDriver: true }).start();
+            Animated.spring(translateY, { toValue: 0, useNativeDriver: true }).start();
+          });
+        } else if (currentScaleVal > 4) {
+          Animated.spring(scale, { toValue: 4, useNativeDriver: true }).start(() => {
+            lastScale.current = 4;
           });
         } else {
+          lastScale.current = currentScaleVal;
+        }
+
+        if (lastScale.current > 1.05) {
+          // ── Zoomed Mode: Save pan position ──
+          // @ts-ignore
+          const curX = translateX._value || 0;
+          // @ts-ignore
+          const curY = translateY._value || 0;
+          lastPan.current = { x: curX, y: curY };
+        } else {
+          // ── 1x Scale Mode: Slide-to-dismiss ONLY if user did NOT pinch ──
+          if (!wasPinchingRef.current && (Math.abs(gestureState.dy) > 120 || Math.abs(gestureState.vy) > 0.8)) {
+            Animated.timing(translateY, {
+              toValue: gestureState.dy > 0 ? 600 : -600,
+              duration: 200,
+              useNativeDriver: true,
+            }).start(() => {
+              setAvatarModalVisible(false);
+              translateY.setValue(0);
+              translateX.setValue(0);
+              previewOpacity.setValue(1);
+              scale.setValue(1);
+              lastScale.current = 1;
+              lastPan.current = { x: 0, y: 0 };
+            });
+            wasPinchingRef.current = false;
+            return;
+          }
+
           Animated.parallel([
             Animated.spring(translateY, { toValue: 0, useNativeDriver: true }),
+            Animated.spring(translateX, { toValue: 0, useNativeDriver: true }),
             Animated.timing(previewOpacity, { toValue: 1, duration: 150, useNativeDriver: true }),
           ]).start();
         }
+        wasPinchingRef.current = false;
       },
     })
   ).current;
@@ -476,12 +562,33 @@ export default function EditAccount() {
       {/* IMMERSIVE GESTURE DISMISSIBLE AVATAR VIEWER OVERLAY */}
       {avatarModalVisible && (
         <Animated.View style={[styles.waAvatarModalContainer, { opacity: previewOpacity }]}>
-          <Pressable style={{ flex: 1 }} onPress={() => setAvatarModalVisible(false)}>
+          <Pressable
+            style={{ flex: 1 }}
+            onPress={() => {
+              if (lastScale.current > 1.05) {
+                Animated.parallel([
+                  Animated.spring(scale, { toValue: 1, useNativeDriver: true }),
+                  Animated.spring(translateX, { toValue: 0, useNativeDriver: true }),
+                  Animated.spring(translateY, { toValue: 0, useNativeDriver: true }),
+                ]).start(() => {
+                  lastScale.current = 1;
+                  lastPan.current = { x: 0, y: 0 };
+                });
+              } else {
+                setAvatarModalVisible(false);
+                scale.setValue(1);
+                translateX.setValue(0);
+                translateY.setValue(0);
+                lastScale.current = 1;
+                lastPan.current = { x: 0, y: 0 };
+              }
+            }}
+          >
             <Animated.View
               {...panResponder.panHandlers}
               style={[
                 styles.waImageContainer,
-                { transform: [{ translateY }] },
+                { transform: [{ translateX }, { translateY }, { scale }] },
               ]}
             >
               {profile?.avatar_url ? (

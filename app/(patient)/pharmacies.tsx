@@ -17,7 +17,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import FullMapComponent from '@/components/FullMapComponent';
 import { useThemeContext } from '@/hooks/useThemeContext';
 import { COLORS,  FONT_SIZE,  RADIUS, SPACING  } from '@/styles/theme';
-import { getCurrentLocation, DEFAULT_COORDS, type Coords } from '@/lib/location';
+import { getCurrentLocation, type Coords } from '@/lib/location';
 import { searchNearbyPharmacies, type OsmPharmacy } from '@/lib/osm';
 import { cleanDistanceString, cleanDurationString } from '@/lib/ors';
 import { usePharmacyStore } from '@/store/pharmacyStore';
@@ -63,7 +63,7 @@ export default function Pharmacies() {
     setOnlyVerified,
   } = usePharmacyStore();
 
-  const [userCoords, setUserCoords] = useState<Coords>(storeCoords || DEFAULT_COORDS);
+  const [userCoords, setUserCoords] = useState<Coords | null>(storeCoords || null);
 
   const [pharmacies, setPharmacies] = useState<OsmPharmacy[]>(storePharmacies);
   const [selectedPharmacy, setSelectedPharmacy] = useState<OsmPharmacy | null>(null);

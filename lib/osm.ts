@@ -1,4 +1,4 @@
-import { DEFAULT_COORDS, type Coords } from './location';
+import { type Coords } from './location';
 import { supabase } from './supabase';
 
 export interface OsmPharmacy {
@@ -214,7 +214,7 @@ function buildAddress(tags: Record<string, string>): string {
  * Fetch registered verified pharmacies from Supabase database including weekly operating hours.
  */
 export async function getRegisteredPharmacies(userCoords?: Coords | null): Promise<OsmPharmacy[]> {
-  const coordsBase = userCoords || DEFAULT_COORDS;
+  const coordsBase = userCoords || null;
   const now = new Date();
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const currentDayName = dayNames[now.getDay()];
@@ -235,7 +235,7 @@ export async function getRegisteredPharmacies(userCoords?: Coords | null): Promi
       .filter((p) => p.latitude != null && p.longitude != null)
       .map((p: any) => {
         const coords: Coords = { latitude: p.latitude, longitude: p.longitude };
-        const dist = haversineKm(coordsBase, coords);
+        const dist = coordsBase ? haversineKm(coordsBase, coords) : 0;
         const weeklyHours = (p.pharmacy_operating_hours && p.pharmacy_operating_hours.length > 0)
           ? p.pharmacy_operating_hours
           : null;
@@ -298,12 +298,15 @@ export async function getRegisteredPharmacies(userCoords?: Coords | null): Promi
  * pharmacies take precedence and are never duplicated by overlapping public markers.
  */
 export async function searchNearbyPharmacies(
-  userCoords: Coords,
+  userCoords?: Coords | null,
   radiusMeters = 10000,
   onItemFound?: (pharmacy: OsmPharmacy) => void,
   signal?: AbortSignal
 ): Promise<OsmPharmacy[]> {
-  const coordsBase = userCoords || DEFAULT_COORDS;
+  if (!userCoords) {
+    return getRegisteredPharmacies(null);
+  }
+  const coordsBase = userCoords;
   const { latitude: lat, longitude: lon } = coordsBase;
 
   const resultList: OsmPharmacy[] = [];

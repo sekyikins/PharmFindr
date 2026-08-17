@@ -272,7 +272,7 @@ const styles = StyleSheet.create({
   },
 
   emptyContainer: {
-    alignItems: 'center', marginTop: SPACING.sm0, gap: 10
+    alignItems: 'center', marginTop: SPACING.sm, gap: 10
   },
   emptyTitle: {
     fontSize: FONT_SIZE.xl, fontFamily: 'Inter-Bold'
