@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { KnownPharmacy, RegisteredPharmacy } from '@/types/map';
+import type { KnownPharmacy, RegisteredPharmacy } from '@/types/map';
 export type { KnownPharmacy, RegisteredPharmacy };
 
 interface MapComponentProps {
@@ -40,11 +40,12 @@ export default function MapComponent({
   selectedPharmacyId,
   onSelectPharmacy,
   userLocation,
+  initialCoords,
 }: MapComponentProps) {
   const [fullscreen, setFullscreen] = useState(false);
 
-  const displayLat = pin?.latitude ?? userLocation?.latitude ?? 5.6037;
-  const displayLng = pin?.longitude ?? userLocation?.longitude ?? -0.187;
+  const displayLat = pin?.latitude ?? initialCoords?.latitude ?? userLocation?.latitude ?? 0;
+  const displayLng = pin?.longitude ?? initialCoords?.longitude ?? userLocation?.longitude ?? 0;
 
   const handleMapPress = (e: any) => {
     if (!onSelectPin) return;
@@ -343,8 +344,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Bold',
     color: COLORS.white,
   },
-
-  // Modal styles
   modalRoot: {
     flex: 1,
     backgroundColor: COLORS.background,

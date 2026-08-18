@@ -16,15 +16,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import FullMapComponent from '@/components/FullMapComponent';
 import { useThemeContext } from '@/hooks/useThemeContext';
-import { COLORS,  FONT_SIZE,  RADIUS, SPACING  } from '@/styles/theme';
+import { COLORS, FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
 import { getCurrentLocation, type Coords } from '@/lib/location';
-import { searchNearbyPharmacies, type OsmPharmacy } from '@/lib/osm';
 import { cleanDistanceString, cleanDurationString } from '@/lib/ors';
 import { usePharmacyStore } from '@/store/pharmacyStore';
+import { hasMeaningfulRegionChange } from '@/lib/pharmacyDiscovery';
 import AppBottomSheet from '@/components/ui/AppBottomSheet';
 import { Header } from '@/components/ui/Header';
 import { supabase } from '@/lib/supabase';
 import { useHardwareBack } from '@/hooks/useHardwareBack';
+import type { DiscoveredPharmacy, MapRegion } from '@/types/map';
 
 export default function Pharmacies() {
   const router = useRouter();
@@ -34,7 +35,38 @@ export default function Pharmacies() {
   const routeSelectedId = params.selectedId ? String(params.selectedId) : '';
 
   const { theme, primaryColor } = useThemeContext();
-  const [searchQuery, setSearchQuery] = useState('');
+
+  const {
+    pharmacies: rawPharmacies,
+    userCoords,
+    loading,
+    maxDistanceKm,
+    onlyOpen,
+    onlyVerified,
+    searchQuery,
+    discoverInRegion,
+    stopDiscovery,
+    setUserCoords,
+    setMaxDistanceKm,
+    setOnlyOpen,
+    setOnlyVerified,
+    setSearchQuery,
+    getFilteredPharmacies,
+  } = usePharmacyStore();
+
+  const [selectedPharmacy, setSelectedPharmacy] = useState<DiscoveredPharmacy | null>(null);
+  const [currentRegion, setCurrentRegion] = useState<MapRegion | null>(null);
+  const lastQueriedRegionRef = useRef<MapRegion | null>(null);
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const stopLoadingSheetRef = useRef<any>(null);
+  const filterSheetRef = useRef<any>(null);
+  const spinAnim = useRef(new Animated.Value(0)).current;
+
+  // Draft filter state for the filter sheet
+  const [draftDistance, setDraftDistance] = useState<number | null>(maxDistanceKm);
+  const [draftOnlyOpen, setDraftOnlyOpen] = useState(onlyOpen);
+  const [draftOnlyVerified, setDraftOnlyVerified] = useState(onlyVerified);
 
   useHardwareBack(() => {
     if (selectedPharmacy) {
@@ -49,38 +81,98 @@ export default function Pharmacies() {
     return true;
   });
 
-  // Seed from shared store (must come before userCoords state so we can use it as initial value)
-  const {
-    pharmacies: storePharmacies,
-    userCoords: storeCoords,
-    setPharmacies: storeSetPharmacies,
-    setUserCoords: storeSetCoords,
-    maxDistanceKm,
-    onlyOpen,
-    onlyVerified,
-    setMaxDistanceKm,
-    setOnlyOpen,
-    setOnlyVerified,
-  } = usePharmacyStore();
+  // 1. Initial Mount: Request GPS and discover pharmacies in user's initial region
+  useEffect(() => {
+    let isMounted = true;
 
-  const [userCoords, setUserCoords] = useState<Coords | null>(storeCoords || null);
+    async function initLocation() {
+      try {
+        const coords = await getCurrentLocation();
+        if (!isMounted) return;
 
-  const [pharmacies, setPharmacies] = useState<OsmPharmacy[]>(storePharmacies);
-  const [selectedPharmacy, setSelectedPharmacy] = useState<OsmPharmacy | null>(null);
+        if (coords) {
+          setUserCoords(coords);
+          const initialRegion: MapRegion = {
+            latitude: coords.latitude,
+            longitude: coords.longitude,
+            latitudeDelta: 0.02,
+            longitudeDelta: 0.02,
+          };
+          setCurrentRegion(initialRegion);
+          lastQueriedRegionRef.current = initialRegion;
+          discoverInRegion(initialRegion);
+        } else if (rawPharmacies.length === 0) {
+          // If no GPS is available, default to global view without fake assumptions
+          const neutralRegion: MapRegion = {
+            latitude: 0,
+            longitude: 0,
+            latitudeDelta: 60,
+            longitudeDelta: 60,
+          };
+          setCurrentRegion(neutralRegion);
+        }
+      } catch (err) {
+        console.warn('Initial map location error:', err);
+      }
+    }
 
-  const [loading, setLoading] = useState(storePharmacies.length === 0);
-  const [refreshKey, setRefreshKey] = useState(0);
+    initLocation();
 
-  const stopLoadingSheetRef = useRef<any>(null);
-  const filterSheetRef = useRef<any>(null);
-  const abortControllerRef = useRef<AbortController | null>(null);
-  const spinAnim = useRef(new Animated.Value(0)).current;
+    return () => {
+      isMounted = false;
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+      stopDiscovery();
+    };
+  }, []);
 
-  // Draft filter state (only committed when user taps "Apply Filter")
-  const [draftDistance, setDraftDistance] = useState(maxDistanceKm);
-  const [draftOnlyOpen, setDraftOnlyOpen] = useState(onlyOpen);
-  const [draftOnlyVerified, setDraftOnlyVerified] = useState(onlyVerified);
+  // 2. Viewport-driven Discovery: Triggered on user panning/zooming
+  const handleRegionChangeComplete = useCallback(
+    (newRegion: MapRegion) => {
+      setCurrentRegion(newRegion);
 
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+
+      debounceTimerRef.current = setTimeout(() => {
+        if (hasMeaningfulRegionChange(lastQueriedRegionRef.current, newRegion)) {
+          lastQueriedRegionRef.current = newRegion;
+          discoverInRegion(newRegion);
+        }
+      }, 450);
+    },
+    [discoverInRegion]
+  );
+
+  // 3. User taps "Locate Me" button
+  const handleLocateMe = useCallback(async () => {
+    try {
+      const fresh = await getCurrentLocation(0); // force fresh GPS
+      if (fresh) {
+        setUserCoords(fresh);
+        const userRegion: MapRegion = {
+          latitude: fresh.latitude,
+          longitude: fresh.longitude,
+          latitudeDelta: 0.02,
+          longitudeDelta: 0.02,
+        };
+        setCurrentRegion(userRegion);
+        lastQueriedRegionRef.current = userRegion;
+        discoverInRegion(userRegion);
+      }
+    } catch (err) {
+      console.warn('Could not retrieve current GPS position:', err);
+    }
+  }, [setUserCoords, discoverInRegion]);
+
+  // 4. Local Filtering (Decoupled from network discovery)
+  const filteredPharmacies = useMemo(() => {
+    return getFilteredPharmacies();
+  }, [rawPharmacies, maxDistanceKm, onlyOpen, onlyVerified, searchQuery, userCoords]);
+
+  // Open & apply filter sheet
   const openFilterSheet = () => {
     setDraftDistance(maxDistanceKm);
     setDraftOnlyOpen(onlyOpen);
@@ -106,7 +198,6 @@ export default function Pharmacies() {
   // Slide animation for bottom card (0 = fully visible, 350 = off screen)
   const slideAnim = useRef(new Animated.Value(350)).current;
 
-  // Animate card slide up when selectedPharmacy changes
   useEffect(() => {
     if (selectedPharmacy) {
       slideAnim.setValue(350);
@@ -129,7 +220,7 @@ export default function Pharmacies() {
     });
   };
 
-  // PanResponder to allow dragging down to dismiss card
+  // Drag down to dismiss gesture
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
@@ -152,7 +243,7 @@ export default function Pharmacies() {
     })
   ).current;
 
-  // Spinning animation for refresh button
+  // Spinning refresh indicator
   useEffect(() => {
     let animation: Animated.CompositeAnimation | null = null;
     if (loading) {
@@ -179,99 +270,6 @@ export default function Pharmacies() {
     outputRange: ['0deg', '360deg'],
   });
 
-  const stopLoading = () => {
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-    setLoading(false);
-    stopLoadingSheetRef.current?.close?.();
-  };
-
-  const loadPharmacies = useCallback(async () => {
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-    const controller = new AbortController();
-    abortControllerRef.current = controller;
-
-    setLoading(true);
-
-    try {
-      const coords = await getCurrentLocation();
-      if (controller.signal.aborted) return;
-      setUserCoords(coords);
-      storeSetCoords(coords);
-
-      const accumulated: OsmPharmacy[] = [];
-      await searchNearbyPharmacies(
-        coords,
-        8000,
-        (foundPharmacy) => {
-          if (accumulated.some((p) => p.id === foundPharmacy.id)) return;
-          accumulated.push(foundPharmacy);
-          storeSetPharmacies([...accumulated]);
-          setPharmacies([...accumulated]);
-        },
-        controller.signal
-      );
-    } catch {
-      // errors are silent — loading spinner stops and user can retry via refresh
-    } finally {
-      if (!controller.signal.aborted) {
-        setLoading(false);
-      }
-    }
-  }, []);
-
-  useEffect(() => {
-    if (storePharmacies.length > 0) {
-      setPharmacies(storePharmacies);
-      if (storeCoords) setUserCoords(storeCoords);
-      setLoading(false);
-      return;
-    }
-    loadPharmacies();
-    return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-    };
-  }, []);
-
-  // Auto-select pharmacy if selectedId param was passed (e.g. from Home or Search screen)
-  useEffect(() => {
-    if (!routeSelectedId) return;
-    const targetId = decodeURIComponent(routeSelectedId);
-    const found = pharmacies.find(
-      (p) => p.id === targetId || p.id === routeSelectedId || encodeURIComponent(p.id) === routeSelectedId
-    );
-    if (found) {
-      setSelectedPharmacy(found);
-    } else if (targetId && targetId !== 'undefined') {
-      // Fallback: Fetch directly from Supabase if it's a registered pharmacy
-      supabase
-        .from('pharmacies')
-        .select('*')
-        .eq('id', targetId)
-        .maybeSingle()
-        .then(({ data }) => {
-          if (data) {
-            setSelectedPharmacy({
-              id: data.id,
-              name: data.name,
-              address: data.address || 'Address registered on map',
-              phone: data.phone || 'N/A',
-              latitude: data.latitude || (userCoords?.latitude ?? 5.6037),
-              longitude: data.longitude || (userCoords?.longitude ?? -0.187),
-              distanceKm: 0.5,
-              walkMinutes: 6,
-              isVerified: true,
-            });
-          }
-        });
-    }
-  }, [routeSelectedId, pharmacies, userCoords]);
-
   const handleRefreshPress = () => {
     if (loading) {
       if (stopLoadingSheetRef.current?.present) {
@@ -279,35 +277,45 @@ export default function Pharmacies() {
       } else {
         stopLoadingSheetRef.current?.expand?.();
       }
-    } else {
-      setRefreshKey((prev) => prev + 1);
-      loadPharmacies();
+    } else if (currentRegion) {
+      discoverInRegion(currentRegion);
     }
   };
 
-  const filtered = useMemo(() => {
-    return pharmacies.filter((p) => {
-      const q = searchQuery.toLowerCase().trim();
-      const matchesSearch = !q || p.name.toLowerCase().includes(q) || (p.address && p.address.toLowerCase().includes(q));
-      // All pharmacies (verified or not) outside the user filter distance (e.g. 5km) must not show
-      const matchesDistance = p.distanceKm <= maxDistanceKm;
-      const matchesOpen = !onlyOpen || p.isOpen !== false;
-      const matchesVerified = !onlyVerified || p.isVerified;
-      return matchesSearch && matchesDistance && matchesOpen && matchesVerified;
-    });
-  }, [pharmacies, searchQuery, maxDistanceKm, onlyOpen, onlyVerified]);
-
-  const mapRegion = userCoords
-    ? {
-        latitude: userCoords.latitude,
-        longitude: userCoords.longitude,
-        latitudeDelta: 0.015,
-        longitudeDelta: 0.015,
-      }
-    : { latitude: 5.6037, longitude: -0.187, latitudeDelta: 0.015, longitudeDelta: 0.015 };
+  // Auto-select pharmacy if selectedId param was passed
+  useEffect(() => {
+    if (!routeSelectedId) return;
+    const targetId = decodeURIComponent(routeSelectedId);
+    const found = rawPharmacies.find(
+      (p) => p.id === targetId || p.id === routeSelectedId || encodeURIComponent(p.id) === routeSelectedId
+    );
+    if (found) {
+      setSelectedPharmacy(found);
+    } else if (targetId && targetId !== 'undefined') {
+      supabase
+        .from('pharmacies')
+        .select('*')
+        .eq('id', targetId)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data && data.latitude != null && data.longitude != null) {
+            setSelectedPharmacy({
+              id: data.id,
+              name: data.name,
+              address: data.address || 'Address registered on map',
+              phone: data.phone || undefined,
+              latitude: data.latitude,
+              longitude: data.longitude,
+              isVerified: true,
+              source: 'supabase',
+            });
+          }
+        });
+    }
+  }, [routeSelectedId, rawPharmacies]);
 
   // Navigate to in-app direction/route screen
-  const handleInAppNavigate = (pharmacy: OsmPharmacy) => {
+  const handleInAppNavigate = (pharmacy: DiscoveredPharmacy) => {
     router.push({
       pathname: '/(patient)/pharmacy/[id]/navigate',
       params: {
@@ -317,14 +325,14 @@ export default function Pharmacies() {
         lon: String(pharmacy.longitude),
         userLat: userCoords ? String(userCoords.latitude) : undefined,
         userLon: userCoords ? String(userCoords.longitude) : undefined,
-        distanceKm: String(pharmacy.distanceKm),
-        walkMinutes: String(pharmacy.walkMinutes),
+        distanceKm: pharmacy.distanceKm != null ? String(pharmacy.distanceKm) : undefined,
+        walkMinutes: pharmacy.walkMinutes != null ? String(pharmacy.walkMinutes) : undefined,
       },
     });
   };
 
-  // Navigate to full pharmacy profile & weekly operating hours schedule
-  const handleViewDetails = (pharmacy: OsmPharmacy) => {
+  // Navigate to pharmacy profile screen
+  const handleViewDetails = (pharmacy: DiscoveredPharmacy) => {
     const medQuery = routeQuery.trim() || searchQuery.trim() || undefined;
     router.push({
       pathname: '/(patient)/pharmacy/[id]',
@@ -338,22 +346,20 @@ export default function Pharmacies() {
         lon: String(pharmacy.longitude),
         userLat: userCoords ? String(userCoords.latitude) : undefined,
         userLon: userCoords ? String(userCoords.longitude) : undefined,
-        distanceKm: String(pharmacy.distanceKm),
-        walkMinutes: String(pharmacy.walkMinutes),
+        distanceKm: pharmacy.distanceKm != null ? String(pharmacy.distanceKm) : undefined,
+        walkMinutes: pharmacy.walkMinutes != null ? String(pharmacy.walkMinutes) : undefined,
         medName: medQuery,
       },
     });
   };
 
-  // Trigger Phone Call
   const handleCallPharmacy = (phone?: string) => {
     if (phone && phone !== 'N/A') {
       Linking.openURL(`tel:${phone}`);
     }
   };
 
-  // Trigger Reservation Flow
-  const handleReservePharmacy = (pharmacy: OsmPharmacy) => {
+  const handleReservePharmacy = (pharmacy: DiscoveredPharmacy) => {
     router.push({
       pathname: '/(patient)/reservation/[id]',
       params: {
@@ -365,42 +371,30 @@ export default function Pharmacies() {
     });
   };
 
-  const handleLocateMe = useCallback(async () => {
-    try {
-      const fresh = await getCurrentLocation();
-      setUserCoords(fresh);
-      storeSetCoords(fresh);
-      setRefreshKey((prev) => prev + 1);
-    } catch (err) {
-      console.warn('Could not retrieve current location:', err);
-    }
-  }, [storeSetCoords]);
-
   const hasPhone = !!selectedPharmacy?.phone && selectedPharmacy.phone !== 'N/A';
   const hasDrugQuery = !!routeQuery.trim();
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-
-      {/* ── Full-screen map — rendered first so it sits behind all overlays ── */}
+      {/* ── Full-screen Viewport Map ── */}
       <FullMapComponent
-        initialRegion={mapRegion}
+        initialRegion={currentRegion || undefined}
         userCoords={userCoords}
-        markers={filtered}
+        markers={filteredPharmacies}
         selectedId={selectedPharmacy?.id}
-        refreshKey={refreshKey}
         onPressLocate={handleLocateMe}
+        onRegionChangeComplete={handleRegionChangeComplete}
         onSelectMarker={(id) => {
-          const found = filtered.find((p) => p.id === id);
+          const found = rawPharmacies.find((p) => p.id === id);
           if (found) setSelectedPharmacy(found);
         }}
         mapPadding={{ top: 100 + insets.top, right: 10, bottom: 20, left: 10 }}
       />
 
-      {/* ── Top overlay: Header + optional banner + search bar ── */}
+      {/* ── Top overlay: Header + search bar + filter button ── */}
       <View style={[styles.overlayTop, { paddingTop: insets.top }]} pointerEvents="box-none">
         <Header
-          title="Nearby Pharmacies"
+          title="Pharmacies"
           showBack
           onBack={() => {
             if (router.canGoBack()) {
@@ -417,7 +411,6 @@ export default function Pharmacies() {
                 { backgroundColor: theme.surfaceSecondary },
               ]}
               onPress={handleRefreshPress}
-              disabled={loading}
             >
               {loading ? (
                 <ActivityIndicator size="small" color={primaryColor} />
@@ -440,13 +433,13 @@ export default function Pharmacies() {
           </View>
         ) : null}
 
-        {/* ── Search Bar & Filter Radius Button ── */}
+        {/* Search Bar & Filter Button */}
         <View style={styles.searchBarContainer}>
           <View style={[styles.searchBar, { backgroundColor: theme.card, borderColor: theme.border }]}>
             <Ionicons name="search-outline" size={16} color={theme.text.muted} style={{ marginRight: 8 }} />
             <TextInput
               style={[styles.searchInput, { color: theme.text.primary }]}
-              placeholder="Search pharmacies..."
+              placeholder="Search pharmacies in this area..."
               placeholderTextColor={theme.text.muted}
               value={searchQuery}
               onChangeText={setSearchQuery}
@@ -468,12 +461,14 @@ export default function Pharmacies() {
             onPress={openFilterSheet}
           >
             <Ionicons name="options-outline" size={18} color={primaryColor} />
-            <Text style={[styles.filterRadiusText, { color: primaryColor }]}>{maxDistanceKm} km</Text>
+            <Text style={[styles.filterRadiusText, { color: primaryColor }]}>
+              {maxDistanceKm !== null ? `${maxDistanceKm} km` : 'Filter'}
+            </Text>
           </Pressable>
         </View>
       </View>
 
-      {/* ── Selected Pharmacy Details Card with Slide Down & Drag-to-Dismiss ── */}
+      {/* ── Selected Pharmacy Details Card ── */}
       {selectedPharmacy && (
         <Animated.View
           style={[
@@ -488,7 +483,7 @@ export default function Pharmacies() {
           </View>
 
           <View style={styles.sheetContent}>
-            {/* Title Row + Close button */}
+            {/* Header Row */}
             <View style={styles.cardHeaderRow}>
               <View style={{ flex: 1, gap: SPACING.xs }}>
                 <Text style={[styles.pharmTitle, { color: theme.text.primary }]} numberOfLines={1}>
@@ -560,18 +555,24 @@ export default function Pharmacies() {
               </View>
             </View>
 
-            {/* Distance & Time */}
-            <View style={styles.metaRow}>
-              <Ionicons name="navigate-outline" size={14} color={theme.textMuted} />
-              <Text style={[styles.metaText, { color: theme.textMuted }]}>
-                {cleanDistanceString(selectedPharmacy.distanceKm)} away
-              </Text>
-              <Text style={[styles.metaDot, { color: theme.textDim }]}>·</Text>
-              <Ionicons name="walk-outline" size={14} color={theme.textMuted} />
-              <Text style={[styles.metaText, { color: theme.textMuted }]}>
-                {cleanDurationString(selectedPharmacy.walkMinutes)}
-              </Text>
-            </View>
+            {/* Distance & Time (if GPS available) */}
+            {selectedPharmacy.distanceKm !== undefined && (
+              <View style={styles.metaRow}>
+                <Ionicons name="navigate-outline" size={14} color={theme.textMuted} />
+                <Text style={[styles.metaText, { color: theme.textMuted }]}>
+                  {cleanDistanceString(selectedPharmacy.distanceKm)} away
+                </Text>
+                {selectedPharmacy.walkMinutes !== undefined && (
+                  <>
+                    <Text style={[styles.metaDot, { color: theme.textDim }]}>·</Text>
+                    <Ionicons name="walk-outline" size={14} color={theme.textMuted} />
+                    <Text style={[styles.metaText, { color: theme.textMuted }]}>
+                      {cleanDurationString(selectedPharmacy.walkMinutes)}
+                    </Text>
+                  </>
+                )}
+              </View>
+            )}
 
             {/* Address */}
             <View style={styles.infoRow}>
@@ -581,7 +582,7 @@ export default function Pharmacies() {
               </Text>
             </View>
 
-            {/* Phone (Only rendered if phone exists) */}
+            {/* Phone */}
             {hasPhone ? (
               <Pressable
                 style={({ pressed }) => [styles.infoRow, pressed && { opacity: 0.6 }]}
@@ -595,7 +596,7 @@ export default function Pharmacies() {
               </Pressable>
             ) : null}
 
-            {/* Drug Stock status check */}
+            {/* Drug Stock Banner */}
             {hasDrugQuery ? (
               selectedPharmacy.isVerified ? (
                 <View style={[styles.stockCheckBanner, { backgroundColor: theme.successBg }]}>
@@ -616,7 +617,6 @@ export default function Pharmacies() {
 
             {/* Action Buttons Row */}
             <View style={styles.actionRow}>
-              {/* Full Details -> View profile & full weekly hours schedule */}
               <Pressable
                 style={({ pressed }) => [
                   styles.actionBtn,
@@ -630,7 +630,6 @@ export default function Pharmacies() {
                 <Text style={[styles.actionBtnText, { color: theme.text.primary }]}>Details</Text>
               </Pressable>
 
-              {/* Navigate -> In-app directions */}
               <Pressable
                 style={({ pressed }) => [
                   styles.actionBtn,
@@ -644,7 +643,6 @@ export default function Pharmacies() {
                 <Text style={[styles.actionBtnText, { color: primaryColor }]}>Navigate</Text>
               </Pressable>
 
-              {/* Reserve Button — Only rendered if there is an active medicine query */}
               {hasDrugQuery && (
                 <Pressable
                   style={({ pressed }) => [
@@ -676,7 +674,7 @@ export default function Pharmacies() {
               <Ionicons name="refresh-circle" size={24} color={primaryColor} />
             </Animated.View>
             <Text style={[styles.sheetSub, { color: theme.textMuted }]}>
-              Pharmacies are being streamed from nearby locations.
+              Pharmacies are being discovered in the current map region.
             </Text>
           </View>
 
@@ -688,7 +686,7 @@ export default function Pharmacies() {
             ]}
             onPress={() => {
               stopLoadingSheetRef.current?.close();
-              stopLoading();
+              stopDiscovery();
             }}
           >
             <Ionicons name="stop-circle-outline" size={20} color={theme.error ?? COLORS.error} />
@@ -703,11 +701,11 @@ export default function Pharmacies() {
             ]}
             onPress={() => {
               stopLoadingSheetRef.current?.close();
-              loadPharmacies();
+              if (currentRegion) discoverInRegion(currentRegion, { force: true });
             }}
           >
             <Ionicons name="reload-outline" size={20} color={primaryColor} />
-            <Text style={[styles.sheetOptionText, { color: primaryColor, fontFamily: 'Inter-Bold' }]}>Restart loading pharmacies</Text>
+            <Text style={[styles.sheetOptionText, { color: primaryColor, fontFamily: 'Inter-Bold' }]}>Restart discovery</Text>
           </Pressable>
         </View>
       </AppBottomSheet>
@@ -715,12 +713,11 @@ export default function Pharmacies() {
       {/* ── Distance Radius & Filter Bottom Sheet ── */}
       <AppBottomSheet
         ref={filterSheetRef}
-        snapPoints={['55%']}
         title="Distance & Map Filters"
       >
         <View style={styles.sheetBody}>
           <Text style={[styles.sheetSubTitle, { color: theme.textMuted }]}>
-            MAXIMUM SEARCH RADIUS ({draftDistance} KM)
+            MAXIMUM SEARCH RADIUS ({draftDistance !== null ? `${draftDistance} KM` : 'ANY DISTANCE'})
           </Text>
           <View style={styles.chipRow}>
             {[1, 3, 5, 10, 15, 25, 50].map((dist) => {
@@ -741,6 +738,19 @@ export default function Pharmacies() {
                 </Pressable>
               );
             })}
+            {/* No distance chip */}
+            <Pressable
+              style={({ pressed }) => [
+                styles.radiusChip,
+                draftDistance === null ? { backgroundColor: primaryColor, borderColor: primaryColor } : { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
+                pressed && { opacity: 0.7 },
+              ]}
+              onPress={() => setDraftDistance(null)}
+            >
+              <Text style={[styles.radiusChipText, { color: draftDistance === null ? COLORS.white : theme.text.primary }]}>
+                No distance
+              </Text>
+            </Pressable>
           </View>
 
           <Text style={[styles.sheetSubTitle, { color: theme.textMuted, marginTop: SPACING.lg }]}>
@@ -756,7 +766,7 @@ export default function Pharmacies() {
               onPress={() => setDraftOnlyOpen(!draftOnlyOpen)}
             >
               <Ionicons name={draftOnlyOpen ? "checkbox" : "square-outline"} size={20} color={draftOnlyOpen ? primaryColor : theme.textMuted} />
-              <Text style={[styles.toggleFilterText, { color: theme.text }]}>Show Open Pharmacies Only</Text>
+              <Text style={[styles.toggleFilterText, { color: theme.text.primary }]}>Show Open Pharmacies Only</Text>
             </Pressable>
 
             <Pressable
@@ -768,7 +778,7 @@ export default function Pharmacies() {
               onPress={() => setDraftOnlyVerified(!draftOnlyVerified)}
             >
               <Ionicons name={draftOnlyVerified ? "checkbox" : "square-outline"} size={20} color={draftOnlyVerified ? primaryColor : theme.textMuted} />
-              <Text style={[styles.toggleFilterText, { color: theme.text }]}>Show Verified Partners Only</Text>
+              <Text style={[styles.toggleFilterText, { color: theme.text.primary }]}>Show Verified Partners Only</Text>
             </Pressable>
           </View>
 
@@ -790,79 +800,99 @@ export default function Pharmacies() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1
+    flex: 1,
+  },
+  overlayTop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
   },
   navBtn: {
     width: 36,
     height: 36,
     borderRadius: RADIUS.pill,
     justifyContent: 'center',
-    alignItems: 'center'
+    alignItems: 'center',
   },
   contextBanner: {
+    marginHorizontal: SPACING.lg,
+    marginTop: SPACING.xs,
+    marginBottom: SPACING.xs,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.md,
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.md,
-    borderBottomWidth: 1
+    gap: SPACING.sm,
   },
   contextTitle: {
-    fontSize: FONT_SIZE.md, fontFamily: 'Inter-Bold'
+    fontSize: FONT_SIZE.sm,
+    fontFamily: 'Inter-Bold',
   },
-
   searchBarContainer: {
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.md,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.md,
-    zIndex: 10
+    paddingHorizontal: SPACING.lg,
+    marginTop: SPACING.xs,
+    gap: SPACING.sm,
   },
   searchBar: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    height: 44,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
     paddingHorizontal: SPACING.md,
-    height: 42,
-    borderRadius: RADIUS.pill,
-    borderWidth: 1
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 3,
   },
   searchInput: {
-    fontFamily: 'Inter-Regular',
     flex: 1,
-    fontSize: FONT_SIZE.lg,
-    paddingVertical: 0,
+    fontSize: FONT_SIZE.md,
+    fontFamily: 'Inter-Medium',
   },
-
-  overlayTop: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0
+  filterRadiusBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 44,
+    paddingHorizontal: SPACING.md,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1.5,
+    gap: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 3,
   },
-
-  // ── Selected Pharmacy Details Overlay Card ──
+  filterRadiusText: {
+    fontSize: FONT_SIZE.sm,
+    fontFamily: 'Inter-Bold',
+  },
   bottomDetailsCard: {
     position: 'absolute',
-    bottom: 0,
     left: 0,
     right: 0,
-    borderTopLeftRadius: RADIUS.xl,
-    borderTopRightRadius: RADIUS.xl,
+    bottom: 0,
+    borderRadius: RADIUS.xl,
     borderWidth: 1,
-    zIndex: 999
+    zIndex: 20,
   },
   handleContainer: {
-    width: '100%',
-    paddingVertical: SPACING.md,
     alignItems: 'center',
-    justifyContent: 'center'
+    paddingVertical: SPACING.xs,
   },
   handleIndicator: {
-    width: 40,
-    height: 5,
-    borderRadius: RADIUS.sm
+    width: 36,
+    height: 4,
+    borderRadius: RADIUS.pill,
   },
   sheetContent: {
     paddingHorizontal: SPACING.xl,
@@ -872,17 +902,18 @@ const styles = StyleSheet.create({
   cardHeaderRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    justifyContent: 'space-between'
+    justifyContent: 'space-between',
   },
   pharmTitle: {
     fontSize: FONT_SIZE.xl,
-    fontFamily: 'Inter-Bold'
+    fontFamily: 'Inter-Bold',
+    paddingVertical: SPACING.sm,
   },
   badgeRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     alignItems: 'center',
-    gap: SPACING.xs
+    gap: SPACING.xs,
+    flexWrap: 'wrap',
   },
   registeredBadge: {
     flexDirection: 'row',
@@ -894,163 +925,139 @@ const styles = StyleSheet.create({
   },
   registeredText: {
     fontSize: FONT_SIZE.xs,
-    fontFamily: 'Inter-Bold'
+    fontFamily: 'Inter-SemiBold',
   },
   hoursBadge: {
     flexDirection: 'row',
     paddingHorizontal: SPACING.sm,
     paddingVertical: SPACING.xs,
-    borderRadius: RADIUS.sm,
+    borderRadius: RADIUS.pill,
     alignItems: "center",
     gap: SPACING.xs,
   },
   hoursText: {
     fontSize: FONT_SIZE.sm,
-    fontFamily: 'Inter-Bold'
-  },
-  closeBtn: {
-    width: 30,
-    height: 30,
-    borderRadius: RADIUS.pill,
-    justifyContent: 'center',
-    alignItems: 'center'
+    fontFamily: 'Inter-SemiBold',
   },
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.xs
+    gap: SPACING.xs,
   },
   metaText: {
     fontSize: FONT_SIZE.md,
-    fontFamily: 'Inter-Medium'
+    fontFamily: 'Inter-Medium',
   },
   metaDot: {
-    fontFamily: 'Inter-Regular',
-    fontSize: FONT_SIZE.md
+    fontSize: FONT_SIZE.md,
   },
   infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.xs
+    gap: SPACING.xs,
   },
   infoText: {
-    fontFamily: 'Inter-Regular',
     fontSize: FONT_SIZE.md,
-    flex: 1
+    fontFamily: 'Inter-Regular',
+    flex: 1,
   },
   stockCheckBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.xs,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.xs,
-    borderRadius: RADIUS.md
+    padding: SPACING.sm,
+    borderRadius: RADIUS.md,
+    marginTop: SPACING.xs,
   },
   stockCheckText: {
     fontSize: FONT_SIZE.md,
-    fontFamily: 'Inter-SemiBold'
+    fontFamily: 'Inter-SemiBold',
+    flex: 1,
   },
-
   actionRow: {
     flexDirection: 'row',
-    gap: SPACING.md,
-    marginTop: SPACING.xs
+    alignItems: 'center',
+    gap: SPACING.sm,
+    marginTop: SPACING.sm,
   },
   actionBtn: {
     flex: 1,
-    height: 46,
+    height: 42,
     borderRadius: RADIUS.pill,
     flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
-    gap: SPACING.xs
+    justifyContent: 'center',
+    gap: SPACING.xs,
   },
   secondaryActionBtn: {
-    borderWidth: 1.5
+    borderWidth: 1.5,
   },
-  primaryActionBtn: {
-    
-  },
+  primaryActionBtn: {},
   actionBtnText: {
-    fontSize: FONT_SIZE.lg,
-    fontFamily: 'Inter-SemiBold'
+    fontSize: FONT_SIZE.sm,
+    fontFamily: 'Inter-Bold',
   },
-
   sheetBody: {
-    padding: SPACING.lg
+    paddingHorizontal: SPACING.xl,
+    paddingTop: SPACING.md,
   },
   sheetSub: {
+    fontSize: FONT_SIZE.sm,
     fontFamily: 'Inter-Regular',
-    fontSize: FONT_SIZE.md, flex: 1
+    flex: 1,
   },
-  sheetOptionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.md,
-    padding: SPACING.lg,
-    borderRadius: RADIUS.md
-  },
-  sheetOptionText: {
-    fontSize: FONT_SIZE.lg, fontFamily: 'Inter-SemiBold'
-  },
-
-  filterRadiusBtn: {
-    height: 44,
-    paddingHorizontal: SPACING.md,
-    borderRadius: RADIUS.md,
-    borderWidth: 1.5,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.xs,
-    justifyContent: 'center'
-  },
-  filterRadiusText: {
-    fontSize: FONT_SIZE.md,
-    fontFamily: 'Inter-Bold'
+  sheetSubTitle: {
+    fontSize: FONT_SIZE.xs,
+    fontFamily: 'Inter-Bold',
+    letterSpacing: 0.5,
+    marginBottom: SPACING.sm,
   },
   chipRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: SPACING.xs,
-    marginTop: SPACING.sm
   },
   radiusChip: {
-    paddingHorizontal: SPACING.lg,
+    paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
     borderRadius: RADIUS.pill,
-    borderWidth: 1
+    borderWidth: 1,
   },
   radiusChipText: {
-    fontSize: FONT_SIZE.md,
-    fontFamily: 'Inter-SemiBold'
-  },
-  sheetSubTitle: {
-    fontSize: FONT_SIZE.sm,
-    fontFamily: 'Inter-Bold',
-    letterSpacing: 0.5,
-    marginBottom: SPACING.xs
+    fontSize: FONT_SIZE.xs,
+    fontFamily: 'Inter-SemiBold',
   },
   toggleFilterRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.md,
+    gap: SPACING.sm,
     padding: SPACING.md,
-    borderRadius: RADIUS.md
+    borderRadius: RADIUS.lg,
   },
   toggleFilterText: {
-    fontSize: FONT_SIZE.md,
-    fontFamily: 'Inter-SemiBold'
+    fontSize: FONT_SIZE.sm,
+    fontFamily: 'Inter-Medium',
   },
   applyFilterBtn: {
-    height: 46,
-    borderRadius: RADIUS.md,
+    height: 48,
+    borderRadius: RADIUS.pill,
+    alignItems: 'center',
     justifyContent: 'center',
-    alignItems: 'center'
   },
   applyFilterBtnText: {
+    fontSize: FONT_SIZE.md,
+    fontFamily: 'Inter-Bold',
     color: COLORS.white,
-    fontSize: FONT_SIZE.lg,
-    fontFamily: 'Inter-Bold'
   },
-
+  sheetOptionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    padding: SPACING.md,
+    borderRadius: RADIUS.lg,
+  },
+  sheetOptionText: {
+    fontSize: FONT_SIZE.sm,
+    fontFamily: 'Inter-Medium',
+  },
 });

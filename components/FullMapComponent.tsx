@@ -1,22 +1,18 @@
 import { COLORS, FONT_SIZE, MAP_PIN_COLORS, RADIUS, SPACING, getPharmacyPinColor } from '@/styles/theme';
-import React from 'react';
+import React, { useMemo } from 'react';
 import { StyleSheet, View, Text, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { MarkerData } from '@/types/map';
+import type { MarkerData, MapRegion } from '@/types/map';
 export type { MarkerData };
 
 interface FullMapComponentProps {
-  initialRegion?: {
-    latitude: number;
-    longitude: number;
-    latitudeDelta: number;
-    longitudeDelta: number;
-  };
+  initialRegion?: MapRegion;
   userCoords: { latitude: number; longitude: number } | null;
   markers: MarkerData[];
   selectedId?: string | null;
   onSelectMarker: (id: string) => void;
+  onRegionChangeComplete?: (region: MapRegion) => void;
   routeCoords?: { latitude: number; longitude: number }[];
   mapPadding?: { top: number; right: number; bottom: number; left: number };
   showLegend?: boolean;
@@ -34,28 +30,55 @@ export function getPinColor(m: MarkerData, isSelected: boolean): string {
 }
 
 export default function FullMapComponent({
+  initialRegion,
   userCoords,
   markers,
   selectedId,
   onSelectMarker,
   showLegend = true,
-  refreshKey,
   onPressLocate,
 }: FullMapComponentProps) {
-  // Translate latitude/longitude offsets into CSS percentage positions relative to Accra area
+  // Dynamically calculate center and scale based on active region, userCoords, or visible markers
+  const { centerLat, centerLng, latSpan, lngSpan } = useMemo(() => {
+    if (initialRegion) {
+      return {
+        centerLat: initialRegion.latitude,
+        centerLng: initialRegion.longitude,
+        latSpan: Math.max(0.01, initialRegion.latitudeDelta),
+        lngSpan: Math.max(0.01, initialRegion.longitudeDelta),
+      };
+    }
+    if (userCoords) {
+      return {
+        centerLat: userCoords.latitude,
+        centerLng: userCoords.longitude,
+        latSpan: 0.05,
+        lngSpan: 0.05,
+      };
+    }
+    if (markers.length > 0) {
+      const avgLat = markers.reduce((sum, m) => sum + m.latitude, 0) / markers.length;
+      const avgLng = markers.reduce((sum, m) => sum + m.longitude, 0) / markers.length;
+      return {
+        centerLat: avgLat,
+        centerLng: avgLng,
+        latSpan: 0.05,
+        lngSpan: 0.05,
+      };
+    }
+    return { centerLat: 0, centerLng: 0, latSpan: 1, lngSpan: 1 };
+  }, [initialRegion, userCoords, markers]);
+
   const getPositionStyles = (lat: number, lng: number) => {
-    const centerLat = 5.6037;
-    const centerLng = -0.1870;
-    
     const latDiff = lat - centerLat;
     const lngDiff = lng - centerLng;
-    
-    const topPercent = 50 - (latDiff / 0.05) * 50;
-    const leftPercent = 50 + (lngDiff / 0.05) * 50;
-    
+
+    const topPercent = 50 - (latDiff / latSpan) * 45;
+    const leftPercent = 50 + (lngDiff / lngSpan) * 45;
+
     return {
-      top: `${Math.min(Math.max(topPercent, 10), 85)}%` as any,
-      left: `${Math.min(Math.max(leftPercent, 10), 85)}%` as any,
+      top: `${Math.min(Math.max(topPercent, 8), 88)}%` as any,
+      left: `${Math.min(Math.max(leftPercent, 8), 88)}%` as any,
     };
   };
 
@@ -124,7 +147,7 @@ export default function FullMapComponent({
       </View>
 
       {/* Floating GPS My Location FAB Button */}
-      {onPressLocate && (
+      {onPressLocate && userCoords && (
         <Pressable
           style={({ pressed }) => [
             styles.locateFab,

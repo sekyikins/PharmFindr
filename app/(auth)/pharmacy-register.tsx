@@ -333,21 +333,19 @@ function Step2Location({
       setMapDataLoading(true);
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
-        let centerLat = 5.6037;
-        let centerLon = -0.187;
+        let centerCoords: { latitude: number; longitude: number } | null = null;
 
         if (status === 'granted') {
           const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
           if (loc?.coords && isMounted) {
-            centerLat = loc.coords.latitude;
-            centerLon = loc.coords.longitude;
-            setInitialCoords({ latitude: centerLat, longitude: centerLon });
+            centerCoords = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
+            setInitialCoords(centerCoords);
           }
         }
 
-        // Fetch all registered PharmFindr pharmacies worldwide + Google Maps pharmacies for area
+        // Fetch registered pharmacies + Google Maps pharmacies for area if location is known
         const [gList, dbPharmacies] = await Promise.all([
-          fetchGoogleMapsPharmaciesForRegistration({ latitude: centerLat, longitude: centerLon }, 10000),
+          centerCoords ? fetchGoogleMapsPharmaciesForRegistration(centerCoords, 10000) : Promise.resolve([]),
           supabase
             .from('pharmacies')
             .select('id, name, latitude, longitude, address')

@@ -78,7 +78,7 @@ const AppBottomSheet = forwardRef<any, AppBottomSheetProps>(
           <BottomSheetScrollView
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingBottom: 50 }}
+            contentContainerStyle={{ paddingBottom: 70 }}
           >
             {children}
           </BottomSheetScrollView>
@@ -96,7 +96,7 @@ const styles = StyleSheet.create({
     paddingBottom: SPACING.md
   },
   titleRow: {
-    height: 48,
+    height: 45,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",

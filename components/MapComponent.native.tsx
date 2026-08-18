@@ -3,7 +3,7 @@ import React from 'react';
 import { View, StyleSheet, Text } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 
-import { KnownPharmacy, RegisteredPharmacy } from '@/types/map';
+import type { KnownPharmacy, RegisteredPharmacy, MapRegion } from '@/types/map';
 export type { KnownPharmacy, RegisteredPharmacy };
 
 interface MapComponentProps {
@@ -14,7 +14,7 @@ interface MapComponentProps {
   setScrollEnabled?: (enabled: boolean) => void;
   knownPharmacies?: KnownPharmacy[];
   registeredPharmacies?: RegisteredPharmacy[];
-  onRegionChangeComplete?: (region: { latitude: number; longitude: number; latitudeDelta: number; longitudeDelta: number }) => void;
+  onRegionChangeComplete?: (region: MapRegion) => void;
   onExpand?: () => void;
 }
 
@@ -30,24 +30,37 @@ export default function MapComponent({
 }: MapComponentProps) {
   const mapRef = React.useRef<MapView>(null);
   const hasFocusedRef = React.useRef(false);
-  const lat = pin?.latitude ?? initialCoords?.latitude ?? 5.6037;
-  const lon = pin?.longitude ?? initialCoords?.longitude ?? -0.187;
+  const focusCoords = pin || initialCoords || null;
 
-  // Auto-focus strictly ONCE when the map is opened
+  // Auto-focus strictly ONCE when coordinates become available
   React.useEffect(() => {
-    if (!hasFocusedRef.current && (initialCoords || pin)) {
+    if (!hasFocusedRef.current && focusCoords) {
       hasFocusedRef.current = true;
       mapRef.current?.animateToRegion(
         {
-          latitude: lat,
-          longitude: lon,
+          latitude: focusCoords.latitude,
+          longitude: focusCoords.longitude,
           latitudeDelta: 0.015,
           longitudeDelta: 0.015,
         },
         400
       );
     }
-  }, [initialCoords, pin, lat, lon]);
+  }, [focusCoords]);
+
+  const defaultRegion = focusCoords
+    ? {
+        latitude: focusCoords.latitude,
+        longitude: focusCoords.longitude,
+        latitudeDelta: 0.015,
+        longitudeDelta: 0.015,
+      }
+    : {
+        latitude: 0,
+        longitude: 0,
+        latitudeDelta: 80,
+        longitudeDelta: 80,
+      };
 
   return (
     <View style={styles.container}>
@@ -57,12 +70,7 @@ export default function MapComponent({
         provider={PROVIDER_GOOGLE}
         showsUserLocation={true}
         showsMyLocationButton={true}
-        initialRegion={{
-          latitude: lat,
-          longitude: lon,
-          latitudeDelta: 0.015,
-          longitudeDelta: 0.015,
-        }}
+        initialRegion={defaultRegion}
         onRegionChangeComplete={onRegionChangeComplete}
         onPress={(e) => onPressMap(e.nativeEvent.coordinate)}
         onTouchStart={() => setScrollEnabled?.(false)}

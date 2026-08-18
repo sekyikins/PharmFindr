@@ -55,8 +55,8 @@ export default function Navigate() {
   });
 
   const pharmName = params.name ?? 'Pharmacy';
-  const pharmLat = parseFloat(params.lat ?? '5.6037');
-  const pharmLon = parseFloat(params.lon ?? '-0.187');
+  const pharmLat = parseFloat(params.lat ?? '0');
+  const pharmLon = parseFloat(params.lon ?? '0');
   const pharmCoords: Coords = { latitude: pharmLat, longitude: pharmLon };
 
   const initialUserCoords: Coords | null =

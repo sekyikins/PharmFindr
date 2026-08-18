@@ -5,20 +5,16 @@ import MapView, { Marker, Polyline, PROVIDER_GOOGLE, EdgePadding } from 'react-n
 import type { MapMarker } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 
-import { MarkerData } from '@/types/map';
+import type { MarkerData, MapRegion } from '@/types/map';
 export type { MarkerData };
 
 interface FullMapComponentProps {
-  initialRegion?: {
-    latitude: number;
-    longitude: number;
-    latitudeDelta: number;
-    longitudeDelta: number;
-  };
+  initialRegion?: MapRegion;
   userCoords: { latitude: number; longitude: number } | null;
   markers: MarkerData[];
   selectedId?: string | null;
   onSelectMarker: (id: string) => void;
+  onRegionChangeComplete?: (region: MapRegion) => void;
   routeCoords?: { latitude: number; longitude: number }[];
   mapPadding?: EdgePadding;
   showLegend?: boolean;
@@ -41,6 +37,7 @@ export default function FullMapComponent({
   markers,
   selectedId,
   onSelectMarker,
+  onRegionChangeComplete,
   routeCoords,
   mapPadding,
   showLegend = true,
@@ -52,7 +49,7 @@ export default function FullMapComponent({
   const hasFramedRouteRef = useRef(false);
   const hasFramedInitialRef = useRef(false);
 
-  // 1. Initial Route Framing: Runs strictly once when navigation route polyline (2+ points) becomes available
+  // 1. Route Framing: Runs strictly once when navigation route polyline (2+ points) is supplied
   useEffect(() => {
     if (!mapRef.current || !mapReadyRef.current) return;
     if (routeCoords && routeCoords.length >= 2 && !hasFramedRouteRef.current) {
@@ -66,11 +63,10 @@ export default function FullMapComponent({
     }
   }, [routeCoords, mapPadding]);
 
-  // 2. Initial User Location Framing: Runs strictly once when opening browse map without directions
+  // 2. Initial User Location Framing: Runs strictly once when opening browse map with user location
   useEffect(() => {
     if (!mapRef.current || !mapReadyRef.current || hasFramedInitialRef.current) return;
 
-    // If route coordinates are expected, wait for the route polyline instead of zooming to single point
     if (routeCoords !== undefined) {
       return;
     }
@@ -81,8 +77,8 @@ export default function FullMapComponent({
         {
           latitude: userCoords.latitude,
           longitude: userCoords.longitude,
-          latitudeDelta: 0.015,
-          longitudeDelta: 0.015,
+          latitudeDelta: 0.02,
+          longitudeDelta: 0.02,
         },
         400
       );
@@ -115,8 +111,8 @@ export default function FullMapComponent({
           {
             latitude: userCoords.latitude,
             longitude: userCoords.longitude,
-            latitudeDelta: 0.015,
-            longitudeDelta: 0.015,
+            latitudeDelta: 0.02,
+            longitudeDelta: 0.02,
           },
           400
         );
@@ -124,15 +120,15 @@ export default function FullMapComponent({
     }
   }, [routeCoords, userCoords, mapPadding]);
 
-  // Center camera directly on device GPS location ONLY when user taps the Locate button
+  // Center camera directly on device GPS location ONLY when user taps Locate FAB
   const handleCenterOnUser = useCallback(() => {
     if (userCoords && mapRef.current) {
       mapRef.current.animateToRegion(
         {
           latitude: userCoords.latitude,
           longitude: userCoords.longitude,
-          latitudeDelta: 0.015,
-          longitudeDelta: 0.015,
+          latitudeDelta: 0.02,
+          longitudeDelta: 0.02,
         },
         400
       );
@@ -143,12 +139,17 @@ export default function FullMapComponent({
     }
   }, [userCoords, onPressLocate]);
 
-  const defaultInitialRegion = initialRegion || {
-    latitude: userCoords?.latitude ?? 5.6037,
-    longitude: userCoords?.longitude ?? -0.187,
-    latitudeDelta: 0.015,
-    longitudeDelta: 0.015,
-  };
+  const defaultInitialRegion = initialRegion || (userCoords ? {
+    latitude: userCoords.latitude,
+    longitude: userCoords.longitude,
+    latitudeDelta: 0.02,
+    longitudeDelta: 0.02,
+  } : {
+    latitude: 0,
+    longitude: 0,
+    latitudeDelta: 100,
+    longitudeDelta: 100,
+  });
 
   return (
     <View style={styles.container}>
@@ -158,7 +159,8 @@ export default function FullMapComponent({
         provider={PROVIDER_GOOGLE}
         initialRegion={defaultInitialRegion}
         onMapReady={handleMapReady}
-        showsUserLocation
+        onRegionChangeComplete={onRegionChangeComplete}
+        showsUserLocation={!!userCoords}
         showsMyLocationButton={false}
         showsCompass
         mapPadding={mapPadding || { top: 120, right: 16, bottom: 140, left: 16 }}
@@ -194,17 +196,19 @@ export default function FullMapComponent({
       </MapView>
 
       {/* Floating GPS My Location FAB Button */}
-      <Pressable
-        style={({ pressed }) => [
-          styles.locateFab,
-          pressed && { opacity: 0.8, transform: [{ scale: 0.94 }] },
-          { bottom: showLegend ? 64 : 20 },
-        ]}
-        onPress={handleCenterOnUser}
-        accessibilityLabel="Center map on my location"
-      >
-        <Ionicons name="locate" size={22} color={COLORS.patientPrimary} />
-      </Pressable>
+      {userCoords && (
+        <Pressable
+          style={({ pressed }) => [
+            styles.locateFab,
+            pressed && { opacity: 0.8, transform: [{ scale: 0.94 }] },
+            { bottom: showLegend ? 64 : 20 },
+          ]}
+          onPress={handleCenterOnUser}
+          accessibilityLabel="Center map on my location"
+        >
+          <Ionicons name="locate" size={22} color={COLORS.patientPrimary} />
+        </Pressable>
+      )}
 
       {/* Floating Map Legend Bar */}
       {showLegend && (

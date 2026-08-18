@@ -18,6 +18,7 @@ import { COLORS, FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
 import { supabase } from '@/lib/supabase';
 import { formatTimeHHMM, haversineKm } from '@/lib/osm';
 import { getCurrentLocation, type Coords } from '@/lib/location';
+import type { WeeklyScheduleDay } from '@/types/map';
 import {
   getRoute,
   cleanDistanceString,
@@ -59,8 +60,8 @@ export default function PharmacyDetail() {
     address: params.address || 'Address unavailable',
     phone: params.phone || 'N/A',
     hours: params.hours || 'N/A',
-    lat: parseFloat(params.lat ?? '5.6037'),
-    lon: parseFloat(params.lon ?? '-0.187'),
+    lat: parseFloat(params.lat ?? '0'),
+    lon: parseFloat(params.lon ?? '0'),
   });
 
   const [userCoords, setUserCoords] = useState<Coords | null>(usePharmacyStore.getState().userCoords);
@@ -68,9 +69,7 @@ export default function PharmacyDetail() {
   const [routeLoading, setRouteLoading] = useState(true);
   const [routeError, setRouteError] = useState<string | null>(null);
 
-  const [weeklySchedule, setWeeklySchedule] = useState<
-    Array<{ day: string; isOpen: boolean; opens: string; closes: string }>
-  >([]);
+  const [weeklySchedule, setWeeklySchedule] = useState<WeeklyScheduleDay[]>([]);
   const [isOpenNow, setIsOpenNow] = useState<boolean | null>(null);
   const [statusText, setStatusText] = useState<string | null>(null);
   const [isClosingSoon, setIsClosingSoon] = useState(false);
@@ -164,8 +163,8 @@ export default function PharmacyDetail() {
       // It's a public map pharmacy: query Google Places API (New) for live operating hours & schedule
       const cleanName = (params.name || details.name || 'Pharmacy').replace(/^Public Pharmacy$/i, 'Pharmacy');
       const targetCoords = {
-        latitude: parseFloat(params.lat ?? String(details.lat ?? 5.6037)),
-        longitude: parseFloat(params.lon ?? String(details.lon ?? -0.187)),
+        latitude: parseFloat(params.lat ?? String(details.lat || 0)),
+        longitude: parseFloat(params.lon ?? String(details.lon || 0)),
       };
 
       import('@/lib/googlePlaces').then(({ fetchPlaceDetailsByNameAndCoords }) => {
@@ -400,7 +399,7 @@ export default function PharmacyDetail() {
                         isToday && { fontFamily: 'Inter-Bold' },
                       ]}
                     >
-                      {s.isOpen ? `${formatTimeHHMM(s.opens)} - ${formatTimeHHMM(s.closes)}` : 'Closed'}
+                      {s.isOpen ? `${formatTimeHHMM(s.opens)} - ${formatTimeHHMM(s.closes)}` : s.isOpen === false ? 'Closed' : 'Hours unavailable'}
                     </Text>
                   </View>
                 );

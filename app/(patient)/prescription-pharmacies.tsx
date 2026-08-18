@@ -112,8 +112,8 @@ export default function PrescriptionPharmacies() {
       params: {
         id: encodeURIComponent(pharmacy.pharmacyId),
         name: pharmacy.pharmacyName,
-        lat: String(pharmacy.latitude ?? 5.6037),
-        lon: String(pharmacy.longitude ?? -0.187),
+        lat: String(pharmacy.latitude ?? 0),
+        lon: String(pharmacy.longitude ?? 0),
         distanceKm: pharmacy.distanceKm != null ? String(pharmacy.distanceKm) : undefined,
         walkMinutes: pharmacy.walkMinutes != null ? String(pharmacy.walkMinutes) : undefined,
       },

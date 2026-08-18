@@ -302,7 +302,7 @@ export default function Home() {
             <View style={[styles.emptyCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
               <Ionicons name="location-outline" size={28} color={theme.textDim} />
               <Text style={[styles.emptyText, { color: theme.textMuted }]}>
-                No verified pharmacies found nearby. Tap below to search across Ghana.
+                No pharmacies found nearby. Tap below to search on the interactive map.
               </Text>
               <Pressable
                 style={({ pressed }) => [styles.scanLinkBtn, pressed && { opacity: 0.8 }, { backgroundColor: primaryColor }]}

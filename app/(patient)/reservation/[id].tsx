@@ -142,8 +142,8 @@ export default function ReservationScreen() {
       params: {
         id: encodeURIComponent(pharmacyId || 'pharmacy'),
         name: pharmacyName || 'Pharmacy',
-        lat: String(lat ?? 5.6037),
-        lon: String(lon ?? -0.187),
+        lat: String(lat ?? 0),
+        lon: String(lon ?? 0),
       },
     });
   };

@@ -1,8 +1,9 @@
-import { haversineKm, formatTimeHHMM, type OsmPharmacy } from './osm';
+import { haversineKm, formatTimeHHMM, isValidCoordinate, isValidRegion } from './osm';
+import { computeViewportRadiusMeters } from './pharmacyDiscovery';
 import { type Coords } from './location';
+import type { DiscoveredPharmacy, MapRegion, WeeklyScheduleDay } from '@/types/map';
 
-const GOOGLE_MAPS_API_KEY =
-  process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || 'AIzaSyAXy83HZpz5JTArZYZ8IZFfXDSjGiNzxd0';
+const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
 
 export interface PlaceDetailsResult {
   placeId: string;
@@ -17,12 +18,47 @@ export interface PlaceDetailsResult {
   nextCloseTime?: string;
   utcOffsetMinutes?: number;
   weekdayDescriptions?: string[];
-  weeklySchedule?: Array<{ day: string; isOpen: boolean; opens: string; closes: string }>;
+  weeklySchedule?: WeeklyScheduleDay[];
   latitude?: number;
   longitude?: number;
 }
 
+export type GooglePlacesDiscoveryResult =
+  | { status: 'ok'; pharmacies: DiscoveredPharmacy[] }
+  | { status: 'failed'; error: string }
+  | { status: 'aborted' };
+
 const DAYS_ORDER = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+/**
+ * Get current time & calendar date in the pharmacy's local timezone using utcOffsetMinutes.
+ */
+export function getPharmacyTimeInfo(utcOffsetMinutes?: number): {
+  dayIndex: number;
+  hours: number;
+  minutes: number;
+  currentMinutes: number;
+  year: number;
+  month: number;
+  date: number;
+} {
+  const nowUtcMs = Date.now();
+  const offsetMs = (utcOffsetMinutes !== undefined && !isNaN(utcOffsetMinutes))
+    ? utcOffsetMinutes * 60000
+    : -new Date().getTimezoneOffset() * 60000;
+  const localDate = new Date(nowUtcMs + offsetMs);
+  const hours = localDate.getUTCHours();
+  const minutes = localDate.getUTCMinutes();
+  return {
+    dayIndex: localDate.getUTCDay(),
+    hours,
+    minutes,
+    currentMinutes: hours * 60 + minutes,
+    year: localDate.getUTCFullYear(),
+    month: localDate.getUTCMonth(),
+    date: localDate.getUTCDate(),
+  };
+}
 
 /**
  * Format a time string from ISO datetime string taking utcOffsetMinutes into account.
@@ -34,12 +70,13 @@ export function formatTimeFromIso(isoStr?: string | null, utcOffsetMinutes?: num
     const d = new Date(isoStr);
     if (isNaN(d.getTime())) return null;
 
-    const targetDate = utcOffsetMinutes !== undefined
-      ? new Date(d.getTime() + (utcOffsetMinutes + d.getTimezoneOffset()) * 60000)
-      : d;
+    const offsetMs = (utcOffsetMinutes !== undefined && !isNaN(utcOffsetMinutes))
+      ? utcOffsetMinutes * 60000
+      : -new Date().getTimezoneOffset() * 60000;
 
-    let hours = targetDate.getHours();
-    const minutes = targetDate.getMinutes();
+    const targetDate = new Date(d.getTime() + offsetMs);
+    let hours = targetDate.getUTCHours();
+    const minutes = targetDate.getUTCMinutes();
     const ampm = hours >= 12 ? 'PM' : 'AM';
     hours = hours % 12 || 12;
     const minutesStr = minutes < 10 ? '0' + minutes : String(minutes);
@@ -51,8 +88,8 @@ export function formatTimeFromIso(isoStr?: string | null, utcOffsetMinutes?: num
 }
 
 /**
- * Format relative day + time for next open/close timestamp.
- * E.g. "Today 10:00 PM", "Tomorrow 8:00 AM", "Tue 8:00 AM"
+ * Format relative day + time for next open/close timestamp in the pharmacy's local timezone.
+ * E.g. "10:00 PM", "Tomorrow 8:00 AM", "Tue 8:00 AM"
  */
 export function formatRelativeDateTime(isoStr?: string | null, utcOffsetMinutes?: number): string | null {
   if (!isoStr) return null;
@@ -60,14 +97,16 @@ export function formatRelativeDateTime(isoStr?: string | null, utcOffsetMinutes?
     const d = new Date(isoStr);
     if (isNaN(d.getTime())) return null;
 
-    const targetDate = utcOffsetMinutes !== undefined
-      ? new Date(d.getTime() + (utcOffsetMinutes + d.getTimezoneOffset()) * 60000)
-      : d;
+    const offsetMs = (utcOffsetMinutes !== undefined && !isNaN(utcOffsetMinutes))
+      ? utcOffsetMinutes * 60000
+      : -new Date().getTimezoneOffset() * 60000;
 
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const eventDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
-    const dayDiff = Math.round((eventDay.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    const eventDate = new Date(d.getTime() + offsetMs);
+    const nowInfo = getPharmacyTimeInfo(utcOffsetMinutes);
+
+    const nowDayMs = Date.UTC(nowInfo.year, nowInfo.month, nowInfo.date);
+    const eventDayMs = Date.UTC(eventDate.getUTCFullYear(), eventDate.getUTCMonth(), eventDate.getUTCDate());
+    const dayDiff = Math.round((eventDayMs - nowDayMs) / (1000 * 60 * 60 * 24));
 
     const timeStr = formatTimeFromIso(isoStr, utcOffsetMinutes);
     if (!timeStr) return null;
@@ -78,7 +117,7 @@ export function formatRelativeDateTime(isoStr?: string | null, utcOffsetMinutes?
       return `Tomorrow ${timeStr}`;
     } else {
       const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-      return `${dayNames[targetDate.getDay()]} ${timeStr}`;
+      return `${dayNames[eventDate.getUTCDay()]} ${timeStr}`;
     }
   } catch {
     return null;
@@ -86,8 +125,7 @@ export function formatRelativeDateTime(isoStr?: string | null, utcOffsetMinutes?
 }
 
 /**
- * Build a concise, intuitive status label using openNow, nextCloseTime, hours.
- * For closed pharmacies, cleanly returns 'Closed' without trailing times.
+ * Build a concise status label using openNow, nextCloseTime, hours.
  */
 export function buildPharmacyStatusText(params: {
   isOpen?: boolean;
@@ -102,7 +140,7 @@ export function buildPharmacyStatusText(params: {
     return { statusText: 'Closed', isClosingSoon: false };
   }
 
-  if (hours && /24\s*hours/i.test(hours)) {
+  if (hours && /24\s*hours|24\/7/i.test(hours)) {
     return { statusText: 'Open 24 Hours', isClosingSoon: false };
   }
 
@@ -128,14 +166,14 @@ export function buildPharmacyStatusText(params: {
 }
 
 /**
- * Convert Google Places weekday descriptions into structured weekly schedule.
+ * Convert Google Places weekday descriptions into structured weekly schedule without inventing missing hours.
  */
 export function parseWeekdayDescriptions(
   weekdayDescriptions?: string[]
-): Array<{ day: string; isOpen: boolean; opens: string; closes: string }> {
+): WeeklyScheduleDay[] {
   if (!weekdayDescriptions || weekdayDescriptions.length === 0) return [];
 
-  const dayMap = new Map<string, { isOpen: boolean; opens: string; closes: string }>();
+  const dayMap = new Map<string, { isOpen: boolean | null; opens: string; closes: string; isUnknown?: boolean }>();
 
   for (const line of weekdayDescriptions) {
     const cleanLine = line.replace(/[\u200B-\u200D\uFEFF\u202F\u00A0]/g, ' ').trim();
@@ -146,9 +184,9 @@ export function parseWeekdayDescriptions(
     const hoursStr = cleanLine.slice(colonIdx + 1).trim();
 
     if (/closed/i.test(hoursStr)) {
-      dayMap.set(dayName.toLowerCase(), { isOpen: false, opens: '', closes: '' });
-    } else if (/24\s*hours/i.test(hoursStr)) {
-      dayMap.set(dayName.toLowerCase(), { isOpen: true, opens: '00:00', closes: '24:00' });
+      dayMap.set(dayName.toLowerCase(), { isOpen: false, opens: '', closes: '', isUnknown: false });
+    } else if (/24\s*hours|24\/7/i.test(hoursStr)) {
+      dayMap.set(dayName.toLowerCase(), { isOpen: true, opens: '00:00', closes: '24:00', isUnknown: false });
     } else {
       const parts = hoursStr.split(/[–—\-]/).map((s) => s.trim());
       if (parts.length >= 2) {
@@ -156,26 +194,37 @@ export function parseWeekdayDescriptions(
           isOpen: true,
           opens: formatTimeHHMM(parts[0]),
           closes: formatTimeHHMM(parts[1]),
+          isUnknown: false,
         });
       } else {
-        dayMap.set(dayName.toLowerCase(), { isOpen: true, opens: formatTimeHHMM(hoursStr), closes: '' });
+        dayMap.set(dayName.toLowerCase(), { isOpen: true, opens: formatTimeHHMM(hoursStr), closes: '', isUnknown: false });
       }
     }
   }
 
   return DAYS_ORDER.map((d) => {
     const entry = dayMap.get(d.toLowerCase());
+    if (!entry) {
+      return {
+        day: d,
+        isOpen: null,
+        opens: '',
+        closes: '',
+        isUnknown: true,
+      };
+    }
     return {
       day: d,
-      isOpen: entry ? entry.isOpen : d !== 'Sunday',
-      opens: entry ? entry.opens : '08:00',
-      closes: entry ? entry.closes : '20:00',
+      isOpen: entry.isOpen,
+      opens: entry.opens,
+      closes: entry.closes,
+      isUnknown: entry.isUnknown,
     };
   });
 }
 
 /**
- * Format today's operating hours and extract openNow, nextCloseTime, nextOpenTime.
+ * Format today's operating hours and extract openNow, nextCloseTime, nextOpenTime in local timezone.
  */
 export function formatGoogleTodayHours(
   currentOpeningHours?: any,
@@ -189,21 +238,22 @@ export function formatGoogleTodayHours(
   nextCloseTime?: string;
   nextOpenTime?: string;
   weekdayDescriptions?: string[];
+  weeklySchedule?: WeeklyScheduleDay[];
 } {
   const hoursObj = currentOpeningHours || regularOpeningHours;
   if (!hoursObj) return {};
 
   const weekdayDescriptions: string[] =
     currentOpeningHours?.weekdayDescriptions || regularOpeningHours?.weekdayDescriptions || [];
+  const weeklySchedule = parseWeekdayDescriptions(weekdayDescriptions);
+
   const isOpen = hoursObj.openNow !== undefined ? Boolean(hoursObj.openNow) : undefined;
   const nextCloseTime = currentOpeningHours?.nextCloseTime || regularOpeningHours?.nextCloseTime;
   const nextOpenTime = currentOpeningHours?.nextOpenTime || regularOpeningHours?.nextOpenTime;
 
-  const targetNow = utcOffsetMinutes !== undefined
-    ? new Date(Date.now() + (utcOffsetMinutes + new Date().getTimezoneOffset()) * 60000)
-    : new Date();
+  const nowInfo = getPharmacyTimeInfo(utcOffsetMinutes);
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  const currentDayName = dayNames[targetNow.getDay()];
+  const currentDayName = dayNames[nowInfo.dayIndex];
 
   let todayHoursStr: string | undefined;
 
@@ -220,10 +270,10 @@ export function formatGoogleTodayHours(
     }
   }
 
-  if (!todayHoursStr && hoursObj.periods && hoursObj.periods.length > 0) {
-    const todayPeriod = hoursObj.periods.find((p: any) => p.open?.day === targetNow.getDay());
+  if (!todayHoursStr && hoursObj.periods && Array.isArray(hoursObj.periods)) {
+    const todayPeriod = hoursObj.periods.find((p: any) => p.open?.day === nowInfo.dayIndex);
     if (todayPeriod) {
-      if (todayPeriod.open?.hour === 0 && todayPeriod.close?.hour === 23) {
+      if (todayPeriod.open?.hour === 0 && (todayPeriod.close?.hour === 23 || todayPeriod.close?.hour === 24 || !todayPeriod.close)) {
         todayHoursStr = 'Open 24 hours';
       } else {
         const oH = String(todayPeriod.open?.hour || 8).padStart(2, '0');
@@ -253,20 +303,33 @@ export function formatGoogleTodayHours(
     nextCloseTime,
     nextOpenTime,
     weekdayDescriptions,
+    weeklySchedule,
   };
 }
 
 /**
- * Fetch live nearby pharmacies with real-time operating hours from Google Places API (New).
+ * Fetch live pharmacies in a given map region worldwide via Google Places API (New).
+ * Distinguishes success (including valid 0 results) from provider failures or aborts.
  */
-export async function searchGoogleNearbyPharmacies(
-  userCoords: Coords,
-  radiusMeters = 8000,
+export async function searchGoogleViewportPharmacies(
+  region: MapRegion,
+  userCoords?: Coords | null,
   signal?: AbortSignal
-): Promise<OsmPharmacy[]> {
-  if (!userCoords) return [];
-  const coordsBase = userCoords;
-  const radius = Math.min(Math.max(radiusMeters, 1000), 50000);
+): Promise<GooglePlacesDiscoveryResult> {
+  if (signal?.aborted) {
+    return { status: 'aborted' };
+  }
+
+  if (!isValidRegion(region)) {
+    return { status: 'ok', pharmacies: [] };
+  }
+
+  if (!GOOGLE_MAPS_API_KEY) {
+    console.warn('Google Places API key is missing. Ensure EXPO_PUBLIC_GOOGLE_MAPS_API_KEY is configured.');
+    return { status: 'failed', error: 'Missing EXPO_PUBLIC_GOOGLE_MAPS_API_KEY' };
+  }
+
+  const radiusMeters = computeViewportRadiusMeters(region);
 
   try {
     const res = await fetch('https://places.googleapis.com/v1/places:searchNearby', {
@@ -283,10 +346,10 @@ export async function searchGoogleNearbyPharmacies(
         locationRestriction: {
           circle: {
             center: {
-              latitude: coordsBase.latitude,
-              longitude: coordsBase.longitude,
+              latitude: region.latitude,
+              longitude: region.longitude,
             },
-            radius,
+            radius: radiusMeters,
           },
         },
       }),
@@ -294,61 +357,85 @@ export async function searchGoogleNearbyPharmacies(
     });
 
     if (!res.ok) {
-      return [];
+      const errorText = await res.text().catch(() => '');
+      return { status: 'failed', error: `Google Places API error (${res.status}): ${errorText}` };
     }
 
     const data = await res.json();
-    const places: any[] = data.places || [];
+    const rawPlaces: any[] = Array.isArray(data?.places) ? data.places : [];
 
-    return places
-      .filter((p) => p.location && p.location.latitude && p.location.longitude)
-      .map((p) => {
-        const pharmacyCoords: Coords = {
-          latitude: p.location.latitude,
-          longitude: p.location.longitude,
-        };
-        const distanceKm = haversineKm(coordsBase, pharmacyCoords);
-        const hoursData = formatGoogleTodayHours(
-          p.currentOpeningHours,
-          p.regularOpeningHours,
-          p.utcOffsetMinutes
-        );
-        const phone = p.nationalPhoneNumber || p.internationalPhoneNumber;
+    // Deduplicate within Google provider output by place id
+    const seenPlaceIds = new Set<string>();
+    const uniquePlaces: any[] = [];
 
-        return {
-          id: `gplace-${p.id}`,
-          name: p.displayName?.text || 'Pharmacy',
-          address: p.formattedAddress || 'Ghana',
-          latitude: p.location.latitude,
-          longitude: p.location.longitude,
-          phone: phone || undefined,
-          hours: hoursData.hours,
-          weeklyHours: hoursData.weekdayDescriptions,
-          statusText: hoursData.statusText,
-          nextCloseTime: hoursData.nextCloseTime,
-          nextOpenTime: hoursData.nextOpenTime,
-          distanceKm: Math.round(distanceKm * 1000) / 1000,
-          walkMinutes: Math.max(1, Math.round((distanceKm / 5) * 60)),
-          isVerified: false,
-          isOpen: hoursData.isOpen,
-        };
-      });
-  } catch (err: any) {
-    if (err?.name !== 'AbortError') {
-      console.warn('Google Places API search error:', err.message);
+    for (const p of rawPlaces) {
+      if (p.location && isValidCoordinate(p.location.latitude, p.location.longitude)) {
+        const pId = p.id || `${p.location.latitude},${p.location.longitude}`;
+        if (!seenPlaceIds.has(pId)) {
+          seenPlaceIds.add(pId);
+          uniquePlaces.push(p);
+        }
+      }
     }
-    return [];
+
+    const pharmacies: DiscoveredPharmacy[] = uniquePlaces.map((p) => {
+      const pharmacyCoords: Coords = {
+        latitude: p.location.latitude,
+        longitude: p.location.longitude,
+      };
+      const distKm = userCoords ? haversineKm(userCoords, pharmacyCoords) : undefined;
+      const hoursData = formatGoogleTodayHours(
+        p.currentOpeningHours,
+        p.regularOpeningHours,
+        p.utcOffsetMinutes
+      );
+      const phone = p.nationalPhoneNumber || p.internationalPhoneNumber;
+
+      return {
+        id: `gplace-${p.id}`,
+        googlePlaceId: p.id,
+        name: p.displayName?.text || 'Pharmacy',
+        address: p.formattedAddress || 'Public Map Location',
+        latitude: p.location.latitude,
+        longitude: p.location.longitude,
+        phone: phone || undefined,
+        hours: hoursData.hours,
+        weeklyHours: hoursData.weekdayDescriptions,
+        weeklySchedule: hoursData.weeklySchedule,
+        statusText: hoursData.statusText,
+        nextCloseTime: hoursData.nextCloseTime,
+        nextOpenTime: hoursData.nextOpenTime,
+        isClosingSoon: hoursData.isClosingSoon,
+        utcOffsetMinutes: p.utcOffsetMinutes,
+        distanceKm: distKm !== undefined ? Math.round(distKm * 1000) / 1000 : undefined,
+        walkMinutes: distKm !== undefined ? Math.max(1, Math.round((distKm / 5) * 60)) : undefined,
+        isVerified: false,
+        isOpen: hoursData.isOpen,
+        source: 'google' as const,
+      };
+    });
+
+    return { status: 'ok', pharmacies };
+  } catch (err: any) {
+    if (err?.name === 'AbortError' || signal?.aborted) {
+      return { status: 'aborted' };
+    }
+    return { status: 'failed', error: err?.message || 'Google Places network request failed' };
   }
 }
 
 /**
- * Fetch detailed place info (including full weekly schedule, exceptions & next open/close) by name and coords.
+ * Fetch detailed place info (including full weekly schedule & next open/close) by name and coords.
  */
 export async function fetchPlaceDetailsByNameAndCoords(
   name: string,
   coords: Coords,
   signal?: AbortSignal
 ): Promise<PlaceDetailsResult | null> {
+  if (!GOOGLE_MAPS_API_KEY || !isValidCoordinate(coords.latitude, coords.longitude)) {
+    return null;
+  }
+
   try {
     const res = await fetch('https://places.googleapis.com/v1/places:searchText', {
       method: 'POST',
@@ -385,7 +472,6 @@ export async function fetchPlaceDetailsByNameAndCoords(
       place.regularOpeningHours,
       place.utcOffsetMinutes
     );
-    const weeklySchedule = parseWeekdayDescriptions(hoursData.weekdayDescriptions);
 
     return {
       placeId: place.id,
@@ -400,7 +486,7 @@ export async function fetchPlaceDetailsByNameAndCoords(
       nextOpenTime: hoursData.nextOpenTime,
       utcOffsetMinutes: place.utcOffsetMinutes,
       weekdayDescriptions: hoursData.weekdayDescriptions,
-      weeklySchedule,
+      weeklySchedule: hoursData.weeklySchedule,
       latitude: place.location?.latitude,
       longitude: place.location?.longitude,
     };
@@ -420,6 +506,10 @@ export async function fetchAddressForCoords(
   coords: Coords,
   signal?: AbortSignal
 ): Promise<string | null> {
+  if (!GOOGLE_MAPS_API_KEY || !isValidCoordinate(coords.latitude, coords.longitude)) {
+    return null;
+  }
+
   try {
     const res = await fetch('https://places.googleapis.com/v1/places:searchNearby', {
       method: 'POST',
@@ -476,13 +566,17 @@ export async function fetchGoogleMapsPharmaciesForRegistration(
   radiusMeters = 10000,
   signal?: AbortSignal
 ): Promise<GoogleMapPharmacyItem[]> {
+  if (!GOOGLE_MAPS_API_KEY || !isValidCoordinate(coords.latitude, coords.longitude)) {
+    return [];
+  }
+
   const radius = Math.min(Math.max(radiusMeters, 1000), 50000);
   const results: GoogleMapPharmacyItem[] = [];
   const seenIds = new Set<string>();
 
   const processPlaces = (places: any[]) => {
     for (const p of places || []) {
-      if (p.location?.latitude && p.location?.longitude) {
+      if (p.location && isValidCoordinate(p.location.latitude, p.location.longitude)) {
         const id = `gplace-${p.id}`;
         if (!seenIds.has(id)) {
           seenIds.add(id);
@@ -499,64 +593,71 @@ export async function fetchGoogleMapsPharmaciesForRegistration(
     }
   };
 
-  // Run nearby search + multilingual text search simultaneously for comprehensive worldwide results
   const fetchNearby = async () => {
-    const nearbyRes = await fetch('https://places.googleapis.com/v1/places:searchNearby', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Goog-Api-Key': GOOGLE_MAPS_API_KEY,
-        'X-Goog-FieldMask':
-          'places.id,places.displayName,places.formattedAddress,places.location,places.nationalPhoneNumber,places.internationalPhoneNumber',
-      },
-      body: JSON.stringify({
-        includedTypes: ['pharmacy', 'drugstore'],
-        maxResultCount: 20,
-        locationRestriction: {
-          circle: {
-            center: {
-              latitude: coords.latitude,
-              longitude: coords.longitude,
-            },
-            radius,
-          },
+    try {
+      const nearbyRes = await fetch('https://places.googleapis.com/v1/places:searchNearby', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Goog-Api-Key': GOOGLE_MAPS_API_KEY,
+          'X-Goog-FieldMask':
+            'places.id,places.displayName,places.formattedAddress,places.location,places.nationalPhoneNumber,places.internationalPhoneNumber',
         },
-      }),
-      signal,
-    });
-    if (nearbyRes.ok) {
-      const data = await nearbyRes.json();
-      processPlaces(data.places);
+        body: JSON.stringify({
+          includedTypes: ['pharmacy', 'drugstore'],
+          maxResultCount: 20,
+          locationRestriction: {
+            circle: {
+              center: {
+                latitude: coords.latitude,
+                longitude: coords.longitude,
+              },
+              radius,
+            },
+          },
+        }),
+        signal,
+      });
+      if (nearbyRes.ok) {
+        const data = await nearbyRes.json();
+        processPlaces(data.places);
+      }
+    } catch {
+      // handled
     }
   };
 
   const fetchText = async () => {
-    const textRes = await fetch('https://places.googleapis.com/v1/places:searchText', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Goog-Api-Key': GOOGLE_MAPS_API_KEY,
-        'X-Goog-FieldMask':
-          'places.id,places.displayName,places.formattedAddress,places.location,places.nationalPhoneNumber,places.internationalPhoneNumber',
-      },
-      body: JSON.stringify({
-        textQuery: 'pharmacie OR pharmacy OR صيدلية',
-        locationBias: {
-          circle: {
-            center: {
-              latitude: coords.latitude,
-              longitude: coords.longitude,
-            },
-            radius,
-          },
+    try {
+      const textRes = await fetch('https://places.googleapis.com/v1/places:searchText', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Goog-Api-Key': GOOGLE_MAPS_API_KEY,
+          'X-Goog-FieldMask':
+            'places.id,places.displayName,places.formattedAddress,places.location,places.nationalPhoneNumber,places.internationalPhoneNumber',
         },
-        maxResultCount: 20,
-      }),
-      signal,
-    });
-    if (textRes.ok) {
-      const data = await textRes.json();
-      processPlaces(data.places);
+        body: JSON.stringify({
+          textQuery: 'pharmacy OR drugstore OR apotheke OR pharmacie',
+          locationBias: {
+            circle: {
+              center: {
+                latitude: coords.latitude,
+                longitude: coords.longitude,
+              },
+              radius,
+            },
+          },
+          maxResultCount: 20,
+        }),
+        signal,
+      });
+      if (textRes.ok) {
+        const data = await textRes.json();
+        processPlaces(data.places);
+      }
+    } catch {
+      // handled
     }
   };
 
@@ -564,4 +665,3 @@ export async function fetchGoogleMapsPharmaciesForRegistration(
 
   return results;
 }
-
