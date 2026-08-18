@@ -8,9 +8,10 @@
 
 import { create } from 'zustand';
 import { getCurrentLocation, type Coords } from '@/lib/location';
-import { haversineKm, mergeDiscoveredPharmacies } from '@/lib/osm';
+import { haversineKm } from '@/lib/geoUtils';
+import { mergeDiscoveredPharmacies } from '@/lib/pharmacyDeduplication';
 import { discoverPharmaciesInViewport, clearDiscoveryCoverage } from '@/lib/pharmacyDiscovery';
-import type { DiscoveredPharmacy, MapRegion, OsmPharmacy } from '@/types/map';
+import type { DiscoveredPharmacy, MapRegion } from '@/types/map';
 
 let activeAbortController: AbortController | null = null;
 let requestCounter = 0;
@@ -20,6 +21,7 @@ interface PharmacyState {
   pharmacies: DiscoveredPharmacy[];
   userCoords: Coords | null;
   currentRegion: MapRegion | null;
+  selectedPharmacyId: string | null;
   loading: boolean;
   error: string | null;
 
@@ -40,6 +42,7 @@ interface PharmacyState {
   setPharmacies: (pharmacies: DiscoveredPharmacy[]) => void;
   setUserCoords: (coords: Coords | null) => void;
   setCurrentRegion: (region: MapRegion | null) => void;
+  setSelectedPharmacyId: (id: string | null) => void;
 
   // Filter setters (pure local state, does NOT trigger API refetch)
   setMaxDistanceKm: (distance: number | null) => void;
@@ -55,6 +58,7 @@ export const usePharmacyStore = create<PharmacyState>((set, get) => ({
   pharmacies: [],
   userCoords: null,
   currentRegion: null,
+  selectedPharmacyId: null,
   loading: false,
   error: null,
 
@@ -64,6 +68,8 @@ export const usePharmacyStore = create<PharmacyState>((set, get) => ({
   searchQuery: '',
 
   setPharmacies: (pharmacies) => set({ pharmacies }),
+
+  setSelectedPharmacyId: (id) => set({ selectedPharmacyId: id }),
 
   addDiscoveredPharmacies: (incoming) => {
     const current = get().pharmacies;

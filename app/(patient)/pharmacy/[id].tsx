@@ -16,7 +16,8 @@ import { useThemeContext } from '@/hooks/useThemeContext';
 import { useHardwareBack } from '@/hooks/useHardwareBack';
 import { COLORS, FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
 import { supabase } from '@/lib/supabase';
-import { formatTimeHHMM, haversineKm } from '@/lib/osm';
+import { formatTimeHHMM } from '@/lib/timeUtils';
+import { haversineKm } from '@/lib/geoUtils';
 import { getCurrentLocation, type Coords } from '@/lib/location';
 import type { WeeklyScheduleDay } from '@/types/map';
 import {

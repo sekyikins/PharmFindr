@@ -718,6 +718,7 @@ function Step4VerifyOTP({
 }) {
   const { signUp } = useAuthStore();
   const otpRef = useRef<OtpInputHandle>(null);
+  const [otpCode, setOtpCode] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleResend = async () => {
@@ -769,7 +770,7 @@ function Step4VerifyOTP({
       const DAYS_LIST = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
       let targetPharmId = existingPharm?.id;
 
-      // Pharmacies that selected an existing OSM pin are auto-verified;
+      // Pharmacies that selected an existing verified pin are auto-verified;
       // those that dropped a custom pin require manual admin review.
       const shouldBeVerified = isFromKnownMap;
 
@@ -786,7 +787,7 @@ function Step4VerifyOTP({
             longitude: pin.longitude,
             opening_time: '08:00',
             closing_time: '20:00',
-            verified: shouldBeVerified,
+            is_verified: shouldBeVerified,
           })
           .eq('id', existingPharm.id);
       } else {
@@ -802,7 +803,7 @@ function Step4VerifyOTP({
             longitude: pin.longitude,
             opening_time: '08:00',
             closing_time: '20:00',
-            verified: shouldBeVerified,
+            is_verified: shouldBeVerified,
           })
           .select('id')
           .single();
@@ -850,13 +851,20 @@ function Step4VerifyOTP({
 
           <OtpInput
             ref={otpRef}
-            onChange={() => {}}
-            onComplete={(code) => handleVerifyAndRegister(code)}
+            onChange={(code) => setOtpCode(code)}
+            onComplete={(code) => {
+              setOtpCode(code);
+              handleVerifyAndRegister(code);
+            }}
             onResend={handleResend}
             disabled={loading}
           />
 
-          <PrimaryBtn label="Verify & Complete Setup" onPress={() => {}} loading={loading} />
+          <PrimaryBtn
+            label="Verify & Complete Setup"
+            onPress={() => handleVerifyAndRegister(otpCode)}
+            loading={loading}
+          />
         </View>
       </ScrollView>
     </KeyboardAvoidingView>

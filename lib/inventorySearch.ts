@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
-import { checkIsOpen, formatTimeHHMM, haversineKm } from '@/lib/osm';
+import { haversineKm } from '@/lib/geoUtils';
+import { checkIsOpen, formatTimeHHMM } from '@/lib/timeUtils';
 import { usePharmacyStore } from '@/store/pharmacyStore';
 import type { Coords } from './location';
 import type {

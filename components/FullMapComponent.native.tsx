@@ -85,6 +85,23 @@ export default function FullMapComponent({
     }
   }, [userCoords, routeCoords]);
 
+  // Focus map camera when a marker is selected
+  useEffect(() => {
+    if (!mapRef.current || !mapReadyRef.current || !selectedId) return;
+    const targetMarker = markers.find((m) => m.id === selectedId);
+    if (targetMarker) {
+      mapRef.current.animateToRegion(
+        {
+          latitude: targetMarker.latitude,
+          longitude: targetMarker.longitude,
+          latitudeDelta: 0.015,
+          longitudeDelta: 0.015,
+        },
+        350
+      );
+    }
+  }, [selectedId, markers]);
+
   // 3. Map Ready Callback: Triggers initial framing once native Google Maps finishes layout
   const handleMapReady = useCallback(() => {
     mapReadyRef.current = true;

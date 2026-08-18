@@ -4,29 +4,31 @@
  * Central Pharmacy Discovery Coordinator & Prefetched Geographic Cache.
  *
  * Architecture:
+ * - MAXIMUM COVERAGE: Concurrently queries Supabase Registered, Google Places, and OSM / Overpass.
  * - PREFETCHED GEOGRAPHIC DISCOVERY: When a region is queried, proactively discovers pharmacies
- *   for the visible region PLUS a substantially larger surrounding prefetch area.
+ *   for the visible region PLUS a substantially larger surrounding prefetch envelope.
  * - INSTANT RENDERING: Panning within the prefetched area renders cached pharmacies immediately
  *   with ZERO network requests.
- * - EDGE DETECTION: Queries are only fired when the visible map approaches or enters uncovered geographic cells.
- * - MAXIMUM COVERAGE: Concurrently queries Supabase Registered + Google Places + OSM / Overpass.
- * - PROGRESSIVE ACCUMULATION: Discovered pharmacies persist in memory across map movements.
+ * - ISOLATED PROVIDER RESILIENCE: If one provider fails or returns 0 results, the remaining providers
+ *   continue contributing uninterrupted.
+ * - PROGRESSIVE ACCUMULATION: Discovered pharmacies persist across camera movements.
  */
 
 import { type Coords } from './location';
 import {
-  getRegisteredPharmacies,
-  fetchOsmPharmacies,
-  isDuplicatePharmacy,
-  mergeDiscoveredPharmacies,
   haversineKm,
   isValidRegion,
-} from './osm';
+  computeViewportBounds,
+  computeViewportRadiusMeters,
+} from './geoUtils';
+import { getRegisteredPharmacies } from './supabasePharmacies';
+import { fetchOsmPharmacies } from './osm';
 import { searchGoogleViewportPharmacies } from './googlePlaces';
-import type { DiscoveredPharmacy, MapBounds, MapRegion, OsmPharmacy } from '@/types/map';
+import { mergeDiscoveredPharmacies } from './pharmacyDeduplication';
+import type { DiscoveredPharmacy, MapRegion } from '@/types/map';
 
 /**
- * Central discovery and prefetch configuration constants.
+ * Discovery configuration constants.
  */
 export const DISCOVERY_CONFIG = {
   PREFETCH_BUFFER_FACTOR: 2.0,
@@ -41,43 +43,12 @@ export interface ProviderCoverageMap {
   google: Set<string>;
   osm: Set<string>;
 }
+
 export const sessionCoverage: ProviderCoverageMap = {
   supabase: new Set<string>(),
   google: new Set<string>(),
   osm: new Set<string>(),
 };
-export function computeViewportBounds(
-  region: MapRegion,
-  bufferFactor = DISCOVERY_CONFIG.PREFETCH_BUFFER_FACTOR
-): MapBounds {
-  const latDelta = Math.abs(region.latitudeDelta) * (1 + bufferFactor);
-  const lonDelta = Math.abs(region.longitudeDelta) * (1 + bufferFactor);
-
-  return {
-    north: Math.min(90, region.latitude + latDelta / 2),
-    south: Math.max(-90, region.latitude - latDelta / 2),
-    east: Math.min(180, region.longitude + lonDelta / 2),
-    west: Math.max(-180, region.longitude - lonDelta / 2),
-  };
-}
-
-/**
- * Compute search radius in meters from viewport bounding box.
- */
-export function computeViewportRadiusMeters(
-  region: MapRegion,
-  bufferFactor = DISCOVERY_CONFIG.PREFETCH_BUFFER_FACTOR
-): number {
-  const latSpanKm = Math.abs(region.latitudeDelta) * (1 + bufferFactor) * 111;
-  const clampedLat = Math.min(85, Math.max(-85, region.latitude));
-  const lonSpanKm = Math.abs(region.longitudeDelta) * (1 + bufferFactor) * 111 * Math.cos((clampedLat * Math.PI) / 180);
-  const calculatedRadiusMeters = Math.round((Math.sqrt(latSpanKm ** 2 + lonSpanKm ** 2) / 2) * 1000);
-
-  return Math.max(
-    DISCOVERY_CONFIG.MIN_PREFETCH_RADIUS_METERS,
-    Math.min(DISCOVERY_CONFIG.MAX_PREFETCH_RADIUS_METERS, calculatedRadiusMeters)
-  );
-}
 
 /**
  * Get grid cell keys covering the given viewport / prefetch bounds.
@@ -141,7 +112,7 @@ export function markCellsCovered(
 }
 
 /**
- * Reset session discovery coverage (useful for explicit refresh).
+ * Reset session discovery coverage (for full pull-to-refresh).
  */
 export function clearDiscoveryCoverage(): void {
   sessionCoverage.supabase.clear();
@@ -157,7 +128,7 @@ export function clearDiscoveryCoverage(): void {
 export function hasMeaningfulRegionChange(prev: MapRegion | null, next: MapRegion): boolean {
   if (!prev) return true;
 
-  // 1. If any provider has uncovered cells in the new visible viewport (or approaching its edge), discovery is required!
+  // 1. If any provider has uncovered cells in the new visible viewport (or approaching its edge), discovery is required
   if (
     hasUncoveredVisibleCells(next, 'supabase') ||
     hasUncoveredVisibleCells(next, 'google') ||
@@ -166,23 +137,23 @@ export function hasMeaningfulRegionChange(prev: MapRegion | null, next: MapRegio
     return true;
   }
 
-  // 2. All visible cells are already covered in the prefetch cache.
-  // Only trigger discovery if the user zooms far out to a much broader scale.
+  // 2. If zoom changed significantly (zoomed far out)
   const zoomRatio = next.latitudeDelta / (prev.latitudeDelta || 0.001);
   if (zoomRatio < 0.50 || zoomRatio > 2.00) {
     return true;
   }
 
-  // 3. Panning within the already prefetched and cached territory -> NO NETWORK REQUEST NEEDED!
+  // 3. Panning within already prefetched and cached territory -> zero network requests needed
   return false;
 }
 
 /**
- * Coordinates prefetched viewport discovery across all data providers:
+ * Central Pharmacy Discovery Coordinator:
  * - Computes enlarged prefetch bounds covering visible viewport + surrounding neighborhood.
  * - Only queries providers that have uncovered cells in this viewport/edge.
- * - Merges results into accumulated session cache.
- * - Marks all prefetched cells as covered for successful providers.
+ * - Concurrently queries all eligible providers.
+ * - Resiliently merges successful provider results into accumulated session cache.
+ * - Marks prefetched cells as covered for successful providers.
  */
 export async function discoverPharmaciesInViewport(params: {
   region: MapRegion;
@@ -203,7 +174,7 @@ export async function discoverPharmaciesInViewport(params: {
   const shouldQueryGoogle = force || getUncoveredCells(visibleCellKeys, 'google').length > 0;
   const shouldQueryOsm = force || getUncoveredCells(visibleCellKeys, 'osm').length > 0;
 
-  // 2. If all visible cells are already covered by all providers -> return cached pharmacies immediately!
+  // 2. If all visible cells are already covered by all providers -> return cached pharmacies immediately
   if (!shouldQuerySupabase && !shouldQueryGoogle && !shouldQueryOsm) {
     return existingPharmacies;
   }
@@ -283,35 +254,4 @@ export async function discoverPharmaciesInViewport(params: {
   }
 
   return accumulatedCollection;
-}
-
-/**
- * Backward compatibility delegation for legacy searchNearbyPharmacies callers.
- */
-export async function searchNearbyPharmacies(
-  userCoords?: Coords | null,
-  radiusMeters = 8000,
-  onItemFound?: (pharmacy: OsmPharmacy) => void,
-  signal?: AbortSignal
-): Promise<OsmPharmacy[]> {
-  const coords = userCoords || { latitude: 0, longitude: 0 };
-  const latDelta = (radiusMeters / 1000 / 111) * 2;
-  const lonDelta = (radiusMeters / 1000 / (111 * Math.cos((coords.latitude * Math.PI) / 180 || 1))) * 2;
-
-  const region: MapRegion = {
-    latitude: coords.latitude,
-    longitude: coords.longitude,
-    latitudeDelta: Math.max(0.01, latDelta),
-    longitudeDelta: Math.max(0.01, lonDelta),
-  };
-
-  const results = await discoverPharmaciesInViewport({ region, userCoords, signal });
-
-  if (onItemFound) {
-    for (const item of results) {
-      onItemFound(item);
-    }
-  }
-
-  return results;
 }

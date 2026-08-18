@@ -1,5 +1,4 @@
-
-import React, { forwardRef, useCallback } from 'react';
+import React, { forwardRef, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import {
   BottomSheetModal,
@@ -11,12 +10,13 @@ import {
 import { useThemeContext } from '@/hooks/useThemeContext';
 import { FONT_SIZE, SPACING, RADIUS } from '@/styles/theme';
 
-interface AppBottomSheetProps {
-  /** Snap point heights, e.g. ['40%', '70%']. Optional when dynamic sizing is enabled. */
+export interface AppBottomSheetProps {
+  name?: string;
   snapPoints?: (string | number)[];
-  /** Enable dynamic height sizing to fit content automatically (defaults to true) */
   enableDynamicSizing?: boolean;
-  /** Optional title shown at the top of the sheet content */
+  maxDynamicContentSize?: number;
+  maxHeight?: number;
+  scrollable?: boolean;
   rightBtn?: React.ReactNode;
   leftBtn?: React.ReactNode;
   title?: string;
@@ -25,8 +25,46 @@ interface AppBottomSheetProps {
 }
 
 const AppBottomSheet = forwardRef<any, AppBottomSheetProps>(
-  ({ snapPoints, enableDynamicSizing = true, leftBtn, rightBtn, title, children, onClose }, ref) => {
+  (
+    {
+      name,
+      snapPoints,
+      enableDynamicSizing,
+      maxDynamicContentSize,
+      maxHeight,
+      scrollable = false,
+      leftBtn,
+      rightBtn,
+      title,
+      children,
+      onClose,
+    },
+    ref
+  ) => {
     const { theme } = useThemeContext();
+    const isDismissingRef = useRef(false);
+
+    const effectiveMaxSize = maxHeight ?? maxDynamicContentSize;
+
+    // For scrollable lists, use explicit snapPoints to ensure reliable height calculation on Android.
+    // For non-scrollable sheets, use dynamic sizing to fit the exact content.
+    const resolvedSnapPoints = scrollable
+      ? snapPoints || (effectiveMaxSize ? [effectiveMaxSize] : ['50%'])
+      : snapPoints;
+
+    const isDynamic = enableDynamicSizing !== undefined
+      ? enableDynamicSizing
+      : !scrollable && !snapPoints;
+
+    const handleDismiss = useCallback(() => {
+      if (!isDismissingRef.current) {
+        isDismissingRef.current = true;
+        onClose?.();
+        setTimeout(() => {
+          isDismissingRef.current = false;
+        }, 150);
+      }
+    }, [onClose]);
 
     const renderBackdrop = useCallback(
       (props: BottomSheetBackdropProps) => (
@@ -40,11 +78,27 @@ const AppBottomSheet = forwardRef<any, AppBottomSheetProps>(
       []
     );
 
+    const renderTitleRow = () => (
+      <View style={[styles.titleRow, { borderBottomColor: theme.border }]}>
+        <View style={styles.side}>{leftBtn}</View>
+
+        {title && (
+          <View style={styles.titleContainer} pointerEvents="none">
+            <Text style={[styles.title, { color: theme.text.primary }]}>{title}</Text>
+          </View>
+        )}
+
+        <View style={[styles.side, { alignItems: 'flex-end' }]}>{rightBtn}</View>
+      </View>
+    );
+
     return (
       <BottomSheetModal
         ref={ref}
-        snapPoints={snapPoints}
-        enableDynamicSizing={enableDynamicSizing}
+        name={name || undefined}
+        snapPoints={resolvedSnapPoints}
+        enableDynamicSizing={isDynamic}
+        maxDynamicContentSize={isDynamic ? effectiveMaxSize : undefined}
         enablePanDownToClose
         keyboardBehavior="extend"
         keyboardBlurBehavior="restore"
@@ -52,37 +106,27 @@ const AppBottomSheet = forwardRef<any, AppBottomSheetProps>(
         backdropComponent={renderBackdrop}
         backgroundStyle={{ backgroundColor: theme.card }}
         handleIndicatorStyle={{ backgroundColor: theme.textDim, width: 40 }}
-        onDismiss={onClose}
+        onDismiss={handleDismiss}
         onChange={(index) => {
-          if (index === -1) onClose?.();
+          if (index === -1) handleDismiss();
         }}
       >
-        <BottomSheetView style={styles.content}>
-          <View style={[styles.titleRow, { borderBottomColor: theme.border }]}>
-            <View style={styles.side}>
-              {leftBtn}
-            </View>
-
-            {title && (
-              <View style={styles.titleContainer} pointerEvents="none">
-                <Text style={[styles.title, { color: theme.text }]}>
-                  {title}
-                </Text>
-              </View>
-            )}
-            
-            <View style={[styles.side, { alignItems: "flex-end" }]}>
-              {rightBtn}
-            </View>
+        {scrollable ? (
+          <View style={styles.scrollableWrapper}>
+            {renderTitleRow()}
+            <BottomSheetScrollView
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              {children}
+            </BottomSheetScrollView>
           </View>
-          <BottomSheetScrollView
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingBottom: 70 }}
-          >
+        ) : (
+          <BottomSheetView style={styles.viewContent}>
+            {renderTitleRow()}
             {children}
-          </BottomSheetScrollView>
-        </BottomSheetView>
+          </BottomSheetView>
+        )}
       </BottomSheetModal>
     );
   }
@@ -92,34 +136,35 @@ AppBottomSheet.displayName = 'AppBottomSheet';
 export default AppBottomSheet;
 
 const styles = StyleSheet.create({
-  content: {
-    paddingBottom: SPACING.md
+  scrollableWrapper: {
+    flex: 1,
   },
   titleRow: {
-    height: 45,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    height: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: SPACING.xl,
-    paddingBottom: SPACING.lg,
     borderBottomWidth: 1,
-    position: "relative"
+    position: 'relative',
+    marginBottom: SPACING.xs,
   },
   side: {
     borderRadius: RADIUS.pill,
     justifyContent: 'center',
-    marginTop: SPACING.xl
   },
   titleContainer: {
-    position: "absolute",
+    position: 'absolute',
     left: 0,
     right: 0,
-    alignItems: "center"
+    alignItems: 'center',
   },
   title: {
     fontSize: FONT_SIZE.lg,
     fontFamily: 'Inter-Bold',
-    textAlignVertical: "center"
+    textAlignVertical: 'center',
   },
-
+  viewContent: {
+    paddingBottom: SPACING.xl,
+  },
 });

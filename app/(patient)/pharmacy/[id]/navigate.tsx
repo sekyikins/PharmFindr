@@ -24,7 +24,7 @@ import {
   cleanDurationString,
   type RouteResult,
 } from '@/lib/ors';
-import { haversineKm } from '@/lib/osm';
+import { haversineKm } from '@/lib/geoUtils';
 import { useHardwareBack } from '@/hooks/useHardwareBack';
 import { usePharmacyStore } from '@/store/pharmacyStore';
 

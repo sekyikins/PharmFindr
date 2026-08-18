@@ -8,8 +8,8 @@ import {
   Animated,
   Easing,
   Linking,
-  PanResponder,
   ActivityIndicator,
+  FlatList,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,10 +17,11 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import FullMapComponent from '@/components/FullMapComponent';
 import { useThemeContext } from '@/hooks/useThemeContext';
 import { COLORS, FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
-import { getCurrentLocation, type Coords } from '@/lib/location';
+import { getCurrentLocation } from '@/lib/location';
 import { cleanDistanceString, cleanDurationString } from '@/lib/ors';
 import { usePharmacyStore } from '@/store/pharmacyStore';
 import { hasMeaningfulRegionChange } from '@/lib/pharmacyDiscovery';
+import { useBottomSheetModal } from '@gorhom/bottom-sheet';
 import AppBottomSheet from '@/components/ui/AppBottomSheet';
 import { Header } from '@/components/ui/Header';
 import { supabase } from '@/lib/supabase';
@@ -30,6 +31,7 @@ import type { DiscoveredPharmacy, MapRegion } from '@/types/map';
 export default function Pharmacies() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { dismissAll } = useBottomSheetModal();
   const params = useLocalSearchParams<{ query?: string; selectedId?: string }>();
   const routeQuery = params.query ? String(params.query) : '';
   const routeSelectedId = params.selectedId ? String(params.selectedId) : '';
@@ -44,6 +46,7 @@ export default function Pharmacies() {
     onlyOpen,
     onlyVerified,
     searchQuery,
+    selectedPharmacyId,
     discoverInRegion,
     stopDiscovery,
     setUserCoords,
@@ -51,16 +54,25 @@ export default function Pharmacies() {
     setOnlyOpen,
     setOnlyVerified,
     setSearchQuery,
+    setSelectedPharmacyId,
     getFilteredPharmacies,
   } = usePharmacyStore();
 
   const [selectedPharmacy, setSelectedPharmacy] = useState<DiscoveredPharmacy | null>(null);
+  const lastSelectedPharmacyRef = useRef<DiscoveredPharmacy | null>(null);
+  if (selectedPharmacy) {
+    lastSelectedPharmacyRef.current = selectedPharmacy;
+  }
+  const displayedPharmacy = selectedPharmacy || lastSelectedPharmacyRef.current;
+
   const [currentRegion, setCurrentRegion] = useState<MapRegion | null>(null);
   const lastQueriedRegionRef = useRef<MapRegion | null>(null);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const stopLoadingSheetRef = useRef<any>(null);
   const filterSheetRef = useRef<any>(null);
+  const listSheetRef = useRef<any>(null);
+  const detailSheetRef = useRef<any>(null);
   const spinAnim = useRef(new Animated.Value(0)).current;
 
   // Draft filter state for the filter sheet
@@ -70,7 +82,11 @@ export default function Pharmacies() {
 
   useHardwareBack(() => {
     if (selectedPharmacy) {
-      dismissCard();
+      if (detailSheetRef.current?.dismiss) {
+        detailSheetRef.current.dismiss();
+      }
+      setSelectedPharmacy(null);
+      setSelectedPharmacyId(null);
       return true;
     }
     if (router.canGoBack()) {
@@ -102,7 +118,6 @@ export default function Pharmacies() {
           lastQueriedRegionRef.current = initialRegion;
           discoverInRegion(initialRegion);
         } else if (rawPharmacies.length === 0) {
-          // If no GPS is available, default to global view without fake assumptions
           const neutralRegion: MapRegion = {
             latitude: 0,
             longitude: 0,
@@ -177,71 +192,38 @@ export default function Pharmacies() {
     setDraftDistance(maxDistanceKm);
     setDraftOnlyOpen(onlyOpen);
     setDraftOnlyVerified(onlyVerified);
-    if (filterSheetRef.current?.present) {
-      filterSheetRef.current.present();
-    } else {
-      filterSheetRef.current?.expand?.();
-    }
+    dismissAll();
+    setTimeout(() => {
+      filterSheetRef.current?.present?.();
+    }, 150);
   };
 
   const handleApplyFilter = () => {
     setMaxDistanceKm(draftDistance);
     setOnlyOpen(draftOnlyOpen);
     setOnlyVerified(draftOnlyVerified);
-    if (filterSheetRef.current?.dismiss) {
-      filterSheetRef.current.dismiss();
-    } else {
-      filterSheetRef.current?.close?.();
-    }
+    dismissAll();
   };
 
-  // Slide animation for bottom card (0 = fully visible, 350 = off screen)
-  const slideAnim = useRef(new Animated.Value(350)).current;
-
-  useEffect(() => {
-    if (selectedPharmacy) {
-      slideAnim.setValue(350);
-      Animated.spring(slideAnim, {
-        toValue: 0,
-        tension: 65,
-        friction: 11,
-        useNativeDriver: true,
-      }).start();
-    }
-  }, [selectedPharmacy]);
-
-  const dismissCard = () => {
-    Animated.timing(slideAnim, {
-      toValue: 350,
-      duration: 200,
-      useNativeDriver: true,
-    }).start(() => {
-      setSelectedPharmacy(null);
-    });
+  // Open results list sheet
+  const openListSheet = () => {
+    dismissAll();
+    setSelectedPharmacy(null);
+    setSelectedPharmacyId(null);
+    setTimeout(() => {
+      listSheetRef.current?.present?.();
+    }, 150);
   };
 
-  // Drag down to dismiss gesture
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: (_, gestureState) => gestureState.dy > 5,
-      onPanResponderMove: (_, gestureState) => {
-        if (gestureState.dy > 0) {
-          slideAnim.setValue(gestureState.dy);
-        }
-      },
-      onPanResponderRelease: (_, gestureState) => {
-        if (gestureState.dy > 80 || gestureState.vy > 0.5) {
-          dismissCard();
-        } else {
-          Animated.spring(slideAnim, {
-            toValue: 0,
-            useNativeDriver: true,
-          }).start();
-        }
-      },
-    })
-  ).current;
+  // Select pharmacy handler (unified across list, marker, route parameter)
+  const handleSelectPharmacy = (pharmacy: DiscoveredPharmacy) => {
+    setSelectedPharmacy(pharmacy);
+    setSelectedPharmacyId(pharmacy.id);
+    dismissAll();
+    setTimeout(() => {
+      detailSheetRef.current?.present?.();
+    }, 150);
+  };
 
   // Spinning refresh indicator
   useEffect(() => {
@@ -272,11 +254,10 @@ export default function Pharmacies() {
 
   const handleRefreshPress = () => {
     if (loading) {
-      if (stopLoadingSheetRef.current?.present) {
-        stopLoadingSheetRef.current.present();
-      } else {
-        stopLoadingSheetRef.current?.expand?.();
-      }
+      dismissAll();
+      setTimeout(() => {
+        stopLoadingSheetRef.current?.present?.();
+      }, 150);
     } else if (currentRegion) {
       discoverInRegion(currentRegion);
     }
@@ -290,7 +271,7 @@ export default function Pharmacies() {
       (p) => p.id === targetId || p.id === routeSelectedId || encodeURIComponent(p.id) === routeSelectedId
     );
     if (found) {
-      setSelectedPharmacy(found);
+      handleSelectPharmacy(found);
     } else if (targetId && targetId !== 'undefined') {
       supabase
         .from('pharmacies')
@@ -299,7 +280,7 @@ export default function Pharmacies() {
         .maybeSingle()
         .then(({ data }) => {
           if (data && data.latitude != null && data.longitude != null) {
-            setSelectedPharmacy({
+            const p: DiscoveredPharmacy = {
               id: data.id,
               name: data.name,
               address: data.address || 'Address registered on map',
@@ -308,7 +289,8 @@ export default function Pharmacies() {
               longitude: data.longitude,
               isVerified: true,
               source: 'supabase',
-            });
+            };
+            handleSelectPharmacy(p);
           }
         });
     }
@@ -371,7 +353,6 @@ export default function Pharmacies() {
     });
   };
 
-  const hasPhone = !!selectedPharmacy?.phone && selectedPharmacy.phone !== 'N/A';
   const hasDrugQuery = !!routeQuery.trim();
 
   return (
@@ -381,17 +362,17 @@ export default function Pharmacies() {
         initialRegion={currentRegion || undefined}
         userCoords={userCoords}
         markers={filteredPharmacies}
-        selectedId={selectedPharmacy?.id}
+        selectedId={selectedPharmacy?.id || selectedPharmacyId}
         onPressLocate={handleLocateMe}
         onRegionChangeComplete={handleRegionChangeComplete}
         onSelectMarker={(id) => {
           const found = rawPharmacies.find((p) => p.id === id);
-          if (found) setSelectedPharmacy(found);
+          if (found) handleSelectPharmacy(found);
         }}
-        mapPadding={{ top: 100 + insets.top, right: 10, bottom: 20, left: 10 }}
+        mapPadding={{ top: 160 + insets.top, right: 10, bottom: 20, left: 10 }}
       />
 
-      {/* ── Top overlay: Header + search bar + filter button ── */}
+      {/* ── Top overlay: Header + Full-Width Search + Quick Action Chips ── */}
       <View style={[styles.overlayTop, { paddingTop: insets.top }]} pointerEvents="box-none">
         <Header
           title="Pharmacies"
@@ -421,9 +402,78 @@ export default function Pharmacies() {
           }
         />
 
+        {/* ── Full-Width Search Bar ── */}
+        <View style={styles.searchBarContainer}>
+          <View style={[styles.searchBar, { backgroundColor: theme.card, borderColor: theme.border }]}>
+            <Pressable onPress={openListSheet} hitSlop={8}>
+              <Ionicons name="search-outline" size={18} color={theme.text.muted} style={{ marginRight: SPACING.sm }} />
+            </Pressable>
+            <TextInput
+              style={[styles.searchInput, { color: theme.text.primary }]}
+              placeholder="Search by name or location..."
+              placeholderTextColor={theme.text.muted}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              onSubmitEditing={openListSheet}
+              returnKeyType="search"
+            />
+            {searchQuery.length > 0 && (
+              <Pressable onPress={() => setSearchQuery('')} hitSlop={8}>
+                <Ionicons name="close-circle" size={18} color={theme.textDim} />
+              </Pressable>
+            )}
+          </View>
+        </View>
+
+        {/* ── Quick Action & Filter Buttons ── */}
+        <View style={styles.quickChipsContainer}>
+          {/* Discovered Pharmacies List Trigger */}
+          <Pressable
+            style={({ pressed }) => [
+              styles.chipBtn,
+              { backgroundColor: primaryColor },
+              pressed && { opacity: 0.8 },
+            ]}
+            onPress={openListSheet}
+          >
+            <Ionicons name="list" size={15} color={COLORS.white} />
+            <Text style={styles.chipBtnTextPrimary}>
+              Discovered ({filteredPharmacies.length})
+            </Text>
+          </Pressable>
+
+          {/* Distance & Map Filter Modal Trigger */}
+          <Pressable
+            style={({ pressed }) => [
+              styles.chipBtn,
+              {
+                backgroundColor: maxDistanceKm !== null ? theme.patientSecondary : theme.card,
+                borderColor: maxDistanceKm !== null ? primaryColor : theme.border,
+                borderWidth: 1,
+              },
+              pressed && { opacity: 0.8 },
+            ]}
+            onPress={openFilterSheet}
+          >
+            <Ionicons
+              name="options-outline"
+              size={15}
+              color={maxDistanceKm !== null ? primaryColor : theme.text.primary}
+            />
+            <Text
+              style={[
+                styles.chipBtnText,
+                { color: maxDistanceKm !== null ? primaryColor : theme.text.primary },
+              ]}
+            >
+              {maxDistanceKm !== null ? `Radius: ${maxDistanceKm} km` : 'Filter Radius'}
+            </Text>
+          </Pressable>
+        </View>
+
         {/* Drug Search Context Banner */}
         {routeQuery ? (
-          <View style={[styles.contextBanner, { backgroundColor: theme.patientSecondary, borderColor: primaryColor + '40' }]}>
+          <View style={[styles.contextBanner, { backgroundColor: theme.patientSecondary + '80', borderColor: primaryColor + '40' }]}>
             <Ionicons name="medkit-outline" size={18} color={primaryColor} />
             <View style={{ flex: 1 }}>
               <Text style={[styles.contextTitle, { color: primaryColor }]}>
@@ -432,142 +482,98 @@ export default function Pharmacies() {
             </View>
           </View>
         ) : null}
-
-        {/* Search Bar & Filter Button */}
-        <View style={styles.searchBarContainer}>
-          <View style={[styles.searchBar, { backgroundColor: theme.card, borderColor: theme.border }]}>
-            <Ionicons name="search-outline" size={16} color={theme.text.muted} style={{ marginRight: 8 }} />
-            <TextInput
-              style={[styles.searchInput, { color: theme.text.primary }]}
-              placeholder="Search pharmacies in this area..."
-              placeholderTextColor={theme.text.muted}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-            />
-            {searchQuery.length > 0 && (
-              <Pressable onPress={() => setSearchQuery('')} hitSlop={8}>
-                <Ionicons name="close-circle" size={16} color={theme.textDim} />
-              </Pressable>
-            )}
-          </View>
-
-          {/* Filter Radius Control Button */}
-          <Pressable
-            style={({ pressed }) => [
-              styles.filterRadiusBtn,
-              pressed && { opacity: 0.7 },
-              { backgroundColor: theme.card, borderColor: primaryColor },
-            ]}
-            onPress={openFilterSheet}
-          >
-            <Ionicons name="options-outline" size={18} color={primaryColor} />
-            <Text style={[styles.filterRadiusText, { color: primaryColor }]}>
-              {maxDistanceKm !== null ? `${maxDistanceKm} km` : 'Filter'}
-            </Text>
-          </Pressable>
-        </View>
       </View>
 
-      {/* ── Selected Pharmacy Details Card ── */}
-      {selectedPharmacy && (
-        <Animated.View
-          style={[
-            styles.bottomDetailsCard,
-            { backgroundColor: theme.card, borderColor: theme.border },
-            { transform: [{ translateY: slideAnim }] },
-          ]}
-        >
-          {/* Drag Handle Bar */}
-          <View style={styles.handleContainer} {...panResponder.panHandlers}>
-            <View style={[styles.handleIndicator, { backgroundColor: theme.border }]} />
-          </View>
-
+      {/* ── Selected Pharmacy Details Bottom Sheet ── */}
+      <AppBottomSheet
+        ref={detailSheetRef}
+        name="pharmacy-detail-sheet"
+        title={displayedPharmacy?.name || 'Pharmacy Details'}
+        onClose={() => {
+          setSelectedPharmacy(null);
+          setSelectedPharmacyId(null);
+        }}
+      >
+        {displayedPharmacy && (
           <View style={styles.sheetContent}>
-            {/* Header Row */}
-            <View style={styles.cardHeaderRow}>
-              <View style={{ flex: 1, gap: SPACING.xs }}>
-                <Text style={[styles.pharmTitle, { color: theme.text.primary }]} numberOfLines={1}>
-                  {selectedPharmacy.name}
-                </Text>
-                <View style={styles.badgeRow}>
-                  {selectedPharmacy.isVerified ? (
-                    <View style={[styles.registeredBadge, { backgroundColor: theme.patientSecondary }]}>
-                      <Ionicons name="shield-checkmark" size={12} color={primaryColor} />
-                      <Text style={[styles.registeredText, { color: primaryColor }]}>Verified Partner</Text>
-                    </View>
-                  ) : (
-                    <View style={[styles.registeredBadge, { backgroundColor: theme.surfaceSecondary }]}>
-                      <Ionicons name="location-outline" size={12} color={theme.textMuted} />
-                      <Text style={[styles.registeredText, { color: theme.textMuted }]}>Public Map Location</Text>
-                    </View>
-                  )}
-
-                  {(selectedPharmacy.statusText || selectedPharmacy.hours) && (
-                    <View
-                      style={[
-                        styles.hoursBadge,
-                        {
-                          backgroundColor: selectedPharmacy.isClosingSoon
-                            ? COLORS.pendingBg
-                            : selectedPharmacy.isOpen === false
-                            ? theme.surfaceSecondary
-                            : theme.successBg,
-                        },
-                      ]}
-                    >
-                      <Ionicons
-                        name={
-                          selectedPharmacy.isClosingSoon
-                            ? 'alert-circle-outline'
-                            : selectedPharmacy.isOpen === false
-                            ? 'time-outline'
-                            : 'checkmark-circle'
-                        }
-                        size={12}
-                        color={
-                          selectedPharmacy.isClosingSoon
-                            ? COLORS.warningDark
-                            : selectedPharmacy.isOpen === false
-                            ? theme.textMuted
-                            : theme.success
-                        }
-                      />
-                      <Text
-                        style={[
-                          styles.hoursText,
-                          {
-                            color: selectedPharmacy.isClosingSoon
-                              ? COLORS.pendingText
-                              : selectedPharmacy.isOpen === false
-                              ? theme.textMuted
-                              : theme.successText,
-                          },
-                        ]}
-                      >
-                        {selectedPharmacy.isOpen === false
-                          ? 'Closed'
-                          : selectedPharmacy.statusText ||
-                            (selectedPharmacy.hours ? `Open (${selectedPharmacy.hours})` : 'Open')}
-                      </Text>
-                    </View>
-                  )}
+            {/* Header Status & Verification Badges */}
+            <View style={styles.badgeRow}>
+              {displayedPharmacy.isVerified ? (
+                <View style={[styles.registeredBadge, { backgroundColor: theme.patientSecondary }]}>
+                  <Ionicons name="shield-checkmark" size={12} color={primaryColor} />
+                  <Text style={[styles.registeredText, { color: primaryColor }]}>Verified Partner</Text>
                 </View>
-              </View>
+              ) : (
+                <View style={[styles.registeredBadge, { backgroundColor: theme.surfaceSecondary }]}>
+                  <Ionicons name="location-outline" size={12} color={theme.textMuted} />
+                  <Text style={[styles.registeredText, { color: theme.textMuted }]}>Public Map Location</Text>
+                </View>
+              )}
+
+              {(displayedPharmacy.statusText || displayedPharmacy.hours) && (
+                <View
+                  style={[
+                    styles.hoursBadge,
+                    {
+                      backgroundColor: displayedPharmacy.isClosingSoon
+                        ? COLORS.pendingBg
+                        : displayedPharmacy.isOpen === false
+                        ? theme.surfaceSecondary
+                        : theme.successBg,
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name={
+                      displayedPharmacy.isClosingSoon
+                        ? 'alert-circle-outline'
+                        : displayedPharmacy.isOpen === false
+                        ? 'time-outline'
+                        : 'checkmark-circle'
+                    }
+                    size={12}
+                    color={
+                      displayedPharmacy.isClosingSoon
+                        ? COLORS.warningDark
+                        : displayedPharmacy.isOpen === false
+                        ? theme.textMuted
+                        : theme.success
+                    }
+                  />
+                  <Text
+                    style={[
+                      styles.hoursText,
+                      {
+                        color: displayedPharmacy.isClosingSoon
+                          ? COLORS.pendingText
+                          : displayedPharmacy.isOpen === false
+                          ? theme.textMuted
+                          : theme.successText,
+                      },
+                    ]}
+                  >
+                    {displayedPharmacy.isOpen === false
+                      ? 'Closed'
+                      : displayedPharmacy.statusText ||
+                        (displayedPharmacy.hours ? `Open (${displayedPharmacy.hours})` : 'Open')}
+                  </Text>
+                </View>
+              )}
             </View>
 
             {/* Distance & Time (if GPS available) */}
-            {selectedPharmacy.distanceKm !== undefined && (
+            {displayedPharmacy.distanceKm !== undefined && (
               <View style={styles.metaRow}>
                 <Ionicons name="navigate-outline" size={14} color={theme.textMuted} />
                 <Text style={[styles.metaText, { color: theme.textMuted }]}>
-                  {cleanDistanceString(selectedPharmacy.distanceKm)} away
+                  {cleanDistanceString(displayedPharmacy.distanceKm)} away
                 </Text>
-                {selectedPharmacy.walkMinutes !== undefined && (
+                {displayedPharmacy.walkMinutes !== undefined && (
                   <>
                     <Text style={[styles.metaDot, { color: theme.textDim }]}>·</Text>
                     <Ionicons name="walk-outline" size={14} color={theme.textMuted} />
                     <Text style={[styles.metaText, { color: theme.textMuted }]}>
-                      {cleanDurationString(selectedPharmacy.walkMinutes)}
+                      {cleanDurationString(displayedPharmacy.walkMinutes)}
                     </Text>
                   </>
                 )}
@@ -578,27 +584,27 @@ export default function Pharmacies() {
             <View style={styles.infoRow}>
               <Ionicons name="location-outline" size={16} color={theme.textMuted} />
               <Text style={[styles.infoText, { color: theme.textMuted }]} numberOfLines={2}>
-                {selectedPharmacy.address || 'Address registered on map'}
+                {displayedPharmacy.address || 'Address registered on map'}
               </Text>
             </View>
 
             {/* Phone */}
-            {hasPhone ? (
+            {displayedPharmacy.phone ? (
               <Pressable
                 style={({ pressed }) => [styles.infoRow, pressed && { opacity: 0.6 }]}
-                onPress={() => handleCallPharmacy(selectedPharmacy.phone)}
+                onPress={() => handleCallPharmacy(displayedPharmacy.phone)}
                 hitSlop={8}
               >
                 <Ionicons name="call-outline" size={16} color={primaryColor} />
                 <Text style={[styles.infoText, { color: primaryColor, textDecorationLine: 'underline' }]}>
-                  {selectedPharmacy.phone}
+                  {displayedPharmacy.phone}
                 </Text>
               </Pressable>
             ) : null}
 
             {/* Drug Stock Banner */}
             {hasDrugQuery ? (
-              selectedPharmacy.isVerified ? (
+              displayedPharmacy.isVerified ? (
                 <View style={[styles.stockCheckBanner, { backgroundColor: theme.successBg }]}>
                   <Ionicons name="checkmark-circle" size={16} color={theme.success} />
                   <Text style={[styles.stockCheckText, { color: theme.successText }]}>
@@ -624,7 +630,7 @@ export default function Pharmacies() {
                   pressed && { opacity: 0.7 },
                   { borderColor: theme.border, backgroundColor: theme.card },
                 ]}
-                onPress={() => handleViewDetails(selectedPharmacy)}
+                onPress={() => handleViewDetails(displayedPharmacy)}
               >
                 <Ionicons name="information-circle-outline" size={18} color={theme.text.primary} />
                 <Text style={[styles.actionBtnText, { color: theme.text.primary }]}>Details</Text>
@@ -637,13 +643,13 @@ export default function Pharmacies() {
                   pressed && { opacity: 0.7 },
                   { borderColor: primaryColor, backgroundColor: theme.card },
                 ]}
-                onPress={() => handleInAppNavigate(selectedPharmacy)}
+                onPress={() => handleInAppNavigate(displayedPharmacy)}
               >
                 <Ionicons name="navigate-outline" size={18} color={primaryColor} />
                 <Text style={[styles.actionBtnText, { color: primaryColor }]}>Navigate</Text>
               </Pressable>
 
-              {hasDrugQuery && (
+              {hasDrugQuery && !!displayedPharmacy.isVerified && (
                 <Pressable
                   style={({ pressed }) => [
                     styles.actionBtn,
@@ -651,7 +657,7 @@ export default function Pharmacies() {
                     pressed && { opacity: 0.7 },
                     { backgroundColor: primaryColor },
                   ]}
-                  onPress={() => handleReservePharmacy(selectedPharmacy)}
+                  onPress={() => handleReservePharmacy(displayedPharmacy)}
                 >
                   <Ionicons name="cart-outline" size={18} color={COLORS.white} />
                   <Text style={[styles.actionBtnText, { color: COLORS.white }]}>Reserve</Text>
@@ -659,12 +665,111 @@ export default function Pharmacies() {
               )}
             </View>
           </View>
-        </Animated.View>
-      )}
+        )}
+      </AppBottomSheet>
+
+      {/* ── Pharmacy Results Bottom Sheet ── */}
+      <AppBottomSheet
+        ref={listSheetRef}
+        name="pharmacy-list-sheet"
+        scrollable
+        maxHeight={480}
+        title={
+          searchQuery.trim().length > 0
+            ? `Search Results (${filteredPharmacies.length})`
+            : `Discovered Pharmacies (${filteredPharmacies.length})`
+        }
+      >
+        <View style={styles.listSheetBody}>
+          {filteredPharmacies.length === 0 ? (
+            <View style={styles.emptyListContainer}>
+              <Ionicons name="search-outline" size={48} color={theme.textDim} />
+              <Text style={[styles.emptyListTitle, { color: theme.text.primary }]}>
+                {searchQuery.trim().length > 0 ? 'No matching pharmacies' : 'No pharmacies found'}
+              </Text>
+              <Text style={[styles.emptyListSub, { color: theme.textMuted }]}>
+                {searchQuery.trim().length > 0
+                  ? `No pharmacies matching "${searchQuery}" found in this area.`
+                  : 'Try adjusting your filters or panning to a different map area.'}
+              </Text>
+            </View>
+          ) : (
+            <View style={{ paddingBottom: SPACING.xxl, gap: SPACING.sm }}>
+              {filteredPharmacies.map((item) => {
+                const isSelected = item.id === selectedPharmacy?.id;
+                return (
+                  <Pressable
+                    key={item.id}
+                    style={({ pressed }) => [
+                      styles.listItemCard,
+                      {
+                        backgroundColor: isSelected ? theme.patientSecondary : theme.card,
+                        borderColor: isSelected ? primaryColor : theme.border,
+                      },
+                      pressed && { opacity: 0.8 },
+                    ]}
+                    onPress={() => handleSelectPharmacy(item)}
+                  >
+                    <View style={styles.listItemHeader}>
+                      <Text style={[styles.listItemTitle, { color: theme.text.primary }]} numberOfLines={1}>
+                        {item.name}
+                      </Text>
+                      {item.isVerified ? (
+                        <View style={[styles.registeredBadge, { backgroundColor: theme.patientSecondary }]}>
+                          <Ionicons name="shield-checkmark" size={10} color={primaryColor} />
+                          <Text style={[styles.registeredText, { color: primaryColor, fontSize: 10 }]}>Verified</Text>
+                        </View>
+                      ) : null}
+                    </View>
+
+                    <Text style={[styles.listItemAddress, { color: theme.textMuted }]} numberOfLines={1}>
+                      {item.address}
+                    </Text>
+
+                    <View style={styles.listItemMetaRow}>
+                      {item.distanceKm !== undefined && (
+                        <View style={styles.metaRow}>
+                          <Ionicons name="navigate-outline" size={12} color={theme.textMuted} />
+                          <Text style={[styles.metaText, { color: theme.textMuted, fontSize: FONT_SIZE.xs }]}>
+                            {cleanDistanceString(item.distanceKm)}
+                          </Text>
+                          {item.walkMinutes !== undefined && (
+                            <>
+                              <Text style={[styles.metaDot, { color: theme.textDim, fontSize: FONT_SIZE.xs }]}>·</Text>
+                              <Ionicons name="walk-outline" size={12} color={theme.textMuted} />
+                              <Text style={[styles.metaText, { color: theme.textMuted, fontSize: FONT_SIZE.xs }]}>
+                                {cleanDurationString(item.walkMinutes)}
+                              </Text>
+                            </>
+                          )}
+                        </View>
+                      )}
+
+                      {item.statusText && (
+                        <Text
+                          style={[
+                            styles.listItemStatus,
+                            {
+                              color: item.isOpen === false ? theme.textMuted : theme.success,
+                            },
+                          ]}
+                        >
+                          {item.statusText}
+                        </Text>
+                      )}
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
+        </View>
+      </AppBottomSheet>
 
       {/* Stop Loading Action Sheet */}
       <AppBottomSheet
         ref={stopLoadingSheetRef}
+        name="pharmacy-stop-loading-sheet"
         snapPoints={['38%']}
         title="Loading Pharmacies…"
       >
@@ -713,6 +818,7 @@ export default function Pharmacies() {
       {/* ── Distance Radius & Filter Bottom Sheet ── */}
       <AppBottomSheet
         ref={filterSheetRef}
+        name="pharmacy-filter-sheet"
         title="Distance & Map Filters"
       >
         <View style={styles.sheetBody}>
@@ -833,24 +939,21 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Bold',
   },
   searchBarContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
     paddingHorizontal: SPACING.lg,
     marginTop: SPACING.xs,
-    gap: SPACING.sm,
+    marginBottom: SPACING.xs,
   },
   searchBar: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    height: 44,
-    borderRadius: RADIUS.lg,
+    height: 46,
+    borderRadius: RADIUS.xl,
     borderWidth: 1,
     paddingHorizontal: SPACING.md,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
-    shadowRadius: 4,
+    shadowRadius: 6,
     elevation: 3,
   },
   searchInput: {
@@ -858,56 +961,41 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZE.md,
     fontFamily: 'Inter-Medium',
   },
-  filterRadiusBtn: {
+  quickChipsContainer: {
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.xs,
+    gap: SPACING.sm,
     flexDirection: 'row',
     alignItems: 'center',
-    height: 44,
-    paddingHorizontal: SPACING.md,
-    borderRadius: RADIUS.lg,
-    borderWidth: 1.5,
-    gap: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 3,
   },
-  filterRadiusText: {
+  chipBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 36,
+    paddingHorizontal: SPACING.md,
+    borderRadius: RADIUS.pill,
+    gap: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  chipBtnTextPrimary: {
     fontSize: FONT_SIZE.sm,
     fontFamily: 'Inter-Bold',
+    color: COLORS.white,
   },
-  bottomDetailsCard: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    borderRadius: RADIUS.xl,
-    borderWidth: 1,
-    zIndex: 20,
-  },
-  handleContainer: {
-    alignItems: 'center',
-    paddingVertical: SPACING.xs,
-  },
-  handleIndicator: {
-    width: 36,
-    height: 4,
-    borderRadius: RADIUS.pill,
+  chipBtnText: {
+    fontSize: FONT_SIZE.sm,
+    fontFamily: 'Inter-SemiBold',
   },
   sheetContent: {
     paddingHorizontal: SPACING.xl,
-    paddingBottom: SPACING.xxl,
-    gap: SPACING.md
-  },
-  cardHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-  },
-  pharmTitle: {
-    fontSize: FONT_SIZE.xl,
-    fontFamily: 'Inter-Bold',
-    paddingVertical: SPACING.sm,
+    paddingTop: SPACING.md,
+    gap: SPACING.md,
   },
   badgeRow: {
     flexDirection: 'row',
@@ -921,10 +1009,10 @@ const styles = StyleSheet.create({
     gap: SPACING.xs,
     paddingHorizontal: SPACING.sm,
     paddingVertical: SPACING.xs,
-    borderRadius: RADIUS.pill
+    borderRadius: RADIUS.pill,
   },
   registeredText: {
-    fontSize: FONT_SIZE.xs,
+    fontSize: FONT_SIZE.sm,
     fontFamily: 'Inter-SemiBold',
   },
   hoursBadge: {
@@ -932,7 +1020,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.sm,
     paddingVertical: SPACING.xs,
     borderRadius: RADIUS.pill,
-    alignItems: "center",
+    alignItems: 'center',
     gap: SPACING.xs,
   },
   hoursText: {
@@ -996,6 +1084,57 @@ const styles = StyleSheet.create({
   actionBtnText: {
     fontSize: FONT_SIZE.sm,
     fontFamily: 'Inter-Bold',
+  },
+  listSheetBody: {
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.sm,
+  },
+  emptyListContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: SPACING.xxl,
+    gap: SPACING.xs,
+  },
+  emptyListTitle: {
+    fontSize: FONT_SIZE.md,
+    fontFamily: 'Inter-Bold',
+  },
+  emptyListSub: {
+    fontSize: FONT_SIZE.sm,
+    fontFamily: 'Inter-Regular',
+    textAlign: 'center',
+    paddingHorizontal: SPACING.lg,
+  },
+  listItemCard: {
+    padding: SPACING.md,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    gap: SPACING.xs,
+  },
+  listItemHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  listItemTitle: {
+    fontSize: FONT_SIZE.md,
+    fontFamily: 'Inter-Bold',
+    flex: 1,
+    marginRight: SPACING.sm,
+  },
+  listItemAddress: {
+    fontSize: FONT_SIZE.xs,
+    fontFamily: 'Inter-Regular',
+  },
+  listItemMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: SPACING.xs,
+  },
+  listItemStatus: {
+    fontSize: FONT_SIZE.xs,
+    fontFamily: 'Inter-SemiBold',
   },
   sheetBody: {
     paddingHorizontal: SPACING.xl,
