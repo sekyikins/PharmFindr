@@ -126,16 +126,20 @@ export async function revokeAllOtherSessions(): Promise<void> {
       },
     ];
 
-    // Global sign out via Supabase auth (revokes all refresh tokens globally)
-    await supabase.auth.signOut({ scope: 'global' });
-
-    // Update user metadata to clear remote active device list
+    // 1. Update user metadata to clear remote active device list
     await supabase.auth.updateUser({
       data: {
         active_sessions: updatedSessions,
         password_changed_at: new Date().toISOString(),
       },
     });
+
+    // 2. Revoke other sessions while keeping this device session active
+    try {
+      await supabase.auth.signOut({ scope: 'others' });
+    } catch (err) {
+      console.warn('Sign out other sessions warning:', err);
+    }
 
     await updateLastActiveTimestamp();
   } catch (e) {

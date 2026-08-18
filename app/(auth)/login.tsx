@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   Platform,
   KeyboardAvoidingView,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,6 +23,9 @@ import { sendArkeselOtp, verifyArkeselOtp, validateGhanaPhone } from '@/lib/arke
 import { supabase } from '@/lib/supabase';
 import OtpInput, { type OtpInputHandle } from '@/components/ui/OtpInput';
 import { toast } from '@/context/ToastContext';
+import { BottomSheetModal, BottomSheetTextInput } from '@gorhom/bottom-sheet';
+import AppBottomSheet from '@/components/ui/AppBottomSheet';
+import * as Linking from 'expo-linking';
 
 import { getFriendlyErrorMessage } from '@/lib/errorUtils';
 
@@ -29,7 +33,7 @@ export default function Login() {
   const router = useRouter();
   const { initialRole } = useLocalSearchParams<{ initialRole?: string }>();
   const { width } = useWindowDimensions();
-  const { signIn, signUp } = useAuthStore();
+  const { signIn, signUp, signInWithGoogle } = useAuthStore();
   const { primaryColor } = useThemeContext();
 
   const [role, setRole] = useState<'patient' | 'pharmacy'>(
@@ -46,10 +50,38 @@ export default function Login() {
   const [pharmStep, setPharmStep] = useState<1 | 2>(1);
 
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+
+  // Forgot password state
+  const forgotSheetRef = useRef<BottomSheetModal>(null);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
 
   // Input refs for Enter key navigation
   const passwordRef = useRef<TextInput>(null);
   const otpRef = useRef<OtpInputHandle>(null);
+
+  const handleResetPassword = async () => {
+    if (!resetEmail.trim()) {
+      toast.error('Please enter your email address.');
+      return;
+    }
+    setResetLoading(true);
+    try {
+      const redirectUrl = Linking.createURL('reset-password');
+      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail.trim(), {
+        redirectTo: redirectUrl,
+      });
+      if (error) throw error;
+      toast.success('Password reset link sent! Check your email inbox.');
+      forgotSheetRef.current?.dismiss();
+      setResetEmail('');
+    } catch (e: any) {
+      toast.error(getFriendlyErrorMessage(e, 'Failed to send reset link. Please try again.'));
+    } finally {
+      setResetLoading(false);
+    }
+  };
 
   const handlePatientLogin = async () => {
     if (!email.trim() || !password.trim()) {
@@ -68,6 +100,23 @@ export default function Login() {
       toast.error(msg);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    setGoogleLoading(true);
+    try {
+      const user = await signInWithGoogle();
+      if (user) {
+        toast.success('Signed in with Google!');
+        router.replace('/(patient)/(tabs)/home');
+      }
+    } catch (error: any) {
+      console.warn('Google sign-in error:', error);
+      const msg = getFriendlyErrorMessage(error, 'Google sign-in was cancelled or failed.');
+      toast.error(msg);
+    } finally {
+      setGoogleLoading(false);
     }
   };
 
@@ -291,7 +340,18 @@ export default function Login() {
               </View>
 
               {/* Password */}
-              <Text style={[styles.label, { marginTop: SPACING.lg }]}>PASSWORD</Text>
+              <View style={styles.passwordHeaderRow}>
+                <Text style={styles.label}>PASSWORD</Text>
+                <Pressable
+                  onPress={() => {
+                    setResetEmail(email.trim());
+                    forgotSheetRef.current?.present();
+                  }}
+                  hitSlop={8}
+                >
+                  <Text style={[styles.forgotBtnText, { color: BLUE }]}>Forgot Password?</Text>
+                </Pressable>
+              </View>
               <View style={styles.inputRow}>
                 <Ionicons name="lock-closed-outline" size={16} color={COLORS.textDim} style={styles.inputIcon} />
                 <TextInput
@@ -322,6 +382,29 @@ export default function Login() {
                 <Text style={styles.dividerLabel}>or</Text>
                 <View style={styles.dividerLine} />
               </View>
+
+              {/* Continue with Google Button */}
+              <Pressable
+                style={({ pressed }) => [
+                  styles.googleBtn,
+                  pressed && { opacity: 0.8 },
+                ]}
+                onPress={handleGoogleLogin}
+                disabled={googleLoading || loading}
+              >
+                {googleLoading ? (
+                  <ActivityIndicator size="small" color={COLORS.textDark} />
+                ) : (
+                  <>
+                    <Image
+                      source={require('@/assets/google.png')}
+                      style={styles.googleIcon}
+                      resizeMode="contain"
+                    />
+                    <Text style={styles.googleBtnText}>Continue with Google</Text>
+                  </>
+                )}
+              </Pressable>
 
               <Pressable
                 style={styles.secondaryBtn}
@@ -426,6 +509,41 @@ export default function Login() {
         </View>
       </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Forgot Password BottomSheet */}
+      <AppBottomSheet ref={forgotSheetRef} title="Reset Password">
+        <View style={styles.modalContent}>
+          <Text style={styles.modalSub}>
+            Enter your registered account email and we'll send you instructions to reset your password.
+          </Text>
+
+          <Text style={styles.label}>EMAIL ADDRESS</Text>
+          <View style={styles.inputRow}>
+            <Ionicons name="mail-outline" size={16} color={COLORS.textDim} style={styles.inputIcon} />
+            <BottomSheetTextInput
+              style={styles.input}
+              placeholder="your.email@example.com"
+              placeholderTextColor={COLORS.textDim}
+              value={resetEmail}
+              onChangeText={setResetEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+          </View>
+
+          <Pressable
+            style={[styles.primaryBtn, { backgroundColor: BLUE, marginTop: SPACING.xl }]}
+            onPress={handleResetPassword}
+            disabled={resetLoading}
+          >
+            {resetLoading ? (
+              <ActivityIndicator color={COLORS.white} />
+            ) : (
+              <Text style={styles.primaryBtnText}>Send Reset Link</Text>
+            )}
+          </Pressable>
+        </View>
+      </AppBottomSheet>
     </View>
   );
 }
@@ -468,6 +586,17 @@ const styles = StyleSheet.create({
   label: {
     fontSize: FONT_SIZE.xs, fontFamily: 'Inter-Bold', color: COLORS.textMuted, letterSpacing: 0.5, marginBottom: SPACING.sm
   },
+  passwordHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: SPACING.lg,
+  },
+  forgotBtnText: {
+    fontSize: FONT_SIZE.sm,
+    fontFamily: 'Inter-SemiBold',
+    marginBottom: SPACING.sm,
+  },
   inputRow: {
     backgroundColor: COLORS.background, borderRadius: RADIUS.xl, height: 52, flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACING.lg, borderWidth: 1, borderColor: COLORS.borderSubtle
   },
@@ -500,5 +629,35 @@ const styles = StyleSheet.create({
   secondaryBtnText: {
     color: COLORS.textSecondary, fontSize: FONT_SIZE.lg, fontFamily: 'Inter-SemiBold'
   },
-
+  googleBtn: {
+    height: 50,
+    borderRadius: 25,
+    borderWidth: 1,
+    borderColor: COLORS.borderSlate,
+    backgroundColor: COLORS.white,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: SPACING.md,
+    gap: 12,
+  },
+  googleIcon: {
+    width: 20,
+    height: 20,
+  },
+  googleBtnText: {
+    color: COLORS.textDark,
+    fontSize: FONT_SIZE.lg,
+    fontFamily: 'Inter-SemiBold',
+  },
+  modalContent: {
+    padding: SPACING.lg,
+  },
+  modalSub: {
+    fontFamily: 'Inter-Regular',
+    fontSize: FONT_SIZE.md,
+    color: COLORS.textDim,
+    lineHeight: 20,
+    marginBottom: SPACING.lg,
+  },
 });

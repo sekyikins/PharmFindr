@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -42,7 +43,7 @@ export default function Register() {
   const router = useRouter();
   const { role } = useLocalSearchParams<{ role?: string }>();
   const { width } = useWindowDimensions();
-  const { signUp } = useAuthStore();
+  const { signUp, signInWithGoogle } = useAuthStore();
   const { primaryColor } = useThemeContext();
 
   useHardwareBack(() => {
@@ -63,6 +64,7 @@ export default function Register() {
   const [confirmPassword, setConfirmPassword] = useState('');
 
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   // Input refs for Enter key navigation
   const phoneRef = useRef<TextInput>(null);
@@ -97,6 +99,23 @@ export default function Register() {
       toast.error(msg);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    setGoogleLoading(true);
+    try {
+      const user = await signInWithGoogle();
+      if (user) {
+        toast.success('Signed in with Google!');
+        router.replace('/(patient)/(tabs)/home');
+      }
+    } catch (error: any) {
+      console.warn('Google sign-in error:', error);
+      const msg = getFriendlyErrorMessage(error, 'Google sign-in was cancelled or failed.');
+      toast.error(msg);
+    } finally {
+      setGoogleLoading(false);
     }
   };
 
@@ -224,6 +243,42 @@ export default function Register() {
           >
             {loading ? <ActivityIndicator color={COLORS.white} /> : <Text style={styles.primaryBtnText}>Register Account</Text>}
           </Pressable>
+
+          <View style={styles.divider}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerLabel}>or</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          {/* Continue with Google Button */}
+          <Pressable
+            style={({ pressed }) => [
+              styles.googleBtn,
+              pressed && { opacity: 0.8 },
+            ]}
+            onPress={handleGoogleLogin}
+            disabled={googleLoading || loading}
+          >
+            {googleLoading ? (
+              <ActivityIndicator size="small" color={COLORS.textDark} />
+            ) : (
+              <>
+                <Image
+                  source={require('@/assets/google.png')}
+                  style={styles.googleIcon}
+                  resizeMode="contain"
+                />
+                <Text style={styles.googleBtnText}>Continue with Google</Text>
+              </>
+            )}
+          </Pressable>
+
+          <Pressable
+            style={styles.secondaryBtn}
+            onPress={() => router.push('/(auth)/login')}
+          >
+            <Text style={styles.secondaryBtnText}>Already have an account? Log In</Text>
+          </Pressable>
         </View>
       </ScrollView>
       </KeyboardAvoidingView>
@@ -281,10 +336,55 @@ const styles = StyleSheet.create({
      flex: 1, fontSize: FONT_SIZE.lg, color: TEXT_PRIMARY, height: '100%'
   },
   primaryBtn: {
-    height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center', marginTop: SPACING.xxxl
+    height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center', marginTop: SPACING.xxl
   },
   primaryBtnText: {
     color: COLORS.white, fontSize: FONT_SIZE.lg, fontFamily: 'Inter-Bold'
   },
-
+  divider: {
+    flexDirection: 'row', alignItems: 'center', marginVertical: SPACING.xl
+  },
+  dividerLine: {
+    flex: 1, height: 1, backgroundColor: COLORS.borderSubtle
+  },
+  dividerLabel: {
+    fontFamily: 'Inter-Regular',
+    marginHorizontal: SPACING.md,
+    color: COLORS.textDim,
+    fontSize: FONT_SIZE.md,
+  },
+  googleBtn: {
+    height: 50,
+    borderRadius: 25,
+    borderWidth: 1,
+    borderColor: COLORS.borderSlate,
+    backgroundColor: COLORS.white,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: SPACING.md,
+    gap: 12,
+  },
+  googleIcon: {
+    width: 20,
+    height: 20,
+  },
+  googleBtnText: {
+    color: COLORS.textDark,
+    fontSize: FONT_SIZE.lg,
+    fontFamily: 'Inter-SemiBold',
+  },
+  secondaryBtn: {
+    height: 50,
+    borderRadius: 25,
+    borderWidth: 1,
+    borderColor: COLORS.borderSlate,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  secondaryBtnText: {
+    color: COLORS.textSecondary,
+    fontSize: FONT_SIZE.lg,
+    fontFamily: 'Inter-SemiBold',
+  },
 });

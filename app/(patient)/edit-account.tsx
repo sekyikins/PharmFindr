@@ -40,7 +40,7 @@ import {
 
 export default function EditAccount() {
   const router = useRouter();
-  const { user, profile, updateProfile, uploadAvatar, updatePasswordAndRevokeOtherSessions, signOut } = useAuthStore();
+  const { user, profile, updateProfile, uploadAvatar, updatePasswordAndRevokeOtherSessions, signOut, deleteAccount } = useAuthStore();
   const { theme, primaryColor } = useThemeContext();
 
   const [fullName, setFullName] = useState(profile?.full_name ?? '');
@@ -59,6 +59,11 @@ export default function EditAccount() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [changingPassword, setChangingPassword] = useState(false);
+
+  // Delete Account Password Confirmation Sheet State
+  const deleteSheetRef = useRef<BottomSheetModal>(null);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [verifyingDelete, setVerifyingDelete] = useState(false);
 
   const phoneInputRef = useRef<TextInput>(null);
   const usernameInputRef = useRef<TextInput>(null);
@@ -314,15 +319,100 @@ export default function EditAccount() {
   };
 
   const handleSignOutConfirm = () => {
-    Alert.alert('Sign Out', 'Are you sure you want to sign out of PharmFindr?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Sign Out', style: 'destructive', onPress: () => signOut() },
-    ], { cancelable: true });
+    Alert.alert(
+      'Sign Out',
+      'Are you sure you want to sign out of your account?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Sign Out',
+          style: 'destructive',
+          onPress: async () => {
+            await signOut();
+            router.replace({ pathname: '/(auth)/login', params: { initialRole: 'patient' } });
+          },
+        },
+      ],
+      { cancelable: true }
+    );
   };
+
+  const showDeleteConfirmationAlert = () => {
+    Alert.alert(
+      'Delete Account',
+      'Are you sure you want to delete your account? This action cannot be undone and will permanently erase all your PharmFindr information.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete Account',
+          style: 'destructive',
+          onPress: async () => {
+            await performDeleteAccount();
+          },
+        },
+      ],
+      { cancelable: true }
+    );
+  };
+
+  const handlePressDeleteAccount = () => {
+    if (hasPassword) {
+      setDeletePassword('');
+      deleteSheetRef.current?.present();
+    } else {
+      showDeleteConfirmationAlert();
+    }
+  };
+
+  const handleVerifyDeletePassword = async () => {
+    if (!deletePassword.trim()) {
+      toast.error('Validation Error', 'Please enter your password to continue.');
+      return;
+    }
+
+    setVerifyingDelete(true);
+    try {
+      const userEmail = user?.email || `${profile?.phone}@PharmFindr.app`;
+      const { error: signInErr } = await supabase.auth.signInWithPassword({
+        email: userEmail,
+        password: deletePassword.trim(),
+      });
+
+      if (signInErr) {
+        throw new Error('Incorrect password. Please try again.');
+      }
+
+      deleteSheetRef.current?.dismiss();
+      setDeletePassword('');
+      setTimeout(() => {
+        showDeleteConfirmationAlert();
+      }, 350);
+    } catch (e: any) {
+      toast.error('Verification Failed', getFriendlyErrorMessage(e, 'Incorrect password. Please try again.'));
+    } finally {
+      setVerifyingDelete(false);
+    }
+  };
+
+  const performDeleteAccount = async () => {
+    setSaving(true);
+    try {
+      await deleteAccount();
+      toast.success('Account Deleted', 'Your account has been deleted permanently.');
+      router.replace({ pathname: '/(auth)/login', params: { initialRole: 'patient' } });
+    } catch (e: any) {
+      toast.error('Deletion Failed', getFriendlyErrorMessage(e, 'Failed to delete account. Please try again.'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const providers = (user?.app_metadata?.providers as string[] | undefined) || (user?.app_metadata?.provider ? [user.app_metadata.provider] : []);
+  const hasPassword = providers.includes('email');
 
   // Secure Password Update Handler with Global Session Revocation
   const handleChangePasswordSubmit = async () => {
-    if (!currentPassword.trim()) {
+    if (hasPassword && !currentPassword.trim()) {
       toast.error('Validation Error', 'Please enter your current password.');
       return;
     }
@@ -341,25 +431,30 @@ export default function EditAccount() {
 
     setChangingPassword(true);
     try {
-      const userEmail = user?.email || `${profile?.phone}@PharmFindr.app`;
-      const { error: signInErr } = await supabase.auth.signInWithPassword({
-        email: userEmail,
-        password: currentPassword,
-      });
+      if (hasPassword) {
+        const userEmail = user?.email || `${profile?.phone}@PharmFindr.app`;
+        const { error: signInErr } = await supabase.auth.signInWithPassword({
+          email: userEmail,
+          password: currentPassword,
+        });
 
-      if (signInErr) {
-        throw new Error('Current password is incorrect.');
+        if (signInErr) {
+          throw new Error('Current password is incorrect.');
+        }
       }
 
       await updatePasswordAndRevokeOtherSessions(newPassword);
 
-      toast.success('Password Updated', 'Your password has been changed securely.');
+      toast.success(
+        hasPassword ? 'Password Updated' : 'Password Configured',
+        hasPassword ? 'Your password has been changed securely.' : 'Account password set successfully! You can now also log in with email and password.'
+      );
       passwordSheetRef.current?.dismiss();
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
     } catch (e: any) {
-      toast.error('Password Update Failed', getFriendlyErrorMessage(e, 'Failed to change password. Please try again.'));
+      toast.error(hasPassword ? 'Password Update Failed' : 'Set Password Failed', getFriendlyErrorMessage(e, 'Failed to update password. Please try again.'));
     } finally {
       setChangingPassword(false);
     }
@@ -481,8 +576,14 @@ export default function EditAccount() {
               <Ionicons name="lock-closed-outline" size={20} color={primaryColor} />
             </View>
             <View style={{ flex: 1, paddingHorizontal: SPACING.md }}>
-              <Text style={[styles.securityTitle, { color: theme.text.primary }]}>Change Password</Text>
-              <Text style={[styles.securitySub, { color: theme.textMuted }]}>Requires current password verification</Text>
+              <Text style={[styles.securityTitle, { color: theme.text.primary }]}>
+                {hasPassword ? 'Change Password' : 'Set Account Password'}
+              </Text>
+              <Text style={[styles.securitySub, { color: theme.textMuted }]}>
+                {hasPassword
+                  ? 'Requires current password verification'
+                  : 'Enable email and password sign-in for your account'}
+              </Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color={theme.textDim} />
           </Pressable>
@@ -526,20 +627,40 @@ export default function EditAccount() {
         <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
           <Text style={[styles.sectionHeading, { color: theme.text.primary }]}>ACCOUNT ACTIONS</Text>
 
+          {/* Sign Out */}
           <Pressable
             style={({ pressed }) => [
               styles.securityRow,
               pressed && { opacity: 0.6 },
-              { backgroundColor: theme.errorBg, borderColor: theme.error + '40' },
+              { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
             ]}
             onPress={handleSignOutConfirm}
           >
-            <View style={[styles.securityIconCircle, { backgroundColor: theme.error + '20' }]}>
-              <Ionicons name="log-out-outline" size={20} color={theme.error} />
+            <View style={[styles.securityIconCircle, { backgroundColor: primaryColor + '20' }]}>
+              <Ionicons name="log-out-outline" size={20} color={primaryColor} />
             </View>
             <View style={{ flex: 1, paddingHorizontal: SPACING.md }}>
-              <Text style={[styles.securityTitle, { color: theme.error }]}>Sign Out</Text>
-              <Text style={[styles.securitySub, { color: theme.error + 'aa' }]}>Log out of your account on this device</Text>
+              <Text style={[styles.securityTitle, { color: theme.text.primary }]}>Sign Out</Text>
+              <Text style={[styles.securitySub, { color: theme.textMuted }]}>Log out of your account on this device</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={theme.textDim} />
+          </Pressable>
+
+          {/* Delete Account */}
+          <Pressable
+            style={({ pressed }) => [
+              styles.securityRow,
+              pressed && { opacity: 0.6 },
+              { backgroundColor: theme.errorBg, borderColor: theme.error + '40', marginTop: SPACING.md },
+            ]}
+            onPress={handlePressDeleteAccount}
+          >
+            <View style={[styles.securityIconCircle, { backgroundColor: theme.error + '20' }]}>
+              <Ionicons name="trash-outline" size={20} color={theme.error} />
+            </View>
+            <View style={{ flex: 1, paddingHorizontal: SPACING.md }}>
+              <Text style={[styles.securityTitle, { color: theme.error }]}>Delete Account</Text>
+              <Text style={[styles.securitySub, { color: theme.error + 'aa' }]}>Permanently remove your account & all data</Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color={theme.error} />
           </Pressable>
@@ -666,24 +787,30 @@ export default function EditAccount() {
         }}
       />
 
-      {/* Secure Password Change Bottom Sheet */}
-      <AppBottomSheet ref={passwordSheetRef} title="Change Account Password">
+      {/* Secure Password Change / Set Password Bottom Sheet */}
+      <AppBottomSheet ref={passwordSheetRef} title={hasPassword ? 'Change Account Password' : 'Set Account Password'}>
         <View style={styles.passwordSheetContent}>
           <Text style={[styles.passwordSub, { color: theme.textMuted }]}>
-            Changing your password will immediately sign out all other active device sessions for account security.
+            {hasPassword
+              ? 'Changing your password will immediately sign out all other active device sessions for account security.'
+              : 'Create a password to enable logging into your account using both Google and email/password.'}
           </Text>
 
-          <Text style={[styles.fieldLabel, { color: theme.textDim }]}>CURRENT PASSWORD</Text>
-          <BottomSheetTextInput
-            style={[styles.modalInput, { color: theme.text.primary, backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}
-            value={currentPassword}
-            onChangeText={setCurrentPassword}
-            placeholder="Enter current password"
-            placeholderTextColor={theme.textDim}
-            secureTextEntry
-          />
+          {hasPassword && (
+            <>
+              <Text style={[styles.fieldLabel, { color: theme.textDim }]}>CURRENT PASSWORD</Text>
+              <BottomSheetTextInput
+                style={[styles.modalInput, { color: theme.text.primary, backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}
+                value={currentPassword}
+                onChangeText={setCurrentPassword}
+                placeholder="Enter current password"
+                placeholderTextColor={theme.textDim}
+                secureTextEntry
+              />
+            </>
+          )}
 
-          <Text style={[styles.fieldLabel, { color: theme.textDim, marginTop: SPACING.md }]}>NEW PASSWORD</Text>
+          <Text style={[styles.fieldLabel, { color: theme.textDim, marginTop: hasPassword ? SPACING.md : 0 }]}>NEW PASSWORD</Text>
           <BottomSheetTextInput
             style={[styles.modalInput, { color: theme.text.primary, backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}
             value={newPassword}
@@ -709,7 +836,58 @@ export default function EditAccount() {
               onPress={handleChangePasswordSubmit}
               disabled={changingPassword}
             >
-              {changingPassword ? <ActivityIndicator color={COLORS.white} /> : <Text style={styles.confirmPasswordText}>Update</Text>}
+              {changingPassword ? (
+                <ActivityIndicator color={COLORS.white} />
+              ) : (
+                <Text style={styles.confirmPasswordText}>{hasPassword ? 'Update Password' : 'Set Password'}</Text>
+              )}
+            </Pressable>
+          </View>
+        </View>
+      </AppBottomSheet>
+
+      {/* Delete Account Password Confirmation Bottom Sheet */}
+      <AppBottomSheet ref={deleteSheetRef} title="Verify Password to Delete">
+        <View style={styles.passwordSheetContent}>
+          <Text style={[styles.passwordSub, { color: theme.textMuted }]}>
+            To protect your account security, please enter your password before permanently deleting your account and all records.
+          </Text>
+
+          <Text style={[styles.fieldLabel, { color: theme.textDim, marginTop: SPACING.md }]}>ACCOUNT PASSWORD</Text>
+          <BottomSheetTextInput
+            style={[styles.modalInput, { color: theme.text.primary, backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}
+            value={deletePassword}
+            onChangeText={setDeletePassword}
+            placeholder="Enter your current password"
+            placeholderTextColor={theme.textDim}
+            secureTextEntry
+            autoCapitalize="none"
+            returnKeyType="done"
+            onSubmitEditing={handleVerifyDeletePassword}
+          />
+
+          <View style={styles.passwordActionRow}>
+            <Pressable
+              style={[styles.cancelPasswordBtn, { borderColor: theme.border }]}
+              onPress={() => {
+                deleteSheetRef.current?.dismiss();
+                setDeletePassword('');
+              }}
+              disabled={verifyingDelete}
+            >
+              <Text style={[styles.cancelPasswordText, { color: theme.text.primary }]}>Cancel</Text>
+            </Pressable>
+
+            <Pressable
+              style={({ pressed }) => [styles.confirmPasswordBtn, pressed && { opacity: 0.5 }, { backgroundColor: theme.error }]}
+              onPress={handleVerifyDeletePassword}
+              disabled={verifyingDelete}
+            >
+              {verifyingDelete ? (
+                <ActivityIndicator color={COLORS.white} />
+              ) : (
+                <Text style={styles.confirmPasswordText}>Verify & Continue</Text>
+              )}
             </Pressable>
           </View>
         </View>

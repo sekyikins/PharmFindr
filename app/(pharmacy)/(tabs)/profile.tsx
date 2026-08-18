@@ -34,6 +34,8 @@ import {
   getBiometricIcon,
   authenticateBiometrics,
 } from '@/lib/biometrics';
+import { hasAppPin, setAppPin, removeAppPin } from '@/lib/appPin';
+
 export default function PharmacyProfile() {
   const router = useRouter();
   const { user, profile, signOut, updateProfile, uploadAvatar, refreshProfile } = useAuthStore();
@@ -61,13 +63,15 @@ export default function PharmacyProfile() {
   const [editAddress, setEditAddress] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
 
-  // Change Password BottomSheet State
-  const [newPassword, setNewPassword] = useState('');
-  const [savingPwd, setSavingPwd] = useState(false);
+  // 4-Digit App Security PIN State
+  const [hasPin, setHasPin] = useState(false);
+  const [pinInput, setPinInput] = useState('');
+  const [confirmPinInput, setConfirmPinInput] = useState('');
+  const [savingPin, setSavingPin] = useState(false);
 
   const avatarSheetRef = useRef<BottomSheetModal>(null);
   const editSheetRef = useRef<BottomSheetModal>(null);
-  const pwdSheetRef = useRef<BottomSheetModal>(null);
+  const pinSheetRef = useRef<BottomSheetModal>(null);
 
   const fetchProfile = useCallback(async () => {
     if (!user?.id) {
@@ -119,15 +123,19 @@ export default function PharmacyProfile() {
 
   useEffect(() => {
     fetchProfile();
-    const initBio = async () => {
-      const pref = await getBiometricsPreference();
+    const initSecurity = async () => {
+      const [pref, pinExists, label, icon] = await Promise.all([
+        getBiometricsPreference(),
+        hasAppPin(),
+        getBiometricType(),
+        getBiometricIcon(),
+      ]);
       setBiometricsEnabled(pref);
-      const label = await getBiometricType();
-      const icon = await getBiometricIcon();
+      setHasPin(pinExists);
       setBiometricType(label);
       setBiometricIcon(icon);
     };
-    initBio();
+    initSecurity();
   }, [fetchProfile]);
 
   const handleToggleBiometrics = async (val: boolean) => {
@@ -149,6 +157,7 @@ export default function PharmacyProfile() {
     await Promise.all([
       fetchProfile(),
       refreshProfile(),
+      hasAppPin().then(setHasPin),
     ]);
     setRefreshing(false);
   };
@@ -211,22 +220,32 @@ export default function PharmacyProfile() {
     }
   };
 
-  const handleChangePassword = async () => {
-    if (!newPassword.trim() || newPassword.length < 6) {
-      toast.error('Invalid', 'Password must be at least 6 characters.');
+  const handleSavePin = async () => {
+    const cleanPin = pinInput.trim();
+    const cleanConfirm = confirmPinInput.trim();
+
+    if (!cleanPin || cleanPin.length !== 4 || !/^\d{4}$/.test(cleanPin)) {
+      toast.error('Invalid PIN', 'Please enter a 4-digit numeric PIN.');
       return;
     }
-    setSavingPwd(true);
+    if (cleanPin !== cleanConfirm) {
+      toast.error('Mismatch', 'PIN entries do not match.');
+      return;
+    }
+
+    setSavingPin(true);
     try {
-      const { error } = await supabase.auth.updateUser({ password: newPassword.trim() });
-      if (error) throw error;
-      toast.success('Success', 'Password changed successfully!');
-      setNewPassword('');
-      pwdSheetRef.current?.dismiss();
+      const saved = await setAppPin(cleanPin);
+      if (!saved) throw new Error('Could not save PIN.');
+      setHasPin(true);
+      toast.success('PIN Configured', '4-digit app security PIN saved successfully!');
+      setPinInput('');
+      setConfirmPinInput('');
+      pinSheetRef.current?.dismiss();
     } catch (e: any) {
-      toast.error('Password Update Failed', getFriendlyErrorMessage(e, 'Failed to change password. Please try again.'));
+      toast.error('Save Failed', getFriendlyErrorMessage(e, 'Failed to save PIN. Please try again.'));
     } finally {
-      setSavingPwd(false);
+      setSavingPin(false);
     }
   };
 
@@ -397,14 +416,20 @@ export default function PharmacyProfile() {
 
             <Pressable
               style={({ pressed }) => [styles.rowItem, pressed && { opacity: 0.7 }]}
-              onPress={() => pwdSheetRef.current?.present()}
+              onPress={() => {
+                setPinInput('');
+                setConfirmPinInput('');
+                pinSheetRef.current?.present();
+              }}
             >
               <View style={[styles.iconWrap, { backgroundColor: COLORS.pendingBg }]}>
-                <Ionicons name="lock-closed-outline" size={18} color={COLORS.warning} />
+                <Ionicons name="keypad-outline" size={18} color={COLORS.warning} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={[styles.rowTitle, { color: theme.text.primary }]}>Account Security</Text>
-                <Text style={[styles.rowSub, { color: theme.textMuted }]}>Change password</Text>
+                <Text style={[styles.rowTitle, { color: theme.text.primary }]}>App Security PIN</Text>
+                <Text style={[styles.rowSub, { color: theme.textMuted }]}>
+                  {hasPin ? '4-Digit PIN configured' : 'Set 4-digit PIN to lock app'}
+                </Text>
               </View>
               <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
             </Pressable>
@@ -499,17 +524,37 @@ export default function PharmacyProfile() {
         </View>
       </AppBottomSheet>
 
-      {/* ── Change Password BottomSheet ── */}
-      <AppBottomSheet ref={pwdSheetRef} title="Change Password">
+      {/* ── 4-Digit Security PIN BottomSheet ── */}
+      <AppBottomSheet ref={pinSheetRef} title={hasPin ? 'Change Security PIN' : 'Set 4-Digit Security PIN'}>
         <View style={styles.sheetContent}>
+          <Text style={[styles.modalSub, { color: theme.textMuted }]}>
+            This 4-digit PIN is used to lock and unlock your pharmacy dashboard whenever you exit or leave the app.
+          </Text>
+
           <View style={styles.modalField}>
-            <Text style={[styles.modalLabel, { color: theme.textMuted }]}>NEW PASSWORD</Text>
+            <Text style={[styles.modalLabel, { color: theme.textMuted }]}>4-DIGIT PIN</Text>
             <BottomSheetTextInput
-              style={[styles.modalInput, { backgroundColor: theme.surfaceSecondary, color: theme.text.primary, borderColor: theme.border }]}
-              value={newPassword}
-              onChangeText={setNewPassword}
+              style={[styles.modalInput, { backgroundColor: theme.surfaceSecondary, color: theme.text.primary, borderColor: theme.border, letterSpacing: 8, textAlign: 'center', fontSize: FONT_SIZE.xxl, fontWeight: '700' }]}
+              value={pinInput}
+              onChangeText={(text) => setPinInput(text.replace(/[^0-9]/g, '').slice(0, 4))}
+              keyboardType="number-pad"
+              maxLength={4}
               secureTextEntry
-              placeholder="At least 6 characters"
+              placeholder="••••"
+              placeholderTextColor={theme.textMuted}
+            />
+          </View>
+
+          <View style={styles.modalField}>
+            <Text style={[styles.modalLabel, { color: theme.textMuted }]}>CONFIRM 4-DIGIT PIN</Text>
+            <BottomSheetTextInput
+              style={[styles.modalInput, { backgroundColor: theme.surfaceSecondary, color: theme.text.primary, borderColor: theme.border, letterSpacing: 8, textAlign: 'center', fontSize: FONT_SIZE.xxl, fontWeight: '700' }]}
+              value={confirmPinInput}
+              onChangeText={(text) => setConfirmPinInput(text.replace(/[^0-9]/g, '').slice(0, 4))}
+              keyboardType="number-pad"
+              maxLength={4}
+              secureTextEntry
+              placeholder="••••"
               placeholderTextColor={theme.textMuted}
             />
           </View>
@@ -521,13 +566,13 @@ export default function PharmacyProfile() {
                 pressed && { opacity: 0.8 },
                 { backgroundColor: COLORS.pharmacyPrimary },
               ]}
-              onPress={handleChangePassword}
-              disabled={savingPwd}
+              onPress={handleSavePin}
+              disabled={savingPin}
             >
-              {savingPwd ? (
+              {savingPin ? (
                 <ActivityIndicator color={COLORS.white} />
               ) : (
-                <Text style={styles.saveBtnText}>Update Password</Text>
+                <Text style={styles.saveBtnText}>{hasPin ? 'Update PIN' : 'Save Security PIN'}</Text>
               )}
             </Pressable>
           </View>
@@ -700,6 +745,12 @@ const styles = StyleSheet.create({
   sheetContent: {
     padding: SPACING.lg,
     gap: 14
+  },
+  modalSub: {
+    fontFamily: 'Inter-Regular',
+    fontSize: FONT_SIZE.sm,
+    lineHeight: 18,
+    marginBottom: SPACING.xs,
   },
   modalField: {
     gap: SPACING.xs

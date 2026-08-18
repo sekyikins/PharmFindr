@@ -666,4 +666,36 @@ CREATE POLICY "medicine_products_auth_insert" ON public.medicine_products
 CREATE INDEX IF NOT EXISTS idx_medicine_products_brand ON public.medicine_products(brand_name);
 CREATE INDEX IF NOT EXISTS idx_medicine_products_generic_id ON public.medicine_products(generic_id);
 
+-- ------------------------------------------------------------
+-- 14. SECURE ACCOUNT DELETION (Self-Service User Cleanup)
+-- ------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.delete_user_account()
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth
+AS $$
+DECLARE
+  v_user_id UUID := auth.uid();
+BEGIN
+  IF v_user_id IS NULL THEN
+    RAISE EXCEPTION 'Not authenticated';
+  END IF;
+
+  -- 1. Cascade cleanup public tables
+  DELETE FROM public.app_users WHERE id = v_user_id;
+  DELETE FROM public.user_roles WHERE id = v_user_id;
+  DELETE FROM public.prescriptions WHERE user_id = v_user_id;
+  DELETE FROM public.reservations WHERE user_id = v_user_id;
+  DELETE FROM public.notifications WHERE user_id = v_user_id;
+  DELETE FROM public.pharmacies WHERE owner_id = v_user_id;
+
+  -- 2. Remove authenticated user record
+  DELETE FROM auth.users WHERE id = v_user_id;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.delete_user_account() TO authenticated;
+
+
 

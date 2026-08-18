@@ -9,7 +9,11 @@ import {
 } from '@/lib/deviceSession';
 import { enqueueOfflineAction } from '@/lib/offlineSyncQueue';
 import * as FileSystem from 'expo-file-system/legacy';
+import * as WebBrowser from 'expo-web-browser';
+import * as Linking from 'expo-linking';
 import { Platform } from 'react-native';
+
+WebBrowser.maybeCompleteAuthSession();
 
 /** Base64 to ArrayBuffer helper for React Native Native uploads */
 function base64ToArrayBuffer(base64: string): ArrayBuffer {
@@ -98,7 +102,9 @@ interface AuthState {
     fullName: string,
   ) => Promise<User | null>;
   signIn: (emailOrPhone: string, password: string) => Promise<void>;
+  signInWithGoogle: () => Promise<User | null>;
   signOut: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
   initialize: () => Promise<void>;
 
   updatePasswordAndRevokeOtherSessions: (newPassword: string) => Promise<void>;
@@ -144,6 +150,21 @@ export async function saveCachedProfile(userId: string, profile: Profile | null)
  */
 async function resolveProfile(userId: string): Promise<Profile | null> {
   try {
+    // 0. Verify auth user still exists in database
+    const { error: userErr } = await supabase.auth.getUser();
+    if (userErr && /user not found|does not exist|invalid claim|invalid_grant|user_deleted/i.test(userErr.message)) {
+      useAuthStore.setState({
+        securityNotice: 'User does not exist anymore. Your account has been removed from the database.',
+        session: null,
+        user: null,
+        profile: null,
+        appUser: null,
+      });
+      await supabase.auth.signOut();
+      await saveCachedProfile(userId, null);
+      return null;
+    }
+
     // 1. Fast role lookup (1 row, indexed PK)
     const { data: roleRow } = await supabase
       .from('user_roles')
@@ -239,18 +260,63 @@ async function resolveProfileWithTimeout(userId: string, timeoutMs = 3500): Prom
 
 // ─── Store ────────────────────────────────────────────────────────────────────
 
+// Flag to distinguish user-initiated sign out from remote/server revocation
+let isExplicitSignOut = false;
+
 export const useAuthStore = create<AuthState>((set, get) => {
   // Listen to Supabase auth state changes
   supabase.auth.onAuthStateChange((event, session) => {
+    if (event === 'SIGNED_OUT') {
+      if (!isExplicitSignOut) {
+        const currentNotice = get().securityNotice;
+        if (!currentNotice && get().user) {
+          set({
+            securityNotice: 'You have been signed out of this account. Your session may have been revoked from another device.',
+          });
+        }
+      }
+      set({ session: null, user: null, profile: null, appUser: null, loading: false });
+      return;
+    }
+
+    if (event === 'PASSWORD_RECOVERY') {
+      if (session) {
+        set({ session, user: session.user, loading: false });
+      }
+      return;
+    }
+
+    if ((event as string) === 'USER_DELETED') {
+      set({
+        securityNotice: 'User does not exist anymore. Your account has been removed from the database.',
+        session: null,
+        user: null,
+        profile: null,
+        appUser: null,
+        loading: false,
+      });
+      return;
+    }
+
     if (session) {
       getCachedProfile(session.user.id).then((cached) => {
         const metaRole = session.user.user_metadata?.role || 'user';
+        const metaName =
+          session.user.user_metadata?.full_name ||
+          session.user.user_metadata?.name ||
+          session.user.user_metadata?.user_name ||
+          null;
+        const metaAvatar =
+          session.user.user_metadata?.avatar_url ||
+          session.user.user_metadata?.picture ||
+          null;
+
         const initialProfile: Profile = cached || {
           id: session.user.id,
           role: metaRole === 'pharmacy' ? 'pharmacy' : 'user',
-          full_name: session.user.user_metadata?.full_name || null,
+          full_name: metaName,
           phone: session.user.user_metadata?.phone || null,
-          avatar_url: null,
+          avatar_url: metaAvatar,
           created_at: session.user.created_at,
         };
 
@@ -263,6 +329,10 @@ export const useAuthStore = create<AuthState>((set, get) => {
             if (fresh) set({ profile: fresh });
           })
           .catch(() => {});
+
+        if (initialProfile.role === 'user') {
+          get().fetchAppUser().catch(() => {});
+        }
 
         updateLastActiveTimestamp().catch(() => {});
       });
@@ -343,18 +413,133 @@ export const useAuthStore = create<AuthState>((set, get) => {
       set({ loading: false });
     },
 
+    // ── Sign In / Sign Up with Google OAuth ───────────────────────────────────
+    signInWithGoogle: async () => {
+      set({ loading: true });
+      try {
+        const redirectUrl = Linking.createURL('callback');
+        const { data, error } = await supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo: redirectUrl,
+            skipBrowserRedirect: true,
+            queryParams: {
+              access_type: 'offline',
+              prompt: 'consent',
+            },
+          },
+        });
+
+        if (error) throw error;
+        if (!data?.url) throw new Error('No authorization URL returned from Supabase.');
+
+        const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
+
+        if (result.type === 'success' && result.url) {
+          let session: Session | null = null;
+          let user: User | null = null;
+
+          // 1. Check for authorization code (PKCE flow)
+          const parsed = Linking.parse(result.url);
+          const code = parsed.queryParams?.code ? String(parsed.queryParams.code) : null;
+
+          if (code) {
+            const { data: exchangeData, error: exchangeErr } = await supabase.auth.exchangeCodeForSession(code);
+            if (exchangeErr) throw exchangeErr;
+            session = exchangeData.session;
+            user = exchangeData.user;
+          } else {
+            // 2. Check for access_token and refresh_token (implicit fragment / query)
+            let accessToken: string | undefined;
+            let refreshToken: string | undefined;
+
+            if (result.url.includes('#')) {
+              const fragment = result.url.split('#')[1];
+              const params = new URLSearchParams(fragment);
+              accessToken = params.get('access_token') || undefined;
+              refreshToken = params.get('refresh_token') || undefined;
+            } else if (parsed.queryParams?.access_token) {
+              accessToken = String(parsed.queryParams.access_token);
+              refreshToken = String(parsed.queryParams.refresh_token);
+            }
+
+            if (accessToken && refreshToken) {
+              const { data: sessionData, error: sessionErr } = await supabase.auth.setSession({
+                access_token: accessToken,
+                refresh_token: refreshToken,
+              });
+              if (sessionErr) throw sessionErr;
+              session = sessionData.session;
+              user = sessionData.user;
+            }
+          }
+
+          if (user && session) {
+            // 3. Extract Google Profile details
+            const metaName =
+              user.user_metadata?.full_name ||
+              user.user_metadata?.name ||
+              user.user_metadata?.user_name ||
+              user.email?.split('@')[0] ||
+              'PharmFindr User';
+            const metaAvatar =
+              user.user_metadata?.avatar_url ||
+              user.user_metadata?.picture ||
+              null;
+
+            const initialProfile: Profile = {
+              id: user.id,
+              role: 'user',
+              full_name: metaName,
+              phone: user.user_metadata?.phone || null,
+              avatar_url: metaAvatar,
+              created_at: user.created_at || new Date().toISOString(),
+            };
+
+            // 4. INSTANT State Update — Never block navigation with DB roundtrips
+            saveCachedProfile(user.id, initialProfile);
+            set({ profile: initialProfile, session, user, loading: false });
+
+            // 5. Background asynchronous DB provisioning
+            Promise.allSettled([
+              supabase.from('user_roles').upsert({ id: user.id, role: 'user' }, { onConflict: 'id' }),
+              supabase.from('app_users').upsert({
+                id: user.id,
+                full_name: metaName,
+                avatar_url: metaAvatar,
+              }, { onConflict: 'id' }),
+              registerDeviceSession(user.id, 'patient'),
+            ]).then(() => {
+              resolveProfile(user.id).then((fresh) => {
+                if (fresh) set({ profile: fresh });
+              });
+              get().fetchAppUser().catch(() => {});
+            });
+
+            return user;
+          }
+        }
+        return null;
+      } catch (err) {
+        throw err;
+      } finally {
+        set({ loading: false });
+      }
+    },
+
     // ── Update Password & Revoke Other Sessions ──────────────────────────────
     updatePasswordAndRevokeOtherSessions: async (newPassword: string) => {
       set({ loading: true });
       try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (!sessionData?.session) {
+          throw new Error('No active login session found. Please sign in again.');
+        }
+
         const { error } = await supabase.auth.updateUser({ password: newPassword });
         if (error) throw error;
 
         await revokeAllOtherSessions();
-
-        set({
-          securityNotice: 'Your password was updated. All other active device sessions have been logged out for security.',
-        });
       } catch (e) {
         throw e;
       } finally {
@@ -364,17 +549,22 @@ export const useAuthStore = create<AuthState>((set, get) => {
 
     // ── Sign Out ─────────────────────────────────────────────────────────────
     signOut: async () => {
-      set({ loading: true });
+      isExplicitSignOut = true;
+      set({ loading: true, securityNotice: null });
       const currentUserId = get().user?.id;
       if (currentUserId) {
         saveCachedProfile(currentUserId, null);
       }
-      const { error } = await supabase.auth.signOut();
-      if (error) {
-        set({ loading: false });
-        throw error;
+      try {
+        await supabase.auth.signOut();
+      } catch (error) {
+        console.warn('Sign out warning:', error);
+      } finally {
+        set({ session: null, user: null, profile: null, appUser: null, loading: false, securityNotice: null });
+        setTimeout(() => {
+          isExplicitSignOut = false;
+        }, 1500);
       }
-      set({ session: null, user: null, profile: null, appUser: null, loading: false });
       try {
         const { useRecentSearchesStore } = await import('@/store/recentSearchesStore');
         useRecentSearchesStore.getState().resetStore();
@@ -385,6 +575,56 @@ export const useAuthStore = create<AuthState>((set, get) => {
       } catch (_) {}
     },
 
+    // ── Delete Account ───────────────────────────────────────────────────────
+    deleteAccount: async () => {
+      isExplicitSignOut = true;
+      set({ loading: true, securityNotice: null });
+      const currentUserId = get().user?.id;
+
+      try {
+        // 1. Attempt DB RPC deletion (which removes auth.users & cascades)
+        try {
+          await supabase.rpc('delete_user_account');
+        } catch (rpcErr) {
+          console.warn('RPC delete_user_account error or not configured:', rpcErr);
+        }
+
+        // 2. Direct RLS clean up of public user tables as safeguard
+        if (currentUserId) {
+          await Promise.allSettled([
+            supabase.from('app_users').delete().eq('id', currentUserId),
+            supabase.from('user_roles').delete().eq('id', currentUserId),
+            supabase.from('prescriptions').delete().eq('user_id', currentUserId),
+            supabase.from('reservations').delete().eq('user_id', currentUserId),
+            supabase.from('notifications').delete().eq('user_id', currentUserId),
+            supabase.from('pharmacies').delete().eq('owner_id', currentUserId),
+          ]);
+          saveCachedProfile(currentUserId, null);
+        }
+
+        // 3. Clear local cache stores
+        try {
+          const { useRecentSearchesStore } = await import('@/store/recentSearchesStore');
+          useRecentSearchesStore.getState().resetStore();
+        } catch (_) {}
+        try {
+          const { useSavedMedicinesStore } = await import('@/store/savedMedicinesStore');
+          useSavedMedicinesStore.getState().clearAllSaved();
+        } catch (_) {}
+
+        // 4. Sign out auth session
+        await supabase.auth.signOut();
+      } catch (err) {
+        console.warn('Delete account error:', err);
+        throw err;
+      } finally {
+        set({ session: null, user: null, profile: null, appUser: null, loading: false, securityNotice: null });
+        setTimeout(() => {
+          isExplicitSignOut = false;
+        }, 1500);
+      }
+    },
+
     // ── Initialize (cold start with 7-day inactivity check) ────────────────
     initialize: async () => {
       if (get().initialized) return;
@@ -393,12 +633,22 @@ export const useAuthStore = create<AuthState>((set, get) => {
         if (session) {
           const cachedProfile = await getCachedProfile(session.user.id);
           const metaRole = session.user.user_metadata?.role || 'user';
+          const metaName =
+            session.user.user_metadata?.full_name ||
+            session.user.user_metadata?.name ||
+            session.user.user_metadata?.user_name ||
+            null;
+          const metaAvatar =
+            session.user.user_metadata?.avatar_url ||
+            session.user.user_metadata?.picture ||
+            null;
+
           const initialProfile: Profile = cachedProfile || {
             id: session.user.id,
             role: metaRole === 'pharmacy' ? 'pharmacy' : 'user',
-            full_name: session.user.user_metadata?.full_name || null,
+            full_name: metaName,
             phone: session.user.user_metadata?.phone || null,
-            avatar_url: null,
+            avatar_url: metaAvatar,
             created_at: session.user.created_at,
           };
 
@@ -464,13 +714,63 @@ export const useAuthStore = create<AuthState>((set, get) => {
           console.warn('fetchAppUser:', error.message);
         }
 
-        if (data) {
+        const metaName =
+          user.user_metadata?.full_name ||
+          user.user_metadata?.name ||
+          user.user_metadata?.user_name ||
+          null;
+        const metaAvatar =
+          user.user_metadata?.avatar_url ||
+          user.user_metadata?.picture ||
+          null;
+
+        if (!data) {
+          // If no app_users row exists yet, provision it from Google metadata
+          const newRecord = {
+            id: user.id,
+            full_name: metaName,
+            avatar_url: metaAvatar,
+            created_at: new Date().toISOString(),
+          };
+          supabase.from('app_users').insert(newRecord).then(() => {});
+          set({
+            appUser: {
+              id: user.id,
+              full_name: metaName,
+              phone: null,
+              avatar_url: metaAvatar,
+              age: null,
+              weight: null,
+              height: null,
+              gender: null,
+              allergies: [],
+              existing_conditions: [],
+              current_medications: [],
+              created_at: newRecord.created_at,
+              updated_at: newRecord.created_at,
+            },
+          });
+        } else {
+          // If existing app_user was missing full_name/avatar_url, fill from Google metadata
+          let updatedName = data.full_name;
+          let updatedAvatar = data.avatar_url;
+          if (!updatedName && metaName) updatedName = metaName;
+          if (!updatedAvatar && metaAvatar) updatedAvatar = metaAvatar;
+
+          if ((!data.full_name && metaName) || (!data.avatar_url && metaAvatar)) {
+            supabase
+              .from('app_users')
+              .update({ full_name: updatedName, avatar_url: updatedAvatar })
+              .eq('id', user.id)
+              .then(() => {});
+          }
+
           set({
             appUser: {
               id: data.id,
-              full_name: data.full_name ?? null,
+              full_name: updatedName ?? null,
               phone: data.phone ?? null,
-              avatar_url: data.avatar_url ?? null,
+              avatar_url: updatedAvatar ?? null,
               age: data.age ?? null,
               weight: data.weight ?? null,
               height: data.height ?? null,
