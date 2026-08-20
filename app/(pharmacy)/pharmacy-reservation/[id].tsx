@@ -213,18 +213,36 @@ export default function PharmacyReservationDetails() {
           <Text style={[styles.cardHeading, { color: theme.textMuted }]}>REQUESTED MEDICINES</Text>
 
           <View style={{ gap: SPACING.md, marginTop: SPACING.xs }}>
-            {items.map((med: string, idx: number) => (
-              <View
-                key={idx}
-                style={[
-                  styles.medItem,
-                  { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
-                ]}
-              >
-                <Ionicons name="medkit-outline" size={18} color={COLORS.pharmacyPrimary} />
-                <Text style={[styles.medName, { color: theme.text.primary }]}>{med}</Text>
-              </View>
-            ))}
+            {items.map((med: any, idx: number) => {
+              const medName =
+                typeof med === 'object' && med
+                  ? `${med.name || ''} ${med.strength || ''}`.trim()
+                  : String(med || '');
+              const qty = typeof med === 'object' && med?.quantity ? med.quantity : null;
+              const price = typeof med === 'object' && med?.price ? parseFloat(med.price).toFixed(2) : null;
+
+              return (
+                <View
+                  key={idx}
+                  style={[
+                    styles.medItem,
+                    { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
+                  ]}
+                >
+                  <Ionicons name="medkit-outline" size={18} color={COLORS.pharmacyPrimary} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.medName, { color: theme.text.primary }]}>
+                      {medName || reservation.medicine_name || 'Medicine'}
+                    </Text>
+                    {qty ? (
+                      <Text style={[styles.medSub, { color: theme.textMuted }]}>
+                        Qty: {qty} {price ? `· GHS ${price}` : ''}
+                      </Text>
+                    ) : null}
+                  </View>
+                </View>
+              );
+            })}
           </View>
         </View>
 
@@ -320,9 +338,10 @@ const styles = StyleSheet.create({
   },
   infoLabel: {
     fontSize: FONT_SIZE.md,
+    fontFamily: 'Inter-Regular',
   },
   infoVal: {
-    fontSize: FONT_SIZE.lg,
+    fontSize: FONT_SIZE.md,
     fontFamily: 'Inter-Bold',
   },
   phoneBtn: {
@@ -346,6 +365,11 @@ const styles = StyleSheet.create({
   medName: {
     fontSize: FONT_SIZE.lg,
     fontFamily: 'Inter-Bold',
+  },
+  medSub: {
+    fontSize: FONT_SIZE.sm,
+    fontFamily: 'Inter-Medium',
+    marginTop: 2,
   },
 
   actionCol: {

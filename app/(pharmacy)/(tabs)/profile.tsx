@@ -572,7 +572,7 @@ export default function PharmacyProfile() {
               {savingPin ? (
                 <ActivityIndicator color={COLORS.white} />
               ) : (
-                <Text style={styles.saveBtnText}>{hasPin ? 'Update PIN' : 'Save Security PIN'}</Text>
+                <Text style={styles.saveBtnText}>{hasPin ? 'Update PIN' : 'Set PIN'}</Text>
               )}
             </Pressable>
           </View>
@@ -743,7 +743,7 @@ const styles = StyleSheet.create({
   },
 
   sheetContent: {
-    padding: SPACING.lg,
+    paddingHorizontal: SPACING.lg,
     gap: 14
   },
   modalSub: {

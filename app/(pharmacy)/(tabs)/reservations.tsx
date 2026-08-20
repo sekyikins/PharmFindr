@@ -45,22 +45,58 @@ export default function Reservations() {
       const pharmId = pharm.id;
 
       // 2. Get reservations with profile details
+      let rawReservations: any[] = [];
       const { data: resData, error: resErr } = await supabase
         .from('reservations')
         .select('*, app_users(full_name, phone)')
         .eq('pharmacy_id', pharmId)
         .order('created_at', { ascending: false });
 
-      if (resErr) throw resErr;
+      if (resErr || !resData) {
+        const { data: fallbackData, error: fbErr } = await supabase
+          .from('reservations')
+          .select('*')
+          .eq('pharmacy_id', pharmId)
+          .order('created_at', { ascending: false });
+
+        if (fbErr) throw fbErr;
+        rawReservations = fallbackData || [];
+      } else {
+        rawReservations = resData || [];
+      }
+
+      // Check if any reservation is missing app_users data and populate it
+      const missingUserIds = Array.from(
+        new Set(
+          rawReservations
+            .filter((r) => !r.app_users?.full_name && r.user_id)
+            .map((r) => r.user_id)
+        )
+      );
+
+      if (missingUserIds.length > 0) {
+        const { data: userData } = await supabase
+          .from('app_users')
+          .select('id, full_name, phone')
+          .in('id', missingUserIds);
+
+        const userMap = new Map((userData || []).map((u) => [u.id, u]));
+        rawReservations = rawReservations.map((r) => ({
+          ...r,
+          app_users: r.app_users || userMap.get(r.user_id) || null,
+        }));
+      }
 
       setReservations(
-        resData.map((item: any) => {
+        rawReservations.map((item: any) => {
           // Parse medicines JSONB (it could be an array of objects or strings)
           let medicines: string[] = [];
           if (Array.isArray(item.medicines)) {
             medicines = item.medicines.map((m: any) =>
               typeof m === 'object' && m ? `${m.name} ${m.strength || ''}`.trim() : String(m)
             );
+          } else if (item.medicine_name) {
+            medicines = [item.medicine_name];
           }
 
           // Format date/time
@@ -70,7 +106,7 @@ export default function Reservations() {
           return {
             id: item.id,
             ref: 'REF-' + item.id.substring(0, 5).toUpperCase(),
-            patientName: item.app_users?.full_name || 'User',
+            patientName: item.app_users?.full_name || 'Patient',
             patientPhone: item.app_users?.phone || 'N/A',
             timeAgo: timeAgo,
             medicines: medicines,
@@ -230,6 +266,16 @@ export default function Reservations() {
           {item.status === 'declined' && (
             <View style={[styles.badge, { backgroundColor: COLORS.errorBg, borderColor: COLORS.errorBorder, borderWidth: 1 }]}>
               <Text style={[styles.badgeText, { color: COLORS.errorText }]}>Declined</Text>
+            </View>
+          )}
+          {item.status === 'collected' && (
+            <View style={[styles.badge, { backgroundColor: COLORS.patientSecondary, borderColor: COLORS.patientBorder, borderWidth: 1 }]}>
+              <Text style={[styles.badgeText, { color: COLORS.patientPrimaryDark }]}>Collected</Text>
+            </View>
+          )}
+          {item.status === 'cancelled' && (
+            <View style={[styles.badge, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border, borderWidth: 1 }]}>
+              <Text style={[styles.badgeText, { color: theme.textMuted }]}>Cancelled</Text>
             </View>
           )}
         </View>

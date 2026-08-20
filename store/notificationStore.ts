@@ -157,11 +157,15 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   // ── Realtime subscription ─────────────────────────────────────────────────
 
   subscribe: (userId: string) => {
-    // Avoid creating duplicate channels
-    if (get()._channel) return;
+    // Clean up existing channel if re-subscribing
+    const existingChannel = get()._channel;
+    if (existingChannel) {
+      supabase.removeChannel(existingChannel);
+      set({ _channel: null });
+    }
 
     const channel = supabase
-      .channel(`notifications:${userId}`)
+      .channel(`notifications-realtime:${userId}`)
       .on(
         'postgres_changes',
         {
@@ -172,10 +176,55 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         },
         (payload) => {
           const newNotif = payload.new as Notification;
-          set((state) => ({
-            notifications: [newNotif, ...state.notifications],
-            unreadCount: state.unreadCount + 1,
-          }));
+          set((state) => {
+            const exists = state.notifications.some((n) => n.id === newNotif.id);
+            if (exists) return state;
+            const updated = [newNotif, ...state.notifications];
+            return {
+              notifications: updated,
+              unreadCount: updated.filter((n) => !n.is_read).length,
+            };
+          });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${userId}`,
+        },
+        (payload) => {
+          const updatedNotif = payload.new as Notification;
+          set((state) => {
+            const updated = state.notifications.map((n) =>
+              n.id === updatedNotif.id ? updatedNotif : n
+            );
+            return {
+              notifications: updated,
+              unreadCount: updated.filter((n) => !n.is_read).length,
+            };
+          });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${userId}`,
+        },
+        (payload) => {
+          const oldNotif = payload.old as { id: string };
+          set((state) => {
+            const updated = state.notifications.filter((n) => n.id !== oldNotif.id);
+            return {
+              notifications: updated,
+              unreadCount: updated.filter((n) => !n.is_read).length,
+            };
+          });
         }
       )
       .subscribe();

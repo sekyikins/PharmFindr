@@ -15,17 +15,6 @@ export async function hasAppPin(): Promise<boolean> {
 }
 
 /**
- * Retrieve the stored 4-digit security PIN.
- */
-export async function getAppPin(): Promise<string | null> {
-  try {
-    return await AsyncStorage.getItem(APP_PIN_KEY);
-  } catch (e) {
-    return null;
-  }
-}
-
-/**
  * Save or update the 4-digit security PIN.
  */
 export async function setAppPin(pin: string): Promise<boolean> {

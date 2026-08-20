@@ -25,6 +25,7 @@ export default function PatientLayout() {
       <Stack.Screen name="notifications" />
       <Stack.Screen name="prescription-history" />
       <Stack.Screen name="health-profile" />
+      <Stack.Screen name="biometric-metrics" />
       <Stack.Screen name="edit-account" />
       <Stack.Screen name="help-feedback" />
       <Stack.Screen name="send-feedback" />

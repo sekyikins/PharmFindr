@@ -9,8 +9,6 @@ import {
   TextInput,
   useWindowDimensions,
   ActivityIndicator,
-  Platform,
-  KeyboardAvoidingView,
   Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -23,6 +21,7 @@ import { sendArkeselOtp, verifyArkeselOtp, validateGhanaPhone } from '@/lib/arke
 import { supabase } from '@/lib/supabase';
 import OtpInput, { type OtpInputHandle } from '@/components/ui/OtpInput';
 import { toast } from '@/context/ToastContext';
+import KeyboardAwareContainer from '@/components/ui/KeyboardAwareContainer';
 import { BottomSheetModal, BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import AppBottomSheet from '@/components/ui/AppBottomSheet';
 import * as Linking from 'expo-linking';
@@ -62,18 +61,35 @@ export default function Login() {
   const otpRef = useRef<OtpInputHandle>(null);
 
   const handleResetPassword = async () => {
-    if (!resetEmail.trim()) {
+    const cleanEmail = resetEmail.trim().toLowerCase();
+    if (!cleanEmail) {
       toast.error('Please enter your email address.');
       return;
     }
     setResetLoading(true);
     try {
-      const redirectUrl = Linking.createURL('reset-password');
-      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail.trim(), {
+      // 1. Verify that the account exists in the database
+      const { data: exists, error: checkError } = await supabase.rpc('check_user_email_exists', {
+        check_email: cleanEmail,
+      });
+
+      if (checkError) {
+        console.warn('[handleResetPassword] check_user_email_exists error:', checkError);
+      } else if (exists === false) {
+        toast.error('Email is not a PharmFindr account.');
+        setResetLoading(false);
+        return;
+      }
+
+      // 2. Request password reset from Supabase
+      const redirectUrl = Linking.createURL('callback');
+      const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
         redirectTo: redirectUrl,
       });
       if (error) throw error;
-      toast.success('Password reset link sent! Check your email inbox.');
+
+      // 3. Inform user and remain on login screen (do not navigate)
+      toast.success('Email sent! Click on "Reset Password" in your email to reset password.');
       forgotSheetRef.current?.dismiss();
       setResetEmail('');
     } catch (e: any) {
@@ -250,7 +266,7 @@ export default function Login() {
       otpRef.current?.showSuccess();
       toast.success('Pharmacy login successful! Welcome back.');
       setTimeout(() => {
-        router.replace('/(pharmacy)/(tabs)/inventory');
+        router.replace('/(pharmacy)/(tabs)/dashboard');
       }, 400);
     } catch (error: any) {
       console.warn('Pharmacy auth sign-in error:', error.message);
@@ -267,11 +283,7 @@ export default function Login() {
 
   return (
     <View style={styles.root}>
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
-      >
+      <KeyboardAwareContainer>
         <ScrollView
           contentContainerStyle={styles.scroll}
           bounces={false}
@@ -508,13 +520,13 @@ export default function Login() {
           )}
         </View>
       </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardAwareContainer>
 
       {/* Forgot Password BottomSheet */}
       <AppBottomSheet ref={forgotSheetRef} title="Reset Password">
         <View style={styles.modalContent}>
           <Text style={styles.modalSub}>
-            Enter your registered account email and we'll send you instructions to reset your password.
+            Enter your account email to receive a reset link.
           </Text>
 
           <Text style={styles.label}>EMAIL ADDRESS</Text>

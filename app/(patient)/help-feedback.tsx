@@ -490,7 +490,7 @@ const styles = StyleSheet.create({
     width: 64, height: 64, marginBottom: SPACING.md
   },
   appInfoTitle: {
-    fontSize: FONT_SIZE.title, fontFamily: 'Inter-Bold'
+    fontSize: FONT_SIZE.hero, fontFamily: 'Inter-Bold'
   },
   appInfoVersion: {
     fontSize: FONT_SIZE.md, fontFamily: 'Inter-Bold', marginTop: 2, marginBottom: SPACING.md

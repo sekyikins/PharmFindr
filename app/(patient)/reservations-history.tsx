@@ -59,6 +59,31 @@ export default function PatientReservationsHistory() {
     fetchReservations();
   }, [fetchReservations]);
 
+  // Realtime subscription: update patient reservation list on status changes (accepted, declined, collected, etc.)
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const channel = supabase
+      .channel(`patient-reservations:${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'reservations',
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          fetchReservations();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id, fetchReservations]);
+
   const filtered = reservations.filter((r) => {
     if (activeFilter === 'all') return true;
     return r.status === activeFilter;

@@ -57,21 +57,6 @@ export async function getBiometricIcon(): Promise<string> {
 }
 
 /**
- * Get comprehensive biometric status details.
- */
-export async function getBiometricDetails(): Promise<{
-  isSupported: boolean;
-  isEnrolled: boolean;
-  type: string;
-  icon: string;
-}> {
-  const isSupported = await isBiometricsSupported();
-  const isEnrolled = await isBiometricsEnrolled();
-
-  return { isSupported, isEnrolled, type: 'Biometrics', icon: 'finger-print-outline' };
-}
-
-/**
  * Prompt native biometric authentication modal (Face ID / Touch ID / Fingerprint).
  */
 export async function authenticateBiometrics(promptMessage = 'Authenticate to access PharmFindr'): Promise<boolean> {

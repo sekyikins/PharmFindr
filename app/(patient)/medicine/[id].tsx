@@ -238,20 +238,20 @@ export default function MedicineDetailsScreen() {
 
         {/* ── Pharmacies Carrying Prescription Button ── */}
         <Pressable
-          style={({ pressed }) => [styles.prescriptionPharmBtn, pressed && { opacity: 0.7 }, { backgroundColor: primaryColor + '15', borderColor: primaryColor }]}
+          style={({ pressed }) => [styles.Btn, pressed && { opacity: 0.7 }, { backgroundColor: primaryColor + '15', borderColor: primaryColor }]}
           onPress={handleFindPrescriptionPharmacies}
         >
           <Ionicons name="medical-outline" size={18} color={primaryColor} style={{ marginRight: 8 }} />
-          <Text style={[styles.prescriptionPharmBtnText, { color: primaryColor }]}>Pharmacies Carrying Prescription</Text>
+          <Text style={[styles.BtnText, { color: primaryColor }]}>Pharmacies Carrying Prescription</Text>
         </Pressable>
 
         {/* ── Primary Action Button: Find Pharmacies ── */}
         <Pressable
-          style={({ pressed }) => [styles.findBtn, pressed && { opacity: 0.7 }, { backgroundColor: theme.card, borderColor: primaryColor, borderWidth: 1 }]}
+          style={({ pressed }) => [styles.Btn, pressed && { opacity: 0.7 }, { marginVertical: SPACING.md, backgroundColor: theme.card, borderColor: primaryColor }]}
           onPress={handleFindPharmacies}
         >
           <Ionicons name="map" size={18} color={primaryColor} style={{ marginRight: 8 }} />
-          <Text style={[styles.findBtnText, { color: primaryColor }]}>Check It Out On Map</Text>
+          <Text style={[styles.BtnText, { color: primaryColor }]}>Check It Out On Map</Text>
         </Pressable>
 
       </ScrollView>
@@ -424,36 +424,17 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZE.md,
     fontFamily: 'Inter-SemiBold'
   },
-
-  findBtn: {
+  Btn: {
     marginHorizontal: SPACING.xl,
-    marginVertical: 6,
-    height: 52,
-    borderRadius: RADIUS.pill,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
-  findBtnText: {
-    color: COLORS.white,
-    fontSize: FONT_SIZE.md,
-    fontFamily: 'Inter-Bold'
-  },
-
-  prescriptionPharmBtn: {
-    marginHorizontal: SPACING.xl,
-    marginTop: 10,
-    marginBottom: SPACING.xs,
     height: 52,
     borderRadius: RADIUS.pill,
     borderWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: SPACING.lg,
+    justifyContent: 'center',
   },
-  prescriptionPharmBtnText: {
+  BtnText: {
     fontSize: FONT_SIZE.md,
     fontFamily: 'Inter-Bold',
   },
-
 });

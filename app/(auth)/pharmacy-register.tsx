@@ -8,8 +8,6 @@ import {
   TextInput,
   useWindowDimensions,
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -23,6 +21,7 @@ import { sendArkeselOtp, verifyArkeselOtp, validateGhanaPhone } from '@/lib/arke
 import { useAuthStore, PHARMACY_PASS } from '@/store/authStore';
 import { supabase } from '@/lib/supabase';
 import { COLORS,  FONT_SIZE, RADIUS, SPACING  } from '@/styles/theme';
+import KeyboardAwareContainer from '@/components/ui/KeyboardAwareContainer';
 import * as Location from 'expo-location';
 import { fetchAddressForCoords, fetchGoogleMapsPharmaciesForRegistration } from '@/lib/googlePlaces';
 import { useHardwareBack } from '@/hooks/useHardwareBack';
@@ -207,7 +206,7 @@ function Step1Details({
   };
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAwareContainer>
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <Hero step={1} onBack={onBack} />
         <View style={s.form}>
@@ -238,7 +237,7 @@ function Step1Details({
           <PrimaryBtn label="Continue to Map Setup" onPress={handleNext} />
         </View>
       </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardAwareContainer>
   );
 }
 
@@ -459,7 +458,7 @@ function Step2Location({
   };
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAwareContainer>
       <ScrollView
         contentContainerStyle={s.scroll}
         showsVerticalScrollIndicator={false}
@@ -611,7 +610,7 @@ function Step2Location({
           </SafeAreaView>
         </View>
       )}
-    </KeyboardAvoidingView>
+    </KeyboardAwareContainer>
   );
 }
 
@@ -670,7 +669,7 @@ function Step3Phone({
   };
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAwareContainer>
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <Hero step={3} onBack={onBack} />
         <View style={s.form}>
@@ -690,7 +689,7 @@ function Step3Phone({
           <PrimaryBtn label="Send Verification OTP" onPress={handleSend} loading={loading} />
         </View>
       </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardAwareContainer>
   );
 }
 
@@ -841,7 +840,7 @@ function Step4VerifyOTP({
   };
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAwareContainer>
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <Hero step={4} onBack={onBack} />
         <View style={s.form}>
@@ -867,7 +866,7 @@ function Step4VerifyOTP({
           />
         </View>
       </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardAwareContainer>
   );
 }
 

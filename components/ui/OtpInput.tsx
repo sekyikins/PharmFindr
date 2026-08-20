@@ -322,9 +322,9 @@ const styles = StyleSheet.create({
   },
   box: {
     width: 44,
-    height: 54,
+    height: 44,
     borderRadius: RADIUS.md,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: COLORS.borderSlate,
     backgroundColor: COLORS.white,
     fontSize: FONT_SIZE.hero,
@@ -336,12 +336,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: SPACING.xs,
-    marginTop: SPACING.xs,
-    marginBottom: SPACING.xs,
   },
   successText: {
     color: COLORS.pharmacyPrimary,
-    fontSize: FONT_SIZE.lg,
+    fontSize: FONT_SIZE.md,
     fontFamily: 'Inter-Bold',
   },
   resendRow: {
@@ -355,7 +353,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.md,
   },
   resendText: {
-    fontSize: FONT_SIZE.lg,
+    fontSize: FONT_SIZE.sm,
     fontFamily: 'Inter-SemiBold',
   },
 });

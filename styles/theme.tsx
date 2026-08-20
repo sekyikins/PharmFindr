@@ -34,8 +34,7 @@ export const FONT_SIZE = {
   lg: 14,
   xl: 16,
   xxl: 18,
-  title: 20,
-  hero: 22,
+  hero: 20,
 } as const;
 
 // ─── Master Palette & Color Tokens (Single Source of Truth) ───────────────────

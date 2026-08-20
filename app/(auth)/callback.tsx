@@ -6,7 +6,8 @@ import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
 import { COLORS, FONT_SIZE, SPACING } from '@/styles/theme';
 import { registerDeviceSession } from '@/lib/deviceSession';
-import { processAuthUrl } from '@/lib/authUrlHandler';
+import { processAuthUrl, redactUrl } from '@/lib/authUrlHandler';
+import { toast } from '@/context/ToastContext';
 
 export default function AuthCallback() {
   const router = useRouter();
@@ -16,15 +17,28 @@ export default function AuthCallback() {
     let mounted = true;
 
     async function handleAuthCallback() {
+      console.log('[Callback Screen] Mounted with incoming URL:', redactUrl(incomingUrl));
       try {
         const result = await processAuthUrl(incomingUrl);
 
         if (!mounted) return;
 
+        console.log(
+          `[Callback Screen] Result: isRecovery=${result.isRecovery}, hasSession=${!!result.session}, user=${result.user?.id || 'none'}`
+        );
+
         // Route to reset password if this is a recovery link
         if (result.isRecovery) {
-          router.replace('/(auth)/reset-password');
-          return;
+          if (result.session) {
+            console.log('[Callback Screen] Recovery session confirmed. Navigating to /(auth)/reset-password...');
+            router.replace('/(auth)/reset-password');
+            return;
+          } else {
+            console.warn('[Callback Screen] Recovery flow detected, but session is null. Error:', result.error?.message);
+            toast.error('Password reset link is invalid or has expired. Please request a new link.');
+            router.replace('/(auth)/login');
+            return;
+          }
         }
 
         if (result.user) {
@@ -53,14 +67,15 @@ export default function AuthCallback() {
             useAuthStore.getState().initialize().catch(() => {});
           });
 
-          // Immediate Navigation
+          // Immediate Navigation to Patient Home
           router.replace('/(patient)/(tabs)/home');
         } else {
           router.replace('/(auth)/login');
         }
-      } catch (err) {
-        console.warn('Auth callback error:', err);
+      } catch (err: any) {
+        console.warn('[Callback Screen] Fatal callback error:', err);
         if (mounted) {
+          toast.error('Authentication failed. Please try signing in again.');
           router.replace('/(auth)/login');
         }
       }
@@ -76,7 +91,7 @@ export default function AuthCallback() {
   return (
     <View style={styles.container}>
       <ActivityIndicator size="large" color={COLORS.patientPrimary} />
-      <Text style={styles.text}>Processing authentication...</Text>
+      <Text style={styles.text}>Verifying authentication...</Text>
     </View>
   );
 }

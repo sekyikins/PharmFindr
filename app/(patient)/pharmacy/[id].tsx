@@ -508,7 +508,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-SemiBold',
   },
   pharmName: {
-    fontSize: FONT_SIZE.title,
+    fontSize: FONT_SIZE.hero,
     fontFamily: 'Inter-Bold',
   },
   statusBadge: {

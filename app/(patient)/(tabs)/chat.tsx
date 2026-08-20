@@ -9,7 +9,6 @@ import {
   TextInput,
   Pressable,
   Platform,
-  KeyboardAvoidingView,
   Alert,
   ActivityIndicator,
   BackHandler,
@@ -27,6 +26,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useNetworkStore } from '@/store/networkStore';
 import { FormattedMarkdown } from '@/components/ui/FormattedMarkdown';
 import { toast } from '@/context/ToastContext';
+import KeyboardAwareContainer from '@/components/ui/KeyboardAwareContainer';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const SIDEBAR_WIDTH = Math.min(320, SCREEN_WIDTH * 0.82);
@@ -597,10 +597,9 @@ export default function AIChat() {
       )}
 
       {/* ── Main Chat Area ── */}
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      <KeyboardAwareContainer
         style={{ flex: 1 }}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 60 + insets.top : 0}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
       >
         {(isInitializing || loadingHistory) && messages.length === 0 ? (
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
@@ -753,7 +752,7 @@ export default function AIChat() {
             />
           </Pressable>
         </View>
-      </KeyboardAvoidingView>
+      </KeyboardAwareContainer>
 
       {/* ── Start New Consultation Modal ── */}
       <Modal visible={showNewConsultModal} transparent animationType="fade" onRequestClose={() => setShowNewConsultModal(false)}>

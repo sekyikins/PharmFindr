@@ -7,10 +7,7 @@ import {
   Pressable,
   TextInput,
   Image,
-  Alert,
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -23,6 +20,7 @@ import { Header } from '@/components/ui/Header';
 import { toast } from '@/context/ToastContext';
 import { useAuthStore } from '@/store/authStore';
 import { supabase } from '@/lib/supabase';
+import KeyboardAwareContainer from '@/components/ui/KeyboardAwareContainer';
 import { useHardwareBack } from '@/hooks/useHardwareBack';
 
 type FeedbackType = 'General' | 'Bug Report' | 'Feature Request' | 'Pharmacy Data';
@@ -215,10 +213,7 @@ export default function SendFeedbackScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
       <Header title="Send Feedback" showBack onBack={() => router.back()} />
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={{ flex: 1 }}
-      >
+      <KeyboardAwareContainer>
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
@@ -365,7 +360,7 @@ export default function SendFeedbackScreen() {
           )}
         </Pressable>
         </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardAwareContainer>
     </SafeAreaView>
   );
 }

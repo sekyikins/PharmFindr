@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   StyleSheet,
   Text,
@@ -109,30 +109,53 @@ export default function ReservationScreen() {
   const [loadingReservation, setLoadingReservation] = useState(false);
   const [cancelling, setCancelling] = useState(false);
 
-  useEffect(() => {
-    if (isNewReservation) return;
-    const fetchReservation = async () => {
-      setLoadingReservation(true);
-      try {
-        const { data, error } = await supabase
-          .from('reservations')
-          .select('*, pharmacies(name, phone, address, latitude, longitude)')
-          .eq('id', id)
-          .single();
+  const fetchReservation = useCallback(async () => {
+    if (isNewReservation || !id) return;
+    setLoadingReservation(true);
+    try {
+      const { data, error } = await supabase
+        .from('reservations')
+        .select('*, pharmacies(name, phone, address, latitude, longitude)')
+        .eq('id', id)
+        .single();
 
-        if (error) throw error;
-        setReservation(data as ReservationRecord);
-      } catch (e: any) {
-        console.warn('Error loading reservation:', e.message);
-        toast.error('Load Error', 'Could not load reservation details.');
-        router.back();
-      } finally {
-        setLoadingReservation(false);
-      }
-    };
-
-    fetchReservation();
+      if (error) throw error;
+      setReservation(data as ReservationRecord);
+    } catch (e: any) {
+      console.warn('Error loading reservation:', e.message);
+    } finally {
+      setLoadingReservation(false);
+    }
   }, [id, isNewReservation]);
+
+  useEffect(() => {
+    fetchReservation();
+  }, [fetchReservation]);
+
+  // Realtime subscription: update reservation detail immediately when pharmacy changes status
+  useEffect(() => {
+    if (isNewReservation || !id) return;
+
+    const channel = supabase
+      .channel(`patient-reservation-detail:${id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'reservations',
+          filter: `id=eq.${id}`,
+        },
+        () => {
+          fetchReservation();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [id, isNewReservation, fetchReservation]);
 
   // ── In-App Route Navigation Helper ────────────────────────────────────────
 

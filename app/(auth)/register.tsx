@@ -9,8 +9,6 @@ import {
   TextInput,
   useWindowDimensions,
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
   Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -21,6 +19,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useThemeContext } from '@/hooks/useThemeContext';
 import { useHardwareBack } from '@/hooks/useHardwareBack';
 import { toast } from '@/context/ToastContext';
+import KeyboardAwareContainer from '@/components/ui/KeyboardAwareContainer';
 
 const GREEN = COLORS.pharmacyPrimary;
 import { getFriendlyErrorMessage } from '@/lib/errorUtils';
@@ -121,10 +120,7 @@ export default function Register() {
 
   return (
     <View style={styles.root}>
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
+      <KeyboardAwareContainer>
         <ScrollView
           contentContainerStyle={styles.scroll}
           showsVerticalScrollIndicator={false}
@@ -281,7 +277,7 @@ export default function Register() {
           </Pressable>
         </View>
       </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardAwareContainer>
     </View>
   );
 }

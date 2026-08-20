@@ -71,77 +71,7 @@ export function validateGhanaPhone(phone: string): {
   return { valid: true, formatted, network: match.network };
 }
 
-// ─── Plain SMS (V1) ───────────────────────────────────────────────────────────
-
 /**
- * Format phone number for Arkesel SMS API (V1).
- * Converts local Ghana numbers like 0551234567 → 233551234567, or preserves full.
- * @deprecated Use validateGhanaPhone() instead, which also checks network validity.
- */
-export function formatPhoneNumber(phone: string): string {
-  let cleaned = phone.replace(/\D/g, '');
-  if (cleaned.startsWith('0') && cleaned.length === 10) {
-    cleaned = '233' + cleaned.substring(1);
-  }
-  return cleaned;
-}
-
-/**
- * Send a plain SMS via Arkesel SMS API (V1 GET endpoint).
- */
-export async function sendSms(
-  to: string,
-  message: string,
-): Promise<{ success: boolean; data?: any; error?: string }> {
-  const formattedPhone = formatPhoneNumber(to);
-  if (!formattedPhone) {
-    return { success: false, error: 'Invalid phone number format.' };
-  }
-
-  const url =
-    `https://sms.arkesel.com/sms/api?action=send-sms` +
-    `&api_key=${encodeURIComponent(ARKESEL_API_KEY)}` +
-    `&to=${encodeURIComponent(formattedPhone)}` +
-    `&from=${encodeURIComponent(SENDER_ID)}` +
-    `&sms=${encodeURIComponent(message)}`;
-
-  try {
-    const response = await fetch(url, { method: 'GET' });
-    const resText = await response.text();
-    let resData: any = {};
-    try {
-      resData = JSON.parse(resText);
-    } catch {
-      resData = { raw: resText };
-    }
-
-    if (
-      response.ok &&
-      (resData.code === 'ok' ||
-        resData.code === '100' ||
-        resData.status === 'success')
-    ) {
-      return { success: true, data: resData };
-    } else {
-      console.warn('Arkesel SMS API Response:', resText);
-      return { success: true, data: resData };
-    }
-  } catch (err: any) {
-    console.error('Error sending Arkesel SMS:', err.message);
-    return { success: false, error: err.message || 'Failed to send SMS.' };
-  }
-}
-
-
-// ─── Arkesel Managed OTP Service ─────────────────────────────────────────────
-
-/**
- * Generate and send an OTP via Arkesel's OTP service.
- * Arkesel generates the code, delivers it via SMS, and manages expiry server-side.
- *
- * POST https://sms.arkesel.com/api/otp/generate
- * Response code 1000 = success.
- *
  * @param formattedPhone E.164 number without '+', e.g. "233551234567"
  */
 export async function sendArkeselOtp(
@@ -166,7 +96,6 @@ export async function sendArkeselOtp(
     });
 
     const data = await response.json();
-    // Arkesel returns code "1000" on success
     if (data?.code === '1000') {
       return { success: true };
     }

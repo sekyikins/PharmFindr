@@ -26,7 +26,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.white,
   },
   title: {
-    fontSize: FONT_SIZE.title,
+    fontSize: FONT_SIZE.hero,
     fontFamily: 'Inter-Bold',
     color: COLORS.textPrimary,
   },

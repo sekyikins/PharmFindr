@@ -10,6 +10,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 
 import { useAuthStore } from '@/store/authStore';
+import { useNotificationStore } from '@/store/notificationStore';
 import { registerForPushNotificationsAsync } from '@/lib/pushNotifications';
 import OfflineBanner from '@/components/ui/OfflineBanner';
 import { ToastProvider } from '@/context/ToastContext';
@@ -21,6 +22,8 @@ import {
 } from '@/lib/biometrics';
 import { hasAppPin, verifyAppPin } from '@/lib/appPin';
 import { initializeUpdates } from '@/lib/updates';
+import * as Linking from 'expo-linking';
+import { redactUrl } from '@/lib/authUrlHandler';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -82,11 +85,38 @@ function RootLayoutNav() {
   const pinInputRef = useRef<TextInput>(null);
 
   useEffect(() => {
+    // 1. Cold start deep link detection
+    Linking.getInitialURL()
+      .then((url) => {
+        if (url) {
+          console.log('[DeepLink Entry: Cold Start] URL received:', redactUrl(url));
+        } else {
+          console.log('[DeepLink Entry: Cold Start] No initial URL detected (Linking.getInitialURL() returned null)');
+        }
+      })
+      .catch((e) => {
+        console.warn('[DeepLink Entry: Cold Start Error]', e);
+      });
+
+    // 2. Warm / Background deep link detection
+    const subscription = Linking.addEventListener('url', ({ url }) => {
+      console.log('[DeepLink Entry: Warm/Background] URL received:', redactUrl(url));
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
+
+  useEffect(() => {
     if (user?.id) {
       registerForPushNotificationsAsync(user.id);
+      useNotificationStore.getState().fetchNotifications(user.id);
+      useNotificationStore.getState().subscribe(user.id);
       checkLockStatus();
     } else {
       setIsLocked(false);
+      useNotificationStore.getState().unsubscribe();
     }
   }, [user?.id]);
 

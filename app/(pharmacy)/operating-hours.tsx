@@ -7,10 +7,7 @@ import {
   Pressable,
   Switch,
   TextInput,
-  Alert,
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -24,6 +21,7 @@ import { getPharmacyForUser } from '@/lib/pharmacyService';
 import { useAuthStore } from '@/store/authStore';
 import { useHardwareBack } from '@/hooks/useHardwareBack';
 import { COLORS, FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
+import KeyboardAwareContainer from '@/components/ui/KeyboardAwareContainer';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
@@ -236,10 +234,7 @@ export default function OperatingHours() {
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
       <Header title="Operating Hours" showBack onBack={() => router.back()} />
 
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
+      <KeyboardAwareContainer>
         <ScrollView
           contentContainerStyle={styles.scroll}
           keyboardShouldPersistTaps="handled"
@@ -335,7 +330,7 @@ export default function OperatingHours() {
             </View>
           )}
         </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardAwareContainer>
     </SafeAreaView>
   );
 }
@@ -391,7 +386,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Bold',
   },
   timeDash: {
-    fontSize: FONT_SIZE.title,
+    fontSize: FONT_SIZE.hero,
     fontFamily: 'Inter-Bold',
     marginTop: SPACING.lg,
   },

@@ -5,15 +5,12 @@ import {
   View,
   ScrollView,
   Pressable,
-  TextInput,
   Image,
   Alert,
   ActivityIndicator,
   Switch,
   PanResponder,
   Animated,
-  Platform,
-  KeyboardAvoidingView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -24,6 +21,7 @@ import { useThemeContext } from '@/hooks/useThemeContext';
 import { COLORS, FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
 import { supabase } from '@/lib/supabase';
 import { BottomSheetModal, BottomSheetTextInput } from '@gorhom/bottom-sheet';
+import KeyboardAwareContainer from '@/components/ui/KeyboardAwareContainer';
 import AppBottomSheet from '@/components/ui/AppBottomSheet';
 import AvatarPickerSheet from '@/components/ui/AvatarPickerSheet';
 import { toast } from '@/context/ToastContext';
@@ -38,6 +36,8 @@ import {
   authenticateBiometrics,
 } from '@/lib/biometrics';
 
+type EditableField = 'full_name' | 'phone' | 'username';
+
 export default function EditAccount() {
   const router = useRouter();
   const { user, profile, updateProfile, uploadAvatar, updatePasswordAndRevokeOtherSessions, signOut, deleteAccount } = useAuthStore();
@@ -45,10 +45,17 @@ export default function EditAccount() {
 
   const [fullName, setFullName] = useState(profile?.full_name ?? '');
   const [phone, setPhone] = useState(profile?.phone ?? '');
-  const [username, setUsername] = useState(profile?.full_name ? `@${profile.full_name.toLowerCase().replace(/\s+/g, '')}` : '');
-  const [saving, setSaving] = useState(false);
+  const [username, setUsername] = useState(
+    profile?.full_name ? profile.full_name.toLowerCase().replace(/\s+/g, '') : ''
+  );
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [avatarModalVisible, setAvatarModalVisible] = useState(false);
+
+  // Single-field edit bottom sheet state
+  const editFieldSheetRef = useRef<BottomSheetModal>(null);
+  const [editingField, setEditingField] = useState<EditableField | null>(null);
+  const [editValue, setEditValue] = useState('');
+  const [savingField, setSavingField] = useState(false);
 
   // Avatar picker sheet ref
   const avatarSheetRef = useRef<BottomSheetModal>(null);
@@ -64,9 +71,6 @@ export default function EditAccount() {
   const deleteSheetRef = useRef<BottomSheetModal>(null);
   const [deletePassword, setDeletePassword] = useState('');
   const [verifyingDelete, setVerifyingDelete] = useState(false);
-
-  const phoneInputRef = useRef<TextInput>(null);
-  const usernameInputRef = useRef<TextInput>(null);
 
   const [biometricsEnabled, setBiometricsEnabled] = useState(false);
   const [biometricType, setBiometricType] = useState('Biometrics');
@@ -119,7 +123,6 @@ export default function EditAccount() {
           }
         } else if (touches.length === 1) {
           if (lastScale.current > 1.05) {
-            // ── Zoomed in: 2D Panning (slide-to-close is DEACTIVATED) ──
             const newX = lastPan.current.x + gestureState.dx;
             const newY = lastPan.current.y + gestureState.dy;
             const maxPan = 200 * (lastScale.current - 1);
@@ -128,7 +131,6 @@ export default function EditAccount() {
             translateX.setValue(clampedX);
             translateY.setValue(clampedY);
           } else if (!wasPinchingRef.current) {
-            // ── Unzoomed (1x) & never pinched: Vertical Slide to Close ──
             translateX.setValue(0);
             translateY.setValue(gestureState.dy);
             const newOpacity = Math.max(0.3, 1 - Math.abs(gestureState.dy) / 450);
@@ -155,14 +157,12 @@ export default function EditAccount() {
         }
 
         if (lastScale.current > 1.05) {
-          // ── Zoomed Mode: Save pan position ──
           // @ts-ignore
           const curX = translateX._value || 0;
           // @ts-ignore
           const curY = translateY._value || 0;
           lastPan.current = { x: curX, y: curY };
         } else {
-          // ── 1x Scale Mode: Slide-to-dismiss ONLY if user did NOT pinch ──
           if (!wasPinchingRef.current && (Math.abs(gestureState.dy) > 120 || Math.abs(gestureState.vy) > 0.8)) {
             Animated.timing(translateY, {
               toValue: gestureState.dy > 0 ? 600 : -600,
@@ -223,7 +223,6 @@ export default function EditAccount() {
 
   const handleToggleBiometrics = async (val: boolean) => {
     if (val) {
-      // Prompt biometric authentication confirmation directly to verify whatever method is active
       const confirmed = await authenticateBiometrics('Confirm your biometrics to enable biometric lock');
       if (!confirmed) {
         setBiometricsEnabled(false);
@@ -299,22 +298,46 @@ export default function EditAccount() {
     );
   };
 
-  const handleSaveAccount = async () => {
-    if (!fullName.trim()) {
-      toast.error('Validation Error', 'Full Name cannot be empty.');
+  // ── Open Field Editor Sheet ────────────────────────────────────────────────
+  const openFieldEditor = (field: EditableField) => {
+    setEditingField(field);
+    if (field === 'full_name') {
+      setEditValue(fullName || profile?.full_name || '');
+    } else if (field === 'phone') {
+      setEditValue(phone || profile?.phone || '');
+    } else if (field === 'username') {
+      setEditValue(username || '');
+    }
+    editFieldSheetRef.current?.present();
+  };
+
+  // ── Save Individual Field ──────────────────────────────────────────────────
+  const handleSaveField = async () => {
+    const trimmed = editValue.trim();
+    if (editingField === 'full_name' && !trimmed) {
+      toast.error('Validation Error', 'Name cannot be empty.');
       return;
     }
-    setSaving(true);
+
+    setSavingField(true);
     try {
-      await updateProfile({
-        full_name: fullName.trim(),
-        phone: phone.trim(),
-      });
-      toast.success('Account Updated', 'Account details updated successfully!');
+      if (editingField === 'full_name') {
+        await updateProfile({ full_name: trimmed });
+        setFullName(trimmed);
+        toast.success('Name Updated', 'Your name has been updated successfully.');
+      } else if (editingField === 'phone') {
+        await updateProfile({ phone: trimmed });
+        setPhone(trimmed);
+        toast.success('Phone Updated', 'Your phone number has been updated successfully.');
+      } else if (editingField === 'username') {
+        setUsername(trimmed);
+        toast.success('Username Updated', 'Your username has been updated successfully.');
+      }
+      editFieldSheetRef.current?.dismiss();
     } catch (e: any) {
-      toast.error('Update Failed', getFriendlyErrorMessage(e, 'Failed to update account. Please try again.'));
+      toast.error('Update Failed', getFriendlyErrorMessage(e, 'Failed to update. Please try again.'));
     } finally {
-      setSaving(false);
+      setSavingField(false);
     }
   };
 
@@ -395,15 +418,12 @@ export default function EditAccount() {
   };
 
   const performDeleteAccount = async () => {
-    setSaving(true);
     try {
       await deleteAccount();
       toast.success('Account Deleted', 'Your account has been deleted permanently.');
       router.replace({ pathname: '/(auth)/login', params: { initialRole: 'patient' } });
     } catch (e: any) {
       toast.error('Deletion Failed', getFriendlyErrorMessage(e, 'Failed to delete account. Please try again.'));
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -460,226 +480,305 @@ export default function EditAccount() {
     }
   };
 
+  const maxChars = editingField === 'full_name' ? 25 : editingField === 'phone' ? 18 : 25;
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
       {/* Header */}
       <Header title="Account Settings" showBack onBack={handleGoBack} />
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={{ flex: 1 }}
-      >
+      <KeyboardAwareContainer>
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
+          {/* Hero Avatar Section */}
+          <View style={styles.avatarSection}>
+            <Pressable
+              style={({ pressed }) => [styles.avatarWrapper, pressed && { opacity: 0.85 }]}
+              onPress={handlePickAvatar}
+              disabled={uploadingAvatar}
+            >
+              <View style={[styles.avatarRing, { borderColor: primaryColor + '40' }]}>
+                <View style={[styles.avatarCircle, { backgroundColor: primaryColor }]}>
+                  {profile?.avatar_url ? (
+                    <Image source={{ uri: profile.avatar_url }} style={styles.avatarImage} />
+                  ) : (
+                    <Text style={styles.avatarText}>{initials}</Text>
+                  )}
+                </View>
+              </View>
 
-        {/* Hero Avatar Section */}
-        <View style={styles.avatarSection}>
-          <Pressable
-            style={({ pressed }) => [styles.avatarWrapper, pressed && { opacity: 0.85 }]}
-            onPress={handlePickAvatar}
-            disabled={uploadingAvatar}
-          >
-            <View style={[styles.avatarRing, { borderColor: primaryColor + '40' }]}>
-              <View style={[styles.avatarCircle, { backgroundColor: primaryColor }]}>
-                {profile?.avatar_url ? (
-                  <Image source={{ uri: profile.avatar_url }} style={styles.avatarImage} />
+              <View style={[styles.editCameraBadge, { backgroundColor: primaryColor }]}>
+                {uploadingAvatar ? (
+                  <ActivityIndicator size="small" color="#ffffff" />
                 ) : (
-                  <Text style={styles.avatarText}>{initials}</Text>
+                  <Ionicons name="camera" size={16} color="#ffffff" />
                 )}
               </View>
-            </View>
+            </Pressable>
 
-            <View style={[styles.editCameraBadge, { backgroundColor: primaryColor }]}>
-              {uploadingAvatar ? (
-                <ActivityIndicator size="small" color="#ffffff" />
-              ) : (
-                <Ionicons name="camera" size={16} color="#ffffff" />
-              )}
-            </View>
-          </Pressable>
+            <Text style={[styles.profileNameText, { color: theme.text.primary }]}>{displayName}</Text>
+            <Text style={[styles.profileEmailText, { color: theme.textMuted }]}>
+              {user?.email || phone || 'Patient Account'}
+            </Text>
+          </View>
 
-          <Text style={[styles.profileNameText, { color: theme.text.primary }]}>{displayName}</Text>
-          <Text style={[styles.profileEmailText, { color: theme.textMuted }]}>
-            {user?.email || phone || 'Patient Account'}
+          {/* WhatsApp-Style Personal Information Card */}
+          <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
+            <Text style={[styles.sectionHeading, { color: theme.text.primary }]}>PERSONAL INFORMATION</Text>
+
+            {/* Name Item */}
+            <Pressable
+              style={({ pressed }) => [styles.profileItemRow, pressed && { opacity: 0.65 }]}
+              onPress={() => openFieldEditor('full_name')}
+            >
+              <View style={styles.profileItemIconBox}>
+                <Ionicons name="person-outline" size={22} color={theme.textDim} />
+              </View>
+              <View style={styles.profileItemTextCol}>
+                <Text style={[styles.profileItemLabel, { color: theme.textMuted }]}>Name</Text>
+                <Text style={[styles.profileItemValue, { color: theme.text.primary }]}>
+                  {fullName || profile?.full_name || 'Add your name'}
+                </Text>
+              </View>
+            </Pressable>
+
+            <View style={[styles.itemDivider, { backgroundColor: theme.border }]} />
+
+            {/* Phone Item */}
+            <Pressable
+              style={({ pressed }) => [styles.profileItemRow, pressed && { opacity: 0.65 }]}
+              onPress={() => openFieldEditor('phone')}
+            >
+              <View style={styles.profileItemIconBox}>
+                <Ionicons name="call-outline" size={22} color={theme.textDim} />
+              </View>
+              <View style={styles.profileItemTextCol}>
+                <Text style={[styles.profileItemLabel, { color: theme.textMuted }]}>Phone</Text>
+                <Text style={[styles.profileItemValue, { color: theme.text.primary }]}>
+                  {phone || profile?.phone || 'Add phone number'}
+                </Text>
+              </View>
+            </Pressable>
+
+            <View style={[styles.itemDivider, { backgroundColor: theme.border }]} />
+
+            {/* Username Item */}
+            <Pressable
+              style={({ pressed }) => [styles.profileItemRow, pressed && { opacity: 0.65 }]}
+              onPress={() => openFieldEditor('username')}
+            >
+              <View style={styles.profileItemIconBox}>
+                <Ionicons name="at-outline" size={22} color={theme.textDim} />
+              </View>
+              <View style={styles.profileItemTextCol}>
+                <Text style={[styles.profileItemLabel, { color: theme.textMuted }]}>Username</Text>
+                <Text style={[styles.profileItemValue, { color: theme.text.primary }]}>
+                  {username ? (username.startsWith('@') ? username : `@${username}`) : 'Add username'}
+                </Text>
+              </View>
+            </Pressable>
+
+            <View style={[styles.itemDivider, { backgroundColor: theme.border }]} />
+
+            {/* Email Item (Read-Only) */}
+            <View style={styles.profileItemRow}>
+              <View style={styles.profileItemIconBox}>
+                <Ionicons name="mail-outline" size={22} color={theme.textDim} />
+              </View>
+              <View style={styles.profileItemTextCol}>
+                <Text style={[styles.profileItemLabel, { color: theme.textMuted }]}>Email</Text>
+                <Text style={[styles.profileItemValue, { color: theme.text.primary }]}>
+                  {user?.email || 'No email attached'}
+                </Text>
+              </View>
+              <Ionicons name="lock-closed-outline" size={16} color={theme.textDim} />
+            </View>
+          </View>
+
+          {/* Security & Privacy Card */}
+          <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
+            <Text style={[styles.sectionHeading, { color: theme.text.primary }]}>SECURITY & PRIVACY</Text>
+
+            <Pressable
+              style={({ pressed }) => [
+                styles.securityRow,
+                pressed && { opacity: 0.6 },
+                { backgroundColor: theme.surfaceSecondary },
+              ]}
+              onPress={() => passwordSheetRef.current?.present()}
+            >
+              <View style={[styles.securityIconCircle, { backgroundColor: primaryColor + '20' }]}>
+                <Ionicons name="lock-closed-outline" size={20} color={primaryColor} />
+              </View>
+              <View style={{ flex: 1, paddingHorizontal: SPACING.md }}>
+                <Text style={[styles.securityTitle, { color: theme.text.primary }]}>
+                  {hasPassword ? 'Change Password' : 'Set Account Password'}
+                </Text>
+                <Text style={[styles.securitySub, { color: theme.textMuted }]}>
+                  {hasPassword
+                    ? 'Requires current password verification'
+                    : 'Enable email and password sign-in for your account'}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={theme.textDim} />
+            </Pressable>
+
+            <Pressable
+              style={({ pressed }) => [
+                styles.securityRow,
+                pressed && { opacity: 0.6 },
+                { backgroundColor: theme.surfaceSecondary },
+              ]}
+              onPress={() => router.push('/(patient)/active-devices')}
+            >
+              <View style={[styles.securityIconCircle, { backgroundColor: primaryColor + '20' }]}>
+                <Ionicons name="hardware-chip-outline" size={20} color={primaryColor} />
+              </View>
+              <View style={{ flex: 1, paddingHorizontal: SPACING.md }}>
+                <Text style={[styles.securityTitle, { color: theme.text.primary }]}>Active Devices</Text>
+                <Text style={[styles.securitySub, { color: theme.textMuted }]}>View & revoke active device logins</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={theme.textDim} />
+            </Pressable>
+
+            <View style={[styles.securityRow, { backgroundColor: theme.surfaceSecondary }]}>
+              <View style={[styles.securityIconCircle, { backgroundColor: primaryColor + '20' }]}>
+                <Ionicons name={biometricIcon as any} size={20} color={primaryColor} />
+              </View>
+              <View style={{ flex: 1, paddingHorizontal: SPACING.md }}>
+                <Text style={[styles.securityTitle, { color: theme.text.primary }]}>Use {biometricType}</Text>
+                <Text style={[styles.securitySub, { color: theme.textMuted }]}>Require {biometricType} on app launch</Text>
+              </View>
+              <Switch
+                value={biometricsEnabled}
+                onValueChange={handleToggleBiometrics}
+                trackColor={{ false: theme.border, true: primaryColor }}
+                thumbColor="#ffffff"
+              />
+            </View>
+          </View>
+
+          {/* Account Actions Card */}
+          <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border, margin: 0 }]}>
+            <Text style={[styles.sectionHeading, { color: theme.text.primary }]}>ACCOUNT ACTIONS</Text>
+
+            {/* Sign Out */}
+            <Pressable
+              style={({ pressed }) => [
+                styles.securityRow,
+                pressed && { opacity: 0.6 },
+                { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
+              ]}
+              onPress={handleSignOutConfirm}
+            >
+              <View style={[styles.securityIconCircle, { backgroundColor: primaryColor + '20' }]}>
+                <Ionicons name="log-out-outline" size={20} color={primaryColor} />
+              </View>
+              <View style={{ flex: 1, paddingHorizontal: SPACING.md }}>
+                <Text style={[styles.securityTitle, { color: theme.text.primary }]}>Sign Out</Text>
+                <Text style={[styles.securitySub, { color: theme.textMuted }]}>Log out of your account on this device</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={theme.textDim} />
+            </Pressable>
+
+            {/* Delete Account */}
+            <Pressable
+              style={({ pressed }) => [
+                styles.securityRow,
+                pressed && { opacity: 0.6 },
+                { backgroundColor: theme.errorBg, borderColor: theme.error + '40', marginTop: SPACING.md },
+              ]}
+              onPress={handlePressDeleteAccount}
+            >
+              <View style={[styles.securityIconCircle, { backgroundColor: theme.error + '20' }]}>
+                <Ionicons name="trash-outline" size={20} color={theme.error} />
+              </View>
+              <View style={{ flex: 1, paddingHorizontal: SPACING.md }}>
+                <Text style={[styles.securityTitle, { color: theme.error }]}>Delete Account</Text>
+                <Text style={[styles.securitySub, { color: theme.error + 'aa' }]}>Permanently remove your account & all data</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={theme.error} />
+            </Pressable>
+          </View>
+        </ScrollView>
+      </KeyboardAwareContainer>
+
+      {/* WhatsApp-Style Single Field Editor BottomSheet */}
+      <AppBottomSheet
+        ref={editFieldSheetRef}
+        title={
+          editingField === 'full_name'
+            ? 'Name'
+            : editingField === 'phone'
+            ? 'Phone'
+            : 'Username'
+        }
+      >
+        <View style={styles.fieldSheetContent}>
+          {/* Outlined Input Box with Floating Label */}
+          <View
+            style={[
+              styles.fieldInputContainer,
+              {
+                borderColor: primaryColor,
+                backgroundColor: theme.surfaceSecondary,
+              },
+            ]}
+          >
+            <BottomSheetTextInput
+              style={[styles.fieldTextInput, { color: theme.text.primary }]}
+              value={editValue}
+              onChangeText={setEditValue}
+              maxLength={maxChars}
+              keyboardType={editingField === 'phone' ? 'phone-pad' : 'default'}
+              autoCapitalize={editingField === 'username' ? 'none' : 'words'}
+              placeholder={
+                editingField === 'full_name'
+                  ? 'Enter your name'
+                  : editingField === 'phone'
+                  ? '+233...'
+                  : 'username'
+              }
+              placeholderTextColor={theme.textDim}
+            />
+          </View>
+
+          {/* Character Count */}
+          <Text style={[styles.fieldCharCounter, { color: theme.textDim }]}>
+            {editValue.length}/{maxChars}
           </Text>
-        </View>
 
-        {/* Personal Details Card */}
-        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
-          <Text style={[styles.sectionHeading, { color: theme.text.primary }]}>PERSONAL INFORMATION</Text>
+          {/* Helper Note */}
+          <Text style={[styles.fieldHelpText, { color: theme.textMuted }]}>
+            {editingField === 'full_name'
+              ? 'Your name will be visible to pharmacies and healthcare providers on PharmFindr.'
+              : editingField === 'phone'
+              ? 'Your phone number is used for SMS order updates, deliveries, and pharmacy calls.'
+              : 'Your username is a unique identifier across PharmFindr.'}
+          </Text>
 
-          <Text style={[styles.fieldLabel, { color: theme.textDim }]}>FULL NAME</Text>
-          <View style={[styles.inputRow, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
-            <Ionicons name="person-outline" size={18} color={theme.textDim} style={styles.inputIcon} />
-            <TextInput
-              style={[styles.input, { color: theme.text.primary }]}
-              value={fullName}
-              onChangeText={setFullName}
-              placeholder="Enter full name"
-              placeholderTextColor={theme.textDim}
-              returnKeyType="next"
-              blurOnSubmit={false}
-              onSubmitEditing={() => phoneInputRef.current?.focus()}
-            />
-          </View>
-
-          <Text style={[styles.fieldLabel, { color: theme.textDim }]}>PHONE NUMBER</Text>
-          <View style={[styles.inputRow, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
-            <Ionicons name="call-outline" size={18} color={theme.textDim} style={styles.inputIcon} />
-            <TextInput
-              ref={phoneInputRef}
-              style={[styles.input, { color: theme.text.primary }]}
-              value={phone}
-              onChangeText={setPhone}
-              placeholder="+233..."
-              placeholderTextColor={theme.textDim}
-              keyboardType="phone-pad"
-              returnKeyType="next"
-              blurOnSubmit={false}
-              onSubmitEditing={() => usernameInputRef.current?.focus()}
-            />
-          </View>
-
-          <Text style={[styles.fieldLabel, { color: theme.textDim }]}>USERNAME</Text>
-          <View style={[styles.inputRow, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
-            <Ionicons name="at-outline" size={18} color={theme.textDim} style={styles.inputIcon} />
-            <TextInput
-              ref={usernameInputRef}
-              style={[styles.input, { color: theme.text.primary }]}
-              value={username}
-              onChangeText={setUsername}
-              placeholder="@username"
-              placeholderTextColor={theme.textDim}
-              autoCapitalize="none"
-              returnKeyType="done"
-              onSubmitEditing={handleSaveAccount}
-            />
-          </View>
-        </View>
-
-        {/* Security & Privacy Card */}
-        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
-          <Text style={[styles.sectionHeading, { color: theme.text.primary }]}>SECURITY & PRIVACY</Text>
-
+          {/* Pill-Shaped Save Button */}
           <Pressable
             style={({ pressed }) => [
-              styles.securityRow,
-              pressed && { opacity: 0.6 },
-              { backgroundColor: theme.surfaceSecondary },
+              styles.fieldSaveBtn,
+              pressed && { opacity: 0.8 },
+              { backgroundColor: primaryColor },
             ]}
-            onPress={() => passwordSheetRef.current?.present()}
+            onPress={handleSaveField}
+            disabled={savingField}
           >
-            <View style={[styles.securityIconCircle, { backgroundColor: primaryColor + '20' }]}>
-              <Ionicons name="lock-closed-outline" size={20} color={primaryColor} />
-            </View>
-            <View style={{ flex: 1, paddingHorizontal: SPACING.md }}>
-              <Text style={[styles.securityTitle, { color: theme.text.primary }]}>
-                {hasPassword ? 'Change Password' : 'Set Account Password'}
-              </Text>
-              <Text style={[styles.securitySub, { color: theme.textMuted }]}>
-                {hasPassword
-                  ? 'Requires current password verification'
-                  : 'Enable email and password sign-in for your account'}
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={theme.textDim} />
-          </Pressable>
-
-          <Pressable
-            style={({ pressed }) => [
-              styles.securityRow,
-              pressed && { opacity: 0.6 },
-              { backgroundColor: theme.surfaceSecondary },
-            ]}
-            onPress={() => router.push('/(patient)/active-devices')}
-          >
-            <View style={[styles.securityIconCircle, { backgroundColor: primaryColor + '20' }]}>
-              <Ionicons name="hardware-chip-outline" size={20} color={primaryColor} />
-            </View>
-            <View style={{ flex: 1, paddingHorizontal: SPACING.md }}>
-              <Text style={[styles.securityTitle, { color: theme.text.primary }]}>Active Devices</Text>
-              <Text style={[styles.securitySub, { color: theme.textMuted }]}>View & revoke active device logins</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={theme.textDim} />
-          </Pressable>
-
-          <View style={[styles.securityRow, { backgroundColor: theme.surfaceSecondary }]}>
-            <View style={[styles.securityIconCircle, { backgroundColor: primaryColor + '20' }]}>
-              <Ionicons name={biometricIcon as any} size={20} color={primaryColor} />
-            </View>
-            <View style={{ flex: 1, paddingHorizontal: SPACING.md }}>
-              <Text style={[styles.securityTitle, { color: theme.text.primary }]}>Use {biometricType}</Text>
-              <Text style={[styles.securitySub, { color: theme.textMuted }]}>Require {biometricType} on app launch</Text>
-            </View>
-            <Switch
-              value={biometricsEnabled}
-              onValueChange={handleToggleBiometrics}
-              trackColor={{ false: theme.border, true: primaryColor }}
-              thumbColor="#ffffff"
-            />
-          </View>
-        </View>
-
-        {/* Account Actions Card */}
-        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
-          <Text style={[styles.sectionHeading, { color: theme.text.primary }]}>ACCOUNT ACTIONS</Text>
-
-          {/* Sign Out */}
-          <Pressable
-            style={({ pressed }) => [
-              styles.securityRow,
-              pressed && { opacity: 0.6 },
-              { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
-            ]}
-            onPress={handleSignOutConfirm}
-          >
-            <View style={[styles.securityIconCircle, { backgroundColor: primaryColor + '20' }]}>
-              <Ionicons name="log-out-outline" size={20} color={primaryColor} />
-            </View>
-            <View style={{ flex: 1, paddingHorizontal: SPACING.md }}>
-              <Text style={[styles.securityTitle, { color: theme.text.primary }]}>Sign Out</Text>
-              <Text style={[styles.securitySub, { color: theme.textMuted }]}>Log out of your account on this device</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={theme.textDim} />
-          </Pressable>
-
-          {/* Delete Account */}
-          <Pressable
-            style={({ pressed }) => [
-              styles.securityRow,
-              pressed && { opacity: 0.6 },
-              { backgroundColor: theme.errorBg, borderColor: theme.error + '40', marginTop: SPACING.md },
-            ]}
-            onPress={handlePressDeleteAccount}
-          >
-            <View style={[styles.securityIconCircle, { backgroundColor: theme.error + '20' }]}>
-              <Ionicons name="trash-outline" size={20} color={theme.error} />
-            </View>
-            <View style={{ flex: 1, paddingHorizontal: SPACING.md }}>
-              <Text style={[styles.securityTitle, { color: theme.error }]}>Delete Account</Text>
-              <Text style={[styles.securitySub, { color: theme.error + 'aa' }]}>Permanently remove your account & all data</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={theme.error} />
+            {savingField ? (
+              <ActivityIndicator color={COLORS.white} />
+            ) : (
+              <Text style={styles.fieldSaveBtnText}>Save</Text>
+            )}
           </Pressable>
         </View>
+      </AppBottomSheet>
 
-        {/* Save Button */}
-        <Pressable
-          style={({ pressed }) => [
-            styles.saveBtn,
-            pressed && { opacity: 0.7 },
-            { backgroundColor: primaryColor },
-          ]}
-          onPress={handleSaveAccount}
-          disabled={saving}
-        >
-          {saving ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.saveBtnText}>Save Account Changes</Text>}
-        </Pressable>
-      </ScrollView>
-      </KeyboardAvoidingView>
       {/* IMMERSIVE GESTURE DISMISSIBLE AVATAR VIEWER OVERLAY */}
       {avatarModalVisible && (
         <Animated.View style={[styles.waAvatarModalContainer, { opacity: previewOpacity }]}>
@@ -903,7 +1002,7 @@ const styles = StyleSheet.create({
   // Avatar Section
   avatarSection: {
     alignItems: 'center',
-    marginBottom: SPACING.xxl,
+    marginBottom: SPACING.md,
   },
   avatarWrapper: {
     position: 'relative',
@@ -966,7 +1065,7 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZE.sm,
     fontFamily: 'Inter-Bold',
     letterSpacing: 1,
-    marginBottom: SPACING.sm,
+    marginBottom: SPACING.md,
   },
   fieldLabel: {
     fontSize: FONT_SIZE.xs,
@@ -975,21 +1074,73 @@ const styles = StyleSheet.create({
     marginTop: 10,
     marginBottom: 5,
   },
-  inputRow: {
+
+  // WhatsApp-Style Profile Rows
+  profileItemRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: RADIUS.md,
-    borderWidth: 1,
-    paddingHorizontal: SPACING.md,
-    height: 48,
+    paddingVertical: SPACING.sm,
   },
-  inputIcon: {
-    marginRight: 10,
+  profileItemIconBox: {
+    width: 36,
+    alignItems: 'center',
+    marginRight: SPACING.md,
   },
-  input: {
+  profileItemTextCol: {
     flex: 1,
-    fontSize: FONT_SIZE.md,
+  },
+  profileItemLabel: {
+    fontSize: FONT_SIZE.xs,
+    fontFamily: 'Inter-Medium',
+    marginBottom: 2,
+  },
+  profileItemValue: {
+    fontSize: FONT_SIZE.lg,
+    fontFamily: 'Inter-SemiBold',
+  },
+  itemDivider: {
+    height: 1,
+    opacity: 0.5,
+    marginLeft: 48,
+  },
+
+  // Single-Field BottomSheet Editor
+  fieldSheetContent: {
+    paddingHorizontal: SPACING.xl,
+    paddingTop: SPACING.sm,
+  },
+  fieldInputContainer: {
+    borderWidth: 1.5,
+    borderRadius: RADIUS.lg,
+    paddingHorizontal: SPACING.md,
+    paddingTop: SPACING.xs,
+    paddingBottom: SPACING.xs,
+  },
+  fieldTextInput: {
+    fontSize: FONT_SIZE.lg,
     fontFamily: 'Inter-Regular',
+  },
+  fieldCharCounter: {
+    alignSelf: 'flex-end',
+    fontSize: FONT_SIZE.xs,
+    fontFamily: 'Inter-Medium',
+    marginTop: 4,
+  },
+  fieldHelpText: {
+    fontSize: FONT_SIZE.sm,
+    fontFamily: 'Inter-Regular',
+  },
+  fieldSaveBtn: {
+    height: 48,
+    borderRadius: RADIUS.pill,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: SPACING.xl,
+  },
+  fieldSaveBtnText: {
+    color: COLORS.white,
+    fontSize: FONT_SIZE.lg,
+    fontFamily: 'Inter-Bold',
   },
 
   // Security Rows
@@ -1017,20 +1168,6 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
-  // Save Button
-  saveBtn: {
-    height: 52,
-    borderRadius: RADIUS.pill,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: SPACING.md,
-  },
-  saveBtnText: {
-    color: COLORS.white,
-    fontSize: FONT_SIZE.lg,
-    fontFamily: 'Inter-Bold',
-  },
-
   // WhatsApp Full-Screen Avatar Modal
   waAvatarModalContainer: {
     position: 'absolute',
@@ -1040,36 +1177,6 @@ const styles = StyleSheet.create({
     right: 0,
     backgroundColor: COLORS.surfaceDark,
     zIndex: 500,
-  },
-  waHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 14,
-    paddingVertical: SPACING.md,
-    backgroundColor: COLORS.surfaceDark,
-    zIndex: 10,
-  },
-  waHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.lg,
-  },
-  waBackBtn: {
-    padding: 6,
-  },
-  waHeaderTitle: {
-    color: COLORS.white,
-    fontSize: FONT_SIZE.xxl,
-    fontFamily: 'Inter-Bold',
-  },
-  waHeaderRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.lg,
-  },
-  waHeaderIconBtn: {
-    padding: 6,
   },
   waImageContainer: {
     flex: 1,

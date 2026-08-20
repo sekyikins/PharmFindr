@@ -68,7 +68,7 @@ export default function Dashboard() {
       setIsVerified(pharm.isVerified ?? false);
 
       // 2. Fetch inventory count & reservations concurrently in parallel
-      const [{ count: medCount }, { data: resData }] = await Promise.all([
+      const [{ count: medCount }, resResult] = await Promise.all([
         supabase
           .from('inventory')
           .select('*', { count: 'exact', head: true })
@@ -80,7 +80,38 @@ export default function Dashboard() {
           .order('created_at', { ascending: false }),
       ]);
 
-      const allRes = resData || [];
+      let allRes = resResult.data || [];
+      if (resResult.error || !resResult.data) {
+        const { data: rawRes } = await supabase
+          .from('reservations')
+          .select('*')
+          .eq('pharmacy_id', pharm.id)
+          .order('created_at', { ascending: false });
+        allRes = rawRes || [];
+      }
+
+      // Check if any reservation is missing app_users data and populate it
+      const missingUserIds = Array.from(
+        new Set(
+          allRes
+            .filter((r) => !r.app_users?.full_name && r.user_id)
+            .map((r) => r.user_id)
+        )
+      );
+
+      if (missingUserIds.length > 0) {
+        const { data: userData } = await supabase
+          .from('app_users')
+          .select('id, full_name, phone')
+          .in('id', missingUserIds);
+
+        const userMap = new Map((userData || []).map((u) => [u.id, u]));
+        allRes = allRes.map((r) => ({
+          ...r,
+          app_users: r.app_users || userMap.get(r.user_id) || null,
+        }));
+      }
+
       const totalCount = allRes.length;
       const pendingCount = allRes.filter((r) => r.status === 'pending').length;
       const acceptedCount = allRes.filter((r) => r.status === 'accepted' || r.status === 'collected').length;
@@ -110,6 +141,51 @@ export default function Dashboard() {
   useEffect(() => {
     fetchDashboardData();
   }, [fetchDashboardData]);
+
+  // Realtime subscription: update stats and recent list when reservations or inventory change
+  useEffect(() => {
+    if (!user) return;
+
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+
+    const setup = async () => {
+      const pharm = await getPharmacyForUser(user);
+      if (!pharm?.id) return;
+
+      channel = supabase
+        .channel(`dashboard-realtime:${pharm.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'reservations',
+            filter: `pharmacy_id=eq.${pharm.id}`,
+          },
+          () => {
+            fetchDashboardData();
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'inventory',
+            filter: `pharmacy_id=eq.${pharm.id}`,
+          },
+          () => {
+            fetchDashboardData();
+          }
+        )
+        .subscribe();
+    };
+
+    setup();
+    return () => {
+      if (channel) supabase.removeChannel(channel);
+    };
+  }, [user, fetchDashboardData]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -313,7 +389,12 @@ export default function Dashboard() {
                   pressed && { opacity: 0.88 },
                   { backgroundColor: theme.card, borderColor: theme.border },
                 ]}
-                onPress={() => router.push('/(pharmacy)/(tabs)/reservations')}
+                onPress={() =>
+                  router.push({
+                    pathname: '/(pharmacy)/pharmacy-reservation/[id]',
+                    params: { id: item.id },
+                  })
+                }
               >
                 <View style={styles.recentHeader}>
                   <View>
@@ -325,23 +406,38 @@ export default function Dashboard() {
                     </Text>
                   </View>
 
-                  <View
-                    style={[
-                      styles.recentStatus,
-                      item.status === 'pending'
-                        ? { backgroundColor: COLORS.pendingBg, borderColor: COLORS.pendingBg }
-                        : { backgroundColor: COLORS.pharmacySecondary, borderColor: COLORS.successBorder },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.recentStatusText,
-                        { color: item.status === 'pending' ? COLORS.pendingText : COLORS.pharmacyTextDark },
-                      ]}
-                    >
-                      {item.status.toUpperCase()}
-                    </Text>
-                  </View>
+                  {(() => {
+                    const status = item.status || 'pending';
+                    let bg: string = COLORS.pendingBg;
+                    let border: string = COLORS.pendingBorder;
+                    let color: string = COLORS.pendingText;
+
+                    if (status === 'accepted') {
+                      bg = COLORS.successBg;
+                      border = COLORS.successBorder;
+                      color = COLORS.pharmacyTextDark;
+                    } else if (status === 'declined') {
+                      bg = COLORS.errorBg;
+                      border = COLORS.errorBorder;
+                      color = COLORS.errorText;
+                    } else if (status === 'collected') {
+                      bg = COLORS.patientSecondary;
+                      border = COLORS.patientBorder;
+                      color = COLORS.patientPrimaryDark;
+                    } else if (status === 'cancelled') {
+                      bg = theme.surfaceSecondary;
+                      border = theme.border;
+                      color = theme.textMuted;
+                    }
+
+                    return (
+                      <View style={[styles.recentStatus, { backgroundColor: bg, borderColor: border, borderWidth: 1 }]}>
+                        <Text style={[styles.recentStatusText, { color }]}>
+                          {status.toUpperCase()}
+                        </Text>
+                      </View>
+                    );
+                  })()}
                 </View>
               </Pressable>
             ))}

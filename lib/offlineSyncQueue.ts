@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabase';
 
 const QUEUE_STORAGE_KEY = 'PharmFindr_offline_sync_queue';
+const MAX_RETRIES = 3;
 
 export type OfflineActionType =
   | 'UPDATE_PROFILE'
@@ -15,6 +16,7 @@ export interface PendingOfflineAction {
   userId: string;
   payload: any;
   createdAt: string;
+  retryCount?: number;
 }
 
 /**
@@ -38,6 +40,7 @@ export async function enqueueOfflineAction(
       userId,
       payload,
       createdAt: new Date().toISOString(),
+      retryCount: 0,
     });
 
     await AsyncStorage.setItem(QUEUE_STORAGE_KEY, JSON.stringify(queue));
@@ -61,6 +64,8 @@ export async function flushOfflineSyncQueue(): Promise<{ syncedCount: number }> 
     let syncedCount = 0;
 
     for (const item of queue) {
+      const currentRetries = (item.retryCount || 0) + 1;
+
       try {
         let success = false;
 
@@ -77,10 +82,29 @@ export async function flushOfflineSyncQueue(): Promise<{ syncedCount: number }> 
           }
 
           case 'UPLOAD_AVATAR': {
-            if (item.payload?.imageUri) {
-              const fileExt = item.payload.imageUri.split('.').pop()?.toLowerCase() || 'jpg';
+            const imageUri = item.payload?.imageUri;
+            if (imageUri) {
+              // Discard expired blob URLs from previous web sessions immediately
+              if (imageUri.startsWith('blob:')) {
+                console.warn('[OfflineQueue] Discarding expired web blob avatar URL:', imageUri);
+                success = true; // Drop item
+                break;
+              }
+
+              const fileExt = imageUri.split('.').pop()?.toLowerCase() || 'jpg';
               const fileName = `${item.userId}-${Date.now()}.${fileExt}`;
-              const response = await fetch(item.payload.imageUri);
+              
+              const response = await fetch(imageUri).catch((fetchErr) => {
+                console.warn('[OfflineQueue] File not accessible, discarding stale upload:', fetchErr);
+                return null;
+              });
+
+              if (!response || !response.ok) {
+                // If file is gone/deleted from cache, do not retry indefinitely
+                success = true; // Drop dead file
+                break;
+              }
+
               const blob = await response.blob();
 
               const { data: uploadData, error: uploadErr } = await supabase.storage
@@ -103,6 +127,8 @@ export async function flushOfflineSyncQueue(): Promise<{ syncedCount: number }> 
                   success = true;
                 }
               }
+            } else {
+              success = true; // Empty payload, discard
             }
             break;
           }
@@ -114,11 +140,17 @@ export async function flushOfflineSyncQueue(): Promise<{ syncedCount: number }> 
 
         if (success) {
           syncedCount++;
+        } else if (currentRetries < MAX_RETRIES) {
+          remainingQueue.push({ ...item, retryCount: currentRetries });
         } else {
-          remainingQueue.push(item);
+          console.warn(`[OfflineQueue] Discarding item ${item.id} after exceeding max retries.`);
         }
       } catch (e) {
-        remainingQueue.push(item);
+        if (currentRetries < MAX_RETRIES) {
+          remainingQueue.push({ ...item, retryCount: currentRetries });
+        } else {
+          console.warn(`[OfflineQueue] Discarding failing item ${item.id} after error:`, e);
+        }
       }
     }
 

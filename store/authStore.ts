@@ -280,6 +280,10 @@ export const useAuthStore = create<AuthState>((set, get) => {
     }
 
     if (event === 'PASSWORD_RECOVERY') {
+      console.log(
+        '[Supabase Auth Event] PASSWORD_RECOVERY fired. Session is:',
+        session ? `Valid (User ID: ${session.user.id})` : 'NULL'
+      );
       if (session) {
         set({ session, user: session.user, loading: false });
       }

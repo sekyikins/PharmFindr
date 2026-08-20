@@ -5,7 +5,6 @@ import {
   View,
   ScrollView,
   Pressable,
-  KeyboardAvoidingView,
   Platform,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -23,6 +22,7 @@ import { useThemeContext } from '@/hooks/useThemeContext';
 import { useHardwareBack } from '@/hooks/useHardwareBack';
 import { COLORS, FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
 import { COMMON_DOSAGE_FORMS, type DosageForm } from '@/types/medicine';
+import KeyboardAwareContainer from '@/components/ui/KeyboardAwareContainer';
 
 interface GenericOption {
   id: string;
@@ -252,10 +252,7 @@ export default function AddMedicine() {
         onBack={() => router.back()}
       />
 
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
+      <KeyboardAwareContainer>
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
@@ -407,7 +404,7 @@ export default function AddMedicine() {
           style={{ marginTop: SPACING.xxl, backgroundColor: COLORS.pharmacyPrimary }}
         />
       </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardAwareContainer>
     </SafeAreaView>
   );
 }

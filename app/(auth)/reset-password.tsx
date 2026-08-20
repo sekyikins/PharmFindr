@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   StyleSheet,
   Text,
@@ -8,27 +8,23 @@ import {
   TextInput,
   useWindowDimensions,
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import * as Linking from 'expo-linking';
 import Svg, { Path } from 'react-native-svg';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
 import { useThemeContext } from '@/hooks/useThemeContext';
 import { useHardwareBack } from '@/hooks/useHardwareBack';
 import { revokeAllOtherSessions } from '@/lib/deviceSession';
-import { processAuthUrl } from '@/lib/authUrlHandler';
 import { toast } from '@/context/ToastContext';
 import { getFriendlyErrorMessage } from '@/lib/errorUtils';
 import { COLORS, FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
+import KeyboardAwareContainer from '@/components/ui/KeyboardAwareContainer';
 
 export default function ResetPasswordScreen() {
   const router = useRouter();
-  const incomingUrl = Linking.useURL();
   const { width } = useWindowDimensions();
   const { primaryColor } = useThemeContext();
 
@@ -43,42 +39,7 @@ export default function ResetPasswordScreen() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // Session verification state
-  const [verifyingSession, setVerifyingSession] = useState(true);
-  const [hasSession, setHasSession] = useState(false);
-
   const confirmRef = useRef<TextInput>(null);
-
-  // Automatically process deep link tokens on mount
-  useEffect(() => {
-    let mounted = true;
-
-    async function initRecoverySession() {
-      try {
-        const res = await processAuthUrl(incomingUrl);
-        if (!mounted) return;
-
-        if (res.session || res.user) {
-          setHasSession(true);
-        } else {
-          // Check getSession directly
-          const { data } = await supabase.auth.getSession();
-          setHasSession(!!data.session);
-        }
-      } catch (err) {
-        console.warn('Init recovery session error:', err);
-        if (mounted) setHasSession(false);
-      } finally {
-        if (mounted) setVerifyingSession(false);
-      }
-    }
-
-    initRecoverySession();
-
-    return () => {
-      mounted = false;
-    };
-  }, [incomingUrl]);
 
   const isMinLength = password.length >= 6;
   const isMatching = password.length > 0 && password === confirmPassword;
@@ -105,10 +66,10 @@ export default function ResetPasswordScreen() {
     setLoading(true);
 
     try {
-      // 1. Ensure active recovery session is present
+      // 1. Ensure recovery session is active in Supabase
       const { data: sessionData } = await supabase.auth.getSession();
       if (!sessionData?.session) {
-        throw new Error('Recovery session expired or not found. Please request a new reset link.');
+        throw new Error('Your reset session has expired or is missing. Please tap the reset link in your email again.');
       }
 
       // 2. Update user password
@@ -129,8 +90,11 @@ export default function ResetPasswordScreen() {
       toast.success('Password updated successfully! Welcome back.');
       router.replace('/(patient)/(tabs)/home');
     } catch (err: any) {
-      console.warn('Reset password error:', err);
-      const msg = getFriendlyErrorMessage(err, 'Failed to update password. Please request a new reset link.');
+      console.warn('[ResetPasswordScreen] Update password error:', err);
+      const msg = getFriendlyErrorMessage(
+        err,
+        'Failed to update password. Your reset link may have expired.'
+      );
       toast.error(msg);
     } finally {
       setLoading(false);
@@ -141,11 +105,7 @@ export default function ResetPasswordScreen() {
 
   return (
     <View style={styles.root}>
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
-      >
+      <KeyboardAwareContainer>
         <ScrollView
           contentContainerStyle={styles.scroll}
           bounces={false}
@@ -174,127 +134,103 @@ export default function ResetPasswordScreen() {
 
           {/* Form Content */}
           <View style={styles.form}>
-            {verifyingSession ? (
-              <View style={styles.verifyingBox}>
-                <ActivityIndicator size="large" color={BLUE} />
-                <Text style={styles.verifyingText}>Verifying recovery link...</Text>
-              </View>
-            ) : !hasSession ? (
-              <View style={styles.expiredBox}>
-                <Ionicons name="alert-circle-outline" size={48} color={COLORS.error} />
-                <Text style={styles.expiredTitle}>Invalid or Expired Link</Text>
-                <Text style={styles.expiredSub}>
-                  This password reset link is invalid, already used, or has expired. Please request a new link from the login page.
+            {/* New Password */}
+            <Text style={styles.label}>NEW PASSWORD</Text>
+            <View style={styles.inputRow}>
+              <Ionicons name="lock-closed-outline" size={16} color={COLORS.textDim} style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="Enter new password (min. 6 characters)"
+                placeholderTextColor={COLORS.textDim}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+                autoCapitalize="none"
+                returnKeyType="next"
+                onSubmitEditing={() => confirmRef.current?.focus()}
+              />
+              <Pressable onPress={() => setShowPassword((prev) => !prev)} hitSlop={10}>
+                <Ionicons
+                  name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                  size={20}
+                  color={COLORS.textDim}
+                />
+              </Pressable>
+            </View>
+
+            {/* Confirm Password */}
+            <Text style={[styles.label, { marginTop: SPACING.lg }]}>CONFIRM NEW PASSWORD</Text>
+            <View style={styles.inputRow}>
+              <Ionicons name="shield-checkmark-outline" size={16} color={COLORS.textDim} style={styles.inputIcon} />
+              <TextInput
+                ref={confirmRef}
+                style={styles.input}
+                placeholder="Re-enter your new password"
+                placeholderTextColor={COLORS.textDim}
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                secureTextEntry={!showConfirmPassword}
+                autoCapitalize="none"
+                returnKeyType="done"
+                onSubmitEditing={handleUpdatePassword}
+              />
+              <Pressable onPress={() => setShowConfirmPassword((prev) => !prev)} hitSlop={10}>
+                <Ionicons
+                  name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'}
+                  size={20}
+                  color={COLORS.textDim}
+                />
+              </Pressable>
+            </View>
+
+            {/* Validation Checklist */}
+            <View style={styles.checklist}>
+              <View style={styles.checkItem}>
+                <Ionicons
+                  name={isMinLength ? 'checkmark-circle' : 'ellipse-outline'}
+                  size={16}
+                  color={isMinLength ? COLORS.success : COLORS.textDim}
+                />
+                <Text style={[styles.checkText, isMinLength && styles.checkTextActive]}>
+                  At least 6 characters
                 </Text>
-
-                <Pressable
-                  style={[styles.primaryBtn, { backgroundColor: BLUE, width: '100%', marginTop: SPACING.xl }]}
-                  onPress={() => router.replace('/(auth)/login')}
-                >
-                  <Text style={styles.primaryBtnText}>Request New Link</Text>
-                </Pressable>
               </View>
-            ) : (
-              <>
-                {/* New Password */}
-                <Text style={styles.label}>NEW PASSWORD</Text>
-                <View style={styles.inputRow}>
-                  <Ionicons name="lock-closed-outline" size={16} color={COLORS.textDim} style={styles.inputIcon} />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Enter new password (min. 6 characters)"
-                    placeholderTextColor={COLORS.textDim}
-                    value={password}
-                    onChangeText={setPassword}
-                    secureTextEntry={!showPassword}
-                    autoCapitalize="none"
-                    returnKeyType="next"
-                    onSubmitEditing={() => confirmRef.current?.focus()}
-                  />
-                  <Pressable onPress={() => setShowPassword((prev) => !prev)} hitSlop={10}>
-                    <Ionicons
-                      name={showPassword ? 'eye-off-outline' : 'eye-outline'}
-                      size={20}
-                      color={COLORS.textDim}
-                    />
-                  </Pressable>
-                </View>
 
-                {/* Confirm Password */}
-                <Text style={[styles.label, { marginTop: SPACING.lg }]}>CONFIRM NEW PASSWORD</Text>
-                <View style={styles.inputRow}>
-                  <Ionicons name="shield-checkmark-outline" size={16} color={COLORS.textDim} style={styles.inputIcon} />
-                  <TextInput
-                    ref={confirmRef}
-                    style={styles.input}
-                    placeholder="Re-enter your new password"
-                    placeholderTextColor={COLORS.textDim}
-                    value={confirmPassword}
-                    onChangeText={setConfirmPassword}
-                    secureTextEntry={!showConfirmPassword}
-                    autoCapitalize="none"
-                    returnKeyType="done"
-                    onSubmitEditing={handleUpdatePassword}
-                  />
-                  <Pressable onPress={() => setShowConfirmPassword((prev) => !prev)} hitSlop={10}>
-                    <Ionicons
-                      name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'}
-                      size={20}
-                      color={COLORS.textDim}
-                    />
-                  </Pressable>
-                </View>
+              <View style={styles.checkItem}>
+                <Ionicons
+                  name={isMatching ? 'checkmark-circle' : 'ellipse-outline'}
+                  size={16}
+                  color={isMatching ? COLORS.success : COLORS.textDim}
+                />
+                <Text style={[styles.checkText, isMatching && styles.checkTextActive]}>
+                  Passwords match
+                </Text>
+              </View>
+            </View>
 
-                {/* Validation Checklist */}
-                <View style={styles.checklist}>
-                  <View style={styles.checkItem}>
-                    <Ionicons
-                      name={isMinLength ? 'checkmark-circle' : 'ellipse-outline'}
-                      size={16}
-                      color={isMinLength ? COLORS.success : COLORS.textDim}
-                    />
-                    <Text style={[styles.checkText, isMinLength && styles.checkTextActive]}>
-                      At least 6 characters
-                    </Text>
-                  </View>
+            {/* Submit Button */}
+            <Pressable
+              style={[styles.primaryBtn, { backgroundColor: BLUE }, (!isMinLength || !isMatching) && styles.disabledBtn]}
+              onPress={handleUpdatePassword}
+              disabled={loading || !isMinLength || !isMatching}
+            >
+              {loading ? (
+                <ActivityIndicator color={COLORS.white} />
+              ) : (
+                <Text style={styles.primaryBtnText}>Update & Sign In</Text>
+              )}
+            </Pressable>
 
-                  <View style={styles.checkItem}>
-                    <Ionicons
-                      name={isMatching ? 'checkmark-circle' : 'ellipse-outline'}
-                      size={16}
-                      color={isMatching ? COLORS.success : COLORS.textDim}
-                    />
-                    <Text style={[styles.checkText, isMatching && styles.checkTextActive]}>
-                      Passwords match
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Submit Button */}
-                <Pressable
-                  style={[styles.primaryBtn, { backgroundColor: BLUE }, (!isMinLength || !isMatching) && styles.disabledBtn]}
-                  onPress={handleUpdatePassword}
-                  disabled={loading || !isMinLength || !isMatching}
-                >
-                  {loading ? (
-                    <ActivityIndicator color={COLORS.white} />
-                  ) : (
-                    <Text style={styles.primaryBtnText}>Update & Sign In</Text>
-                  )}
-                </Pressable>
-
-                {/* Back to Login */}
-                <Pressable
-                  style={styles.secondaryBtn}
-                  onPress={() => router.replace('/(auth)/login')}
-                >
-                  <Text style={styles.secondaryBtnText}>Cancel</Text>
-                </Pressable>
-              </>
-            )}
+            {/* Back to Login */}
+            <Pressable
+              style={styles.secondaryBtn}
+              onPress={() => router.replace('/(auth)/login')}
+            >
+              <Text style={styles.secondaryBtnText}>Cancel</Text>
+            </Pressable>
           </View>
         </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardAwareContainer>
     </View>
   );
 }
@@ -406,36 +342,5 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     fontSize: FONT_SIZE.lg,
     fontFamily: 'Inter-SemiBold',
-  },
-  verifyingBox: {
-    paddingVertical: SPACING.xxl * 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: SPACING.md,
-  },
-  verifyingText: {
-    fontSize: FONT_SIZE.md,
-    fontFamily: 'Inter-Medium',
-    color: COLORS.textMuted,
-  },
-  expiredBox: {
-    paddingVertical: SPACING.xxl,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: SPACING.sm,
-  },
-  expiredTitle: {
-    fontSize: FONT_SIZE.xl,
-    fontFamily: 'Inter-Bold',
-    color: COLORS.textDark,
-    marginTop: SPACING.xs,
-  },
-  expiredSub: {
-    fontSize: FONT_SIZE.md,
-    fontFamily: 'Inter-Regular',
-    color: COLORS.textMuted,
-    textAlign: 'center',
-    lineHeight: 22,
-    paddingHorizontal: SPACING.md,
   },
 });

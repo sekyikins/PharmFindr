@@ -7,9 +7,6 @@ import {
   Pressable,
   TextInput,
   Alert,
-  ActivityIndicator,
-  Platform,
-  KeyboardAvoidingView,
 } from 'react-native';
 import { useRouter, useLocalSearchParams, useNavigation } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -23,6 +20,7 @@ import { Header } from '@/components/ui/Header';
 import { useHardwareBack } from '@/hooks/useHardwareBack';
 import { toast } from '@/context/ToastContext';
 import type { PrescriptionMedicine } from '@/types/prescription';
+import KeyboardAwareContainer from '@/components/ui/KeyboardAwareContainer';
 
 // ─── Confidence helpers ──────────────────────────────────────────────────────
 
@@ -342,10 +340,7 @@ export default function OcrResult() {
         }
       />
 
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
+      <KeyboardAwareContainer>
         <ScrollView
           ref={scrollViewRef}
           contentContainerStyle={styles.scroll}
@@ -365,11 +360,11 @@ export default function OcrResult() {
               No medicines currently added. Tap "Add" in the top header or retake the prescription photo.
             </Text>
             <Pressable
-              style={({ pressed }) => [styles.primaryBtn, pressed && { opacity: 0.5 }, { backgroundColor: primaryColor, marginTop: SPACING.lg }]}
+              style={({ pressed }) => [styles.Btn, pressed && { opacity: 0.5 }, { backgroundColor: primaryColor, marginTop: SPACING.lg }]}
               onPress={handleAddDrugSet}
             >
               <Ionicons name="add-circle-outline" size={20} color={COLORS.white} style={{ marginRight: 8 }} />
-              <Text style={styles.primaryBtnText}>Add Medicine Manually</Text>
+              <Text style={styles.BtnText}>Add Medicine Manually</Text>
             </Pressable>
           </View>
         ) : (
@@ -499,17 +494,17 @@ export default function OcrResult() {
         <View style={styles.actionContainer}>
           {/* Primary: Find Medicines Nearby */}
           <Pressable
-            style={({ pressed }) => [styles.primaryBtn, pressed && { opacity: 0.7 }, { backgroundColor: primaryColor + '15', borderColor: primaryColor, borderWidth: 1 }]}
+            style={({ pressed }) => [styles.Btn, pressed && { opacity: 0.7 }, { backgroundColor: primaryColor + '15', borderColor: primaryColor }]}
             onPress={handleSearchPharmacies}
             disabled={searching}
           >
             <Ionicons name="medical-outline" size={20} color={primaryColor} style={{ marginRight: 8 }} />
-            <Text style={[styles.primaryBtnText, { color: primaryColor }]}>Pharmacies Carrying Prescription</Text>
+            <Text style={[styles.BtnText, { color: primaryColor }]}>Pharmacies Carrying Prescription</Text>
           </Pressable>
 
           {/* Secondary: Ask AI / Continue Chat */}
           <Pressable
-            style={({ pressed }) => [styles.secondaryBtn, pressed && { opacity: 0.5 }, { borderColor: primaryColor, backgroundColor: theme.card }]}
+            style={({ pressed }) => [styles.Btn, pressed && { opacity: 0.5 }, { borderColor: primaryColor, backgroundColor: theme.card }]}
             onPress={handleAIButtonPress}
           >
             <Ionicons
@@ -518,7 +513,7 @@ export default function OcrResult() {
               color={primaryColor}
               style={{ marginRight: 8 }}
             />
-            <Text style={[styles.secondaryBtnText, { color: primaryColor }]}>
+            <Text style={[styles.BtnText, { color: primaryColor }]}>
               {existingConsultationId ? 'Continue Chat' : 'Consult PharmFindr Chat'}
             </Text>
           </Pressable>
@@ -526,7 +521,7 @@ export default function OcrResult() {
         </>
         )}
       </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardAwareContainer>
     </SafeAreaView>
   );
 }
@@ -617,7 +612,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap'
   },
   medNameInput: {
-    fontSize: FONT_SIZE.title,
+    fontSize: FONT_SIZE.hero,
     fontFamily: 'Inter-Bold',
     padding: 0
   },
@@ -710,26 +705,17 @@ const styles = StyleSheet.create({
   actionContainer: {
     marginTop: SPACING.sm, gap: SPACING.md
   },
-  primaryBtn: {
+  Btn: {
     padding: SPACING.md,
     borderRadius: RADIUS.pill,
+    borderWidth: 1,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center'
   },
-  primaryBtnText: {
-    color: COLORS.white, fontSize: FONT_SIZE.lg, fontFamily: 'Inter-SemiBold'
-  },
-  secondaryBtn: {
-    height: 52,
-    borderRadius: RADIUS.pill,
-    borderWidth: 1.5,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
-  secondaryBtnText: {
-    fontSize: FONT_SIZE.lg, fontFamily: 'Inter-SemiBold'
+  BtnText: {
+    fontSize: FONT_SIZE.lg,
+    fontFamily: 'Inter-SemiBold'
   },
 
   // ── Pharmacy Results ──

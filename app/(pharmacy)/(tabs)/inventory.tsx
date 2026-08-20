@@ -83,6 +83,39 @@ export default function Inventory() {
     fetchInventory();
   }, [fetchInventory]);
 
+  // Realtime subscription: update inventory list when medicines are added/edited/deleted
+  useEffect(() => {
+    if (!user) return;
+
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+
+    const setup = async () => {
+      const pharm = await getPharmacyForUser(user);
+      if (!pharm?.id) return;
+
+      channel = supabase
+        .channel(`inventory-realtime:${pharm.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'inventory',
+            filter: `pharmacy_id=eq.${pharm.id}`,
+          },
+          () => {
+            fetchInventory();
+          }
+        )
+        .subscribe();
+    };
+
+    setup();
+    return () => {
+      if (channel) supabase.removeChannel(channel);
+    };
+  }, [user, fetchInventory]);
+
   const handleRefresh = () => {
     setRefreshing(true);
     fetchInventory();
@@ -280,7 +313,7 @@ export default function Inventory() {
       />
       {/* Search Bar & Filter Chips */}
       <View style={styles.searchRow}>
-        <View style={[styles.searchBar, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
+        <View style={[styles.searchBar, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border, borderWidth: 1 }]}>
           <Ionicons name="search-outline" size={16} color={theme.textMuted} style={{ marginRight: 6 }} />
           <TextInput
             style={[styles.searchInput, { color: theme.text.primary }]}
@@ -354,7 +387,7 @@ export default function Inventory() {
           data={filteredInventory}
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
-          contentContainerStyle={{ padding: SPACING.xl, gap: SPACING.md }}
+          contentContainerStyle={{ paddingHorizontal: SPACING.lg, paddingBottom: SPACING.lg, gap: SPACING.md }}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -470,12 +503,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: RADIUS.pill,
-    height: 40,
     paddingHorizontal: 14
   },
   searchInput: {
     fontFamily: 'Inter-Regular',
-     flex: 1, fontSize: FONT_SIZE.lg
+    flex: 1,
+    fontSize: FONT_SIZE.lg,
   },
   uploadBtn: {
     width: 40,
