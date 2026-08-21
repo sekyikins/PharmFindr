@@ -16,7 +16,7 @@ import { useRouter } from 'expo-router';
 import { useThemeContext } from '@/hooks/useThemeContext';
 import { COLORS,  FONT_SIZE, RADIUS, SPACING  } from '@/styles/theme';
 import Skeleton from '@/components/ui/Skeleton';
-import { Header } from '@/components/ui/Header';
+import { Header, HeaderIconBtn } from '@/components/ui/Header';
 import {
   searchMasterMedicines,
   fetchPopularMedicines,
@@ -27,10 +27,13 @@ import {
 import { useRecentSearchesStore } from '@/store/recentSearchesStore';
 import { useNetworkStore } from '@/store/networkStore';
 import { useAuthStore } from '@/store/authStore';
+import { useNotificationStore } from '@/store/notificationStore';
+import { supabase, safeChannel } from '@/lib/supabase';
 
 export default function SearchMedicines() {
   const router = useRouter();
   const { theme, primaryColor } = useThemeContext();
+  const unreadCount = useNotificationStore((s) => s.unreadCount);
   const { user } = useAuthStore();
 
   const {
@@ -78,6 +81,26 @@ export default function SearchMedicines() {
     loadRecentSearches(user?.id);
     loadRandomPopular();
     loadCategories();
+
+    const channel = safeChannel('search-inventory-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'inventory',
+        },
+        () => {
+          if (query.trim() || selectedCategory !== 'All') {
+            runSearch(query, selectedCategory);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [user?.id, loadRecentSearches, loadRandomPopular, loadCategories]);
 
   const runSearch = useCallback(
@@ -163,7 +186,16 @@ export default function SearchMedicines() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
-      <Header title="Search Medicines" />
+      <Header
+        title="Search Medicines"
+        right={
+          <HeaderIconBtn
+            icon="notifications-outline"
+            badge={unreadCount > 0 ? unreadCount : undefined}
+            onPress={() => router.push('/(patient)/notifications')}
+          />
+        }
+      />
 
       {/* ── Search Input & Filter Bar ── */}
       <View style={[styles.searchWrapper, { backgroundColor: theme.card }]}>

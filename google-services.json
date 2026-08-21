@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "63932199991",
+    "project_id": "pharmfindr-1",
+    "storage_bucket": "pharmfindr-1.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:63932199991:android:cb8c2fad1b25618dedfbb2",
+        "android_client_info": {
+          "package_name": "com.mrsekyi.PharmFindr"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA4qgUxMe9fOkpswy8Up89wzaBQ8CwJDvg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

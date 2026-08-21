@@ -14,10 +14,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useThemeContext } from '@/hooks/useThemeContext';
 import { RADIUS, COLORS, FONT_SIZE, SPACING } from '@/styles/theme';
 import { usePharmacyStore } from '@/store/pharmacyStore';
-import { supabase } from '@/lib/supabase';
+import { supabase, safeChannel } from '@/lib/supabase';
 import Skeleton from '@/components/ui/Skeleton';
 import { useNotificationStore } from '@/store/notificationStore';
-import { Header } from '@/components/ui/Header';
+import { Header, HeaderIconBtn } from '@/components/ui/Header';
 import { cleanDistanceString, cleanDurationString } from '@/lib/ors';
 
 export default function Home() {
@@ -94,7 +94,36 @@ export default function Home() {
 
   useEffect(() => {
     fetchPrescriptions();
-  }, [fetchPrescriptions]);
+
+    if (!user?.id) return;
+
+    const channel = safeChannel(`home-realtime-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'prescriptions',
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => fetchPrescriptions()
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'reservations',
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => fetchPrescriptions()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchPrescriptions, user?.id]);
 
   const getGreeting = () => {
     const h = new Date().getHours();
@@ -129,21 +158,11 @@ export default function Home() {
           </View>
         }
         right={
-          <Pressable
-            style={({ pressed }) => [
-              styles.notifBtn,
-              pressed && { opacity: 0.6 },
-              { backgroundColor: theme.card, borderColor: theme.border },
-            ]}
+          <HeaderIconBtn
+            icon="notifications-outline"
+            badge={unreadCount > 0 ? unreadCount : undefined}
             onPress={() => router.push('/(patient)/notifications')}
-          >
-            <Ionicons name="notifications-outline" size={19} color={unreadCount > 0 ? primaryColor : theme.textMuted} />
-            {unreadCount > 0 && (
-              <View style={[styles.notifBadge, { backgroundColor: primaryColor }]}>
-                <Text style={styles.notifBadgeText}>{unreadCount > 9 ? '9+' : String(unreadCount)}</Text>
-              </View>
-            )}
-          </Pressable>
+          />
         }
       />
 

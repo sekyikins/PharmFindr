@@ -14,30 +14,56 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useThemeContext } from '@/hooks/useThemeContext';
 import { COLORS, FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
-import { Header } from '@/components/ui/Header';
+import { Header, HeaderIconBtn } from '@/components/ui/Header';
 import { useSavedMedicinesStore } from '@/store/savedMedicinesStore';
+import { useAuthStore } from '@/store/authStore';
+import { useNotificationStore } from '@/store/notificationStore';
+import { supabase, safeChannel } from '@/lib/supabase';
 import { type MedicineItem } from '@/lib/medicineCatalogue';
 import { useHardwareBack } from '@/hooks/useHardwareBack';
 
 export default function SavedMedicinesScreen() {
+  const unreadCount = useNotificationStore((s) => s.unreadCount);
   const router = useRouter();
   const { theme, primaryColor } = useThemeContext();
+  const { user } = useAuthStore();
 
   const { savedMedicines, loadSavedMedicines, removeSavedMedicine, clearAllSaved } =
     useSavedMedicinesStore();
 
   const [filterQuery, setFilterQuery] = useState('');
-  const [refreshing, setRefreshing] = useState(false);
-
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    await loadSavedMedicines();
-    setRefreshing(false);
-  };
 
   useEffect(() => {
     loadSavedMedicines();
-  }, []);
+
+    if (!user?.id) return;
+    const channel = safeChannel(`watchlist-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'medicine_watchlist',
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => loadSavedMedicines()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id]);
+
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await Promise.all([
+      loadSavedMedicines(),
+      user?.id ? useNotificationStore.getState().fetchNotifications(user.id) : Promise.resolve(),
+    ]);
+    setRefreshing(false);
+  };
 
   const handleGoBack = () => {
     if (router.canGoBack()) {
@@ -91,7 +117,18 @@ export default function SavedMedicinesScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
-      <Header title="Saved Medicines" showBack onBack={handleGoBack} />
+      <Header
+        title="Saved Medicines"
+        showBack
+        onBack={handleGoBack}
+        right={
+          <HeaderIconBtn
+            icon="notifications-outline"
+            badge={unreadCount > 0 ? unreadCount : undefined}
+            onPress={() => router.push('/(patient)/notifications')}
+          />
+        }
+      />
 
       {/* ── Filter Bar & Clear All Option ── */}
       {savedMedicines.length > 0 && (

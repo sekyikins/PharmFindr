@@ -23,7 +23,7 @@ import { useNotificationStore } from '@/store/notificationStore';
 export default function Dashboard() {
   const router = useRouter();
   const { theme } = useThemeContext();
-  const { user } = useAuthStore();
+  const { user, refreshProfile } = useAuthStore();
   const { width } = useWindowDimensions();
 
   const [pharmacyName, setPharmacyName] = useState('My Pharmacy');
@@ -65,7 +65,7 @@ export default function Dashboard() {
       }
 
       setPharmacyName(pharm.name);
-      setIsVerified(pharm.isVerified ?? false);
+      setIsVerified(pharm.is_verified === true || pharm.isVerified === true);
 
       // 2. Fetch inventory count & reservations concurrently in parallel
       const [{ count: medCount }, resResult] = await Promise.all([
@@ -152,8 +152,14 @@ export default function Dashboard() {
       const pharm = await getPharmacyForUser(user);
       if (!pharm?.id) return;
 
+      const channelName = `dashboard-realtime:${pharm.id}`;
+      const existing = supabase.getChannels().find((c) => c.topic === `realtime:${channelName}`);
+      if (existing) {
+        await supabase.removeChannel(existing);
+      }
+
       channel = supabase
-        .channel(`dashboard-realtime:${pharm.id}`)
+        .channel(channelName)
         .on(
           'postgres_changes',
           {
@@ -189,7 +195,12 @@ export default function Dashboard() {
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await fetchDashboardData();
+    await Promise.all([
+      fetchDashboardData(),
+      refreshProfile(),
+      user?.id ? fetchNotifications(user.id) : Promise.resolve(),
+    ]);
+    setRefreshing(false);
   };
 
   return (

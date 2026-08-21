@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
@@ -28,7 +28,8 @@ const MENU_GROUPS = [
   {
     title: 'CLINICAL & HEALTH',
     items: [
-      { id: 'history', icon: 'time', color: COLORS.info, label: 'Prescription History', route: '/(patient)/prescription-history' },
+      { id: 'health_profile', icon: 'shield-checkmark', color: COLORS.info, label: 'Health & Safety Profile', route: '/(patient)/health-profile' },
+      { id: 'history', icon: 'time', color: COLORS.purple, label: 'Prescription History', route: '/(patient)/prescription-history' },
       { id: 'saved', icon: 'heart', color: COLORS.pink, label: 'Saved Medicines', route: '/(patient)/medicines' },
     ],
   },
@@ -47,10 +48,13 @@ const MENU_GROUPS = [
   },
 ];
 
+import { useNotificationStore } from '@/store/notificationStore';
+
 export default function Profile() {
   const router = useRouter();
   const { profile, appUser, user, signOut, refreshProfile, fetchAppUser, updateProfile, uploadAvatar } = useAuthStore();
   const { theme, primaryColor } = useThemeContext();
+  const unreadCount = useNotificationStore((s) => s.unreadCount);
   const { width } = useWindowDimensions();
 
   const [stats, setStats] = useState({ prescriptions: 0, reservations: 0, saved: 0 });
@@ -85,10 +89,12 @@ export default function Profile() {
 
   useEffect(() => {
     fetchStats();
-  }, [fetchStats]);
+    if (user?.id) {
+      fetchAppUser();
+    }
+  }, [fetchStats, user?.id]);
 
   const [refreshing, setRefreshing] = useState(false);
-
   const handleRefresh = async () => {
     setRefreshing(true);
     if (user?.id) {
@@ -192,28 +198,6 @@ export default function Profile() {
             <StatItem value={stats.reservations} label="Reservations" icon="time-outline" theme={theme} valueColor={primaryColor} />
           </View>
 
-          {/* ── Clinical Protection Quick Banner ── */}
-          <Pressable
-            style={({ pressed }) => [
-              styles.healthQuickCard,
-              { backgroundColor: theme.card, borderColor: primaryColor + '30' },
-              pressed && { opacity: 0.85 },
-            ]}
-            onPress={() => router.push('/(patient)/health-profile')}
-          >
-            <View style={[styles.healthQuickIconCircle, { backgroundColor: primaryColor + '15' }]}>
-              <Ionicons name="shield-checkmark" size={20} color={primaryColor} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <View style={styles.healthQuickTitleRow}>
-                <Text style={[styles.healthQuickTitle, { color: theme.text.primary }]}>Health &amp; Safety Profile</Text>
-              </View>
-              <Text style={[styles.healthQuickSub, { color: theme.textMuted }]}>
-                {appUser?.allergies?.length || 0} Allergies • {appUser?.existing_conditions?.length || 0} Conditions • {appUser?.current_medications?.length || 0} Meds
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={theme.textDim} />
-          </Pressable>
 
           {/* ── Categorized Menu Groups ── */}
           {MENU_GROUPS.map((group) => (
@@ -236,6 +220,11 @@ export default function Profile() {
                         <Ionicons name={item.icon as any} size={18} color={item.color} />
                       </View>
                       <Text style={[styles.menuLabel, { color: theme.text.primary }]}>{item.label}</Text>
+                      {item.id === 'notifs' && unreadCount > 0 && (
+                        <View style={styles.menuNotifBadge}>
+                          <Text style={styles.menuNotifBadgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
+                        </View>
+                      )}
 
                       <Ionicons name="chevron-forward" size={16} color={theme.textDim} />
                     </Pressable>
@@ -432,36 +421,6 @@ const styles = StyleSheet.create({
     width: 1, marginVertical: SPACING.xs
   },
 
-  // Health Quick Banner
-  healthQuickCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.md,
-    padding: 14,
-    borderRadius: RADIUS.xl,
-    borderWidth: 1.2,
-    marginBottom: SPACING.xl
-  },
-  healthQuickIconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: RADIUS.xl,
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
-  healthQuickTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm
-  },
-  healthQuickTitle: {
-    fontSize: FONT_SIZE.lg, fontFamily: 'Inter-SemiBold'
-  },
-  healthQuickSub: {
-    fontFamily: 'Inter-Regular',
-    fontSize: FONT_SIZE.md, marginTop: 2
-  },
-
   // Menu Groups
   menuGroup: {
     marginBottom: 18
@@ -494,6 +453,21 @@ const styles = StyleSheet.create({
   },
   menuLabel: {
     flex: 1, fontSize: FONT_SIZE.lg, fontFamily: 'Inter-SemiBold'
+  },
+  menuNotifBadge: {
+    backgroundColor: COLORS.error,
+    borderRadius: RADIUS.pill,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    minWidth: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  menuNotifBadgeText: {
+    color: COLORS.white,
+    fontSize: FONT_SIZE.xs,
+    fontFamily: 'Inter-Bold',
   },
 
   // Sign Out

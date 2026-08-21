@@ -14,7 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useThemeContext } from '@/hooks/useThemeContext';
 import { COLORS, FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
-import { supabase } from '@/lib/supabase';
+import { supabase, safeChannel } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
 import { Header } from '@/components/ui/Header';
 import { toast } from '@/context/ToastContext';
@@ -136,8 +136,7 @@ export default function ReservationScreen() {
   useEffect(() => {
     if (isNewReservation || !id) return;
 
-    const channel = supabase
-      .channel(`patient-reservation-detail:${id}`)
+    const channel = safeChannel(`patient-reservation-detail:${id}`)
       .on(
         'postgres_changes',
         {

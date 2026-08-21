@@ -14,13 +14,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useThemeContext } from '@/hooks/useThemeContext';
 import { FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
-import { supabase } from '@/lib/supabase';
+import { supabase, safeChannel } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
 import Skeleton from '@/components/ui/Skeleton';
-import { Header } from '@/components/ui/Header';
+import { Header, HeaderIconBtn } from '@/components/ui/Header';
+import { useNotificationStore } from '@/store/notificationStore';
 import { useHardwareBack } from '@/hooks/useHardwareBack';
 
-export default function PrescriptionHistory() {
+export default function PrescriptionHistoryScreen() {
+  const unreadCount = useNotificationStore((s) => s.unreadCount);
   const router = useRouter();
   const { theme, primaryColor } = useThemeContext();
   const { user } = useAuthStore();
@@ -93,11 +95,36 @@ export default function PrescriptionHistory() {
 
   useEffect(() => {
     fetchHistory();
-  }, [fetchHistory]);
 
-  const handleRefresh = () => {
+    if (!user?.id) return;
+
+    const channel = safeChannel(`patient-prescriptions-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'prescriptions',
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          fetchHistory();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchHistory, user?.id]);
+
+  const handleRefresh = async () => {
     setRefreshing(true);
-    fetchHistory();
+    await Promise.all([
+      fetchHistory(),
+      user?.id ? useNotificationStore.getState().fetchNotifications(user.id) : Promise.resolve(),
+    ]);
+    setRefreshing(false);
   };
 
   const renderSkeleton = () => (
@@ -164,17 +191,25 @@ export default function PrescriptionHistory() {
         showBack
         onBack={() => (router.canGoBack() ? router.back() : router.navigate('/(patient)/(tabs)/profile'))}
         right={
-          <Pressable
-            style={({ pressed }) => [
-              styles.addHeaderBtn,
-              pressed && { opacity: 0.7 },
-              { backgroundColor: primaryColor + '15' },
-            ]}
-            onPress={handleAddPrescription}
-          >
-            <Ionicons name="add-circle" size={16} color={primaryColor} />
-            <Text style={[styles.addHeaderBtnText, { color: primaryColor }]}>Add</Text>
-          </Pressable>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: SPACING.xs }}>
+            <Pressable
+              style={({ pressed }) => [
+                styles.addHeaderBtn,
+                pressed && { opacity: 0.7 },
+                { backgroundColor: primaryColor + '15' },
+              ]}
+              onPress={handleAddPrescription}
+            >
+              <Ionicons name="add-circle" size={16} color={primaryColor} />
+              <Text style={[styles.addHeaderBtnText, { color: primaryColor }]}>Add</Text>
+            </Pressable>
+
+            <HeaderIconBtn
+              icon="notifications-outline"
+              badge={unreadCount > 0 ? unreadCount : undefined}
+              onPress={() => router.push('/(patient)/notifications')}
+            />
+          </View>
         }
       />
 

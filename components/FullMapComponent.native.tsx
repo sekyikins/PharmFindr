@@ -48,6 +48,7 @@ export default function FullMapComponent({
   const mapReadyRef = useRef(false);
   const hasFramedRouteRef = useRef(false);
   const hasFramedInitialRef = useRef(false);
+  const prevSelectedIdRef = useRef<string | null | undefined>(undefined);
 
   // 1. Route Framing: Runs strictly once when navigation route polyline (2+ points) is supplied
   useEffect(() => {
@@ -85,9 +86,17 @@ export default function FullMapComponent({
     }
   }, [userCoords, routeCoords]);
 
-  // Focus map camera when a marker is selected
+  // Focus map camera ONLY when selectedId explicitly changes (e.g. user selects a different marker)
   useEffect(() => {
-    if (!mapRef.current || !mapReadyRef.current || !selectedId) return;
+    if (!mapRef.current || !mapReadyRef.current || !selectedId) {
+      prevSelectedIdRef.current = selectedId;
+      return;
+    }
+
+    // Skip refocusing if selectedId has not changed (e.g., when userCoords or routeCoords update)
+    if (prevSelectedIdRef.current === selectedId) return;
+    prevSelectedIdRef.current = selectedId;
+
     const targetMarker = markers.find((m) => m.id === selectedId);
     if (targetMarker) {
       mapRef.current.animateToRegion(

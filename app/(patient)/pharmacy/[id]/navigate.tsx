@@ -161,8 +161,32 @@ export default function Navigate() {
     };
   }, [pharmLat, pharmLon]);
 
-  const centerLat = userCoords ? (userCoords.latitude + pharmLat) / 2 : pharmLat;
-  const centerLon = userCoords ? (userCoords.longitude + pharmLon) / 2 : pharmLon;
+  const initialRegion = useMemo(() => {
+    const centerLat = initialUserCoords ? (initialUserCoords.latitude + pharmLat) / 2 : pharmLat;
+    const centerLon = initialUserCoords ? (initialUserCoords.longitude + pharmLon) / 2 : pharmLon;
+    return {
+      latitude: centerLat,
+      longitude: centerLon,
+      latitudeDelta: 0.015,
+      longitudeDelta: 0.015,
+    };
+  }, [pharmLat, pharmLon]);
+
+  const mapMarkers = useMemo(
+    () => [
+      {
+        id: params.id ?? '',
+        name: pharmName,
+        address: '',
+        latitude: pharmLat,
+        longitude: pharmLon,
+        isVerified: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+          decodeURIComponent(params.id ?? '')
+        ),
+      },
+    ],
+    [params.id, pharmName, pharmLat, pharmLon]
+  );
 
   const distanceLabel = route
     ? formatDistance(route.distanceMeters)
@@ -190,22 +214,10 @@ export default function Navigate() {
         {/* Full-screen map */}
         <View style={StyleSheet.absoluteFillObject}>
           <FullMapComponent
-            initialRegion={{
-              latitude: centerLat,
-              longitude: centerLon,
-              latitudeDelta: 0.015,
-              longitudeDelta: 0.015,
-            }}
+            initialRegion={initialRegion}
             userCoords={userCoords}
-            selectedId={params.id ?? ''}
-            markers={[{
-              id: params.id ?? '',
-              name: pharmName,
-              address: '',
-              latitude: pharmLat,
-              longitude: pharmLon,
-              isVerified: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(decodeURIComponent(params.id ?? '')),
-            }]}
+            selectedId={null}
+            markers={mapMarkers}
             onSelectMarker={() => {}}
             routeCoords={route?.coordinates}
             mapPadding={{ top: (insets.top || 20) + 70, right: 24, bottom: 180, left: 24 }}

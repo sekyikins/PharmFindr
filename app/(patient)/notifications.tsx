@@ -121,7 +121,14 @@ export default function Notifications() {
       switch (item.type) {
         case 'reservation':
         case 'collection':
-          router.push('/(patient)/reservations-history');
+          if (meta?.reservation_id) {
+            router.push({
+              pathname: '/(patient)/reservation/[id]',
+              params: { id: meta.reservation_id },
+            });
+          } else {
+            router.push('/(patient)/reservations-history');
+          }
           break;
         case 'prescription':
           router.push('/(patient)/prescription-history');

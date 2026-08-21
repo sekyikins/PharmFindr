@@ -65,7 +65,7 @@ type EditingGuardrailCategory = 'allergies' | 'conditions' | 'medications' | nul
 export default function HealthProfile() {
   const router = useRouter();
   const { theme, primaryColor } = useThemeContext();
-  const { appUser, fetchAppUser, updateAppUser } = useAuthStore();
+  const { appUser, fetchAppUser, updateAppUser, refreshProfile } = useAuthStore();
 
   const handleGoBack = () => {
     if (router.canGoBack()) {
@@ -94,7 +94,10 @@ export default function HealthProfile() {
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await fetchAppUser();
+    await Promise.all([
+      fetchAppUser(),
+      refreshProfile(),
+    ]);
     setRefreshing(false);
   };
 

@@ -61,6 +61,25 @@ export default function OperatingHours() {
 
   useEffect(() => {
     loadSchedule();
+
+    if (!user?.id) return;
+
+    const channel = supabase
+      .channel(`pharmacy-operating-hours-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'pharmacy_operating_hours',
+        },
+        () => loadSchedule()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [user?.id]);
 
   const loadSchedule = async () => {

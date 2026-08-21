@@ -23,13 +23,15 @@ import { usePharmacyStore } from '@/store/pharmacyStore';
 import { hasMeaningfulRegionChange } from '@/lib/pharmacyDiscovery';
 import { useBottomSheetModal } from '@gorhom/bottom-sheet';
 import AppBottomSheet from '@/components/ui/AppBottomSheet';
-import { Header } from '@/components/ui/Header';
-import { supabase } from '@/lib/supabase';
+import { Header, HeaderIconBtn } from '@/components/ui/Header';
+import { useNotificationStore } from '@/store/notificationStore';
+import { supabase, safeChannel } from '@/lib/supabase';
 import { useHardwareBack } from '@/hooks/useHardwareBack';
 import type { DiscoveredPharmacy, MapRegion } from '@/types/map';
 
 export default function Pharmacies() {
   const router = useRouter();
+  const unreadCount = useNotificationStore((s) => s.unreadCount);
   const insets = useSafeAreaInsets();
   const { dismissAll } = useBottomSheetModal();
   const params = useLocalSearchParams<{ query?: string; selectedId?: string }>();
@@ -133,8 +135,38 @@ export default function Pharmacies() {
 
     initLocation();
 
+    const channel = safeChannel('patient-pharmacies-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'pharmacies',
+        },
+        () => {
+          if (lastQueriedRegionRef.current) {
+            discoverInRegion(lastQueriedRegionRef.current, { force: true });
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'pharmacy_operating_hours',
+        },
+        () => {
+          if (lastQueriedRegionRef.current) {
+            discoverInRegion(lastQueriedRegionRef.current, { force: true });
+          }
+        }
+      )
+      .subscribe();
+
     return () => {
       isMounted = false;
+      supabase.removeChannel(channel);
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current);
       }
@@ -385,20 +417,28 @@ export default function Pharmacies() {
             }
           }}
           right={
-            <Pressable
-              style={({ pressed }) => [
-                styles.navBtn,
-                pressed && { opacity: 0.7 },
-                { backgroundColor: theme.surfaceSecondary },
-              ]}
-              onPress={handleRefreshPress}
-            >
-              {loading ? (
-                <ActivityIndicator size="small" color={primaryColor} />
-              ) : (
-                <Ionicons name="refresh-outline" size={18} color={theme.text.primary} />
-              )}
-            </Pressable>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: SPACING.xs }}>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.navBtn,
+                  pressed && { opacity: 0.7 },
+                  { backgroundColor: theme.surfaceSecondary },
+                ]}
+                onPress={handleRefreshPress}
+              >
+                {loading ? (
+                  <ActivityIndicator size="small" color={primaryColor} />
+                ) : (
+                  <Ionicons name="refresh-outline" size={18} color={theme.text.primary} />
+                )}
+              </Pressable>
+
+              <HeaderIconBtn
+                icon="notifications-outline"
+                badge={unreadCount > 0 ? unreadCount : undefined}
+                onPress={() => router.push('/(patient)/notifications')}
+              />
+            </View>
           }
         />
 

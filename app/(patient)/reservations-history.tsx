@@ -12,13 +12,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useThemeContext } from '@/hooks/useThemeContext';
 import { COLORS, FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
-import { supabase } from '@/lib/supabase';
+import { supabase, safeChannel } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
 import Skeleton from '@/components/ui/Skeleton';
-import { Header } from '@/components/ui/Header';
+import { Header, HeaderIconBtn } from '@/components/ui/Header';
+import { useNotificationStore } from '@/store/notificationStore';
 import { useHardwareBack } from '@/hooks/useHardwareBack';
 
 export default function PatientReservationsHistory() {
+  const unreadCount = useNotificationStore((s) => s.unreadCount);
   const router = useRouter();
   const { theme, primaryColor } = useThemeContext();
   const { user } = useAuthStore();
@@ -63,8 +65,7 @@ export default function PatientReservationsHistory() {
   useEffect(() => {
     if (!user?.id) return;
 
-    const channel = supabase
-      .channel(`patient-reservations:${user.id}`)
+    const channel = safeChannel(`patient-reservations:${user.id}`)
       .on(
         'postgres_changes',
         {
@@ -84,6 +85,16 @@ export default function PatientReservationsHistory() {
     };
   }, [user?.id, fetchReservations]);
 
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await Promise.all([
+      fetchReservations(),
+      user?.id ? useNotificationStore.getState().fetchNotifications(user.id) : Promise.resolve(),
+    ]);
+    setRefreshing(false);
+  };
+
   const filtered = reservations.filter((r) => {
     if (activeFilter === 'all') return true;
     return r.status === activeFilter;
@@ -102,14 +113,6 @@ export default function PatientReservationsHistory() {
       default:
         return { label: 'Pending', bg: theme.warning + '20', text: theme.warning, icon: 'time' as const };
     }
-  };
-
-  const [refreshing, setRefreshing] = useState(false);
-
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    await fetchReservations();
-    setRefreshing(false);
   };
 
   const renderItem = ({ item }: { item: any }) => {
@@ -182,6 +185,13 @@ export default function PatientReservationsHistory() {
         title="My Reservations"
         showBack
         onBack={() => (router.canGoBack() ? router.back() : router.navigate('/(patient)/(tabs)/profile'))}
+        right={
+          <HeaderIconBtn
+            icon="notifications-outline"
+            badge={unreadCount > 0 ? unreadCount : undefined}
+            onPress={() => router.push('/(patient)/notifications')}
+          />
+        }
       />
 
       {/* Filter Chips */}

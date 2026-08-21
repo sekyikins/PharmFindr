@@ -11,6 +11,10 @@
       "barStyle": "dark-content",
       "translucent": false
     },
+    "notification": {
+      "icon": "./assets/images/android-icon-monochrome.png",
+      "color": "#54edfbff"
+    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.mrsekyi.PharmFindr",
@@ -36,13 +40,15 @@
       },
       "predictiveBackGestureEnabled": false,
       "softwareKeyboardLayoutMode": "resize",
+      "googleServicesFile": "./google-services.json",
       "permissions": [
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.USE_BIOMETRIC",
         "android.permission.USE_FINGERPRINT",
         "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.RECORD_AUDIO",
+        "android.permission.POST_NOTIFICATIONS"
       ],
       "package": "com.mrsekyi.PharmFindr"
     },
@@ -82,7 +88,8 @@
         }
       ],
       "expo-notifications",
-      "expo-image-picker"
+      "expo-image-picker",
+      "expo-updates"
     ],
     "experiments": {
       "typedRoutes": true
@@ -90,15 +97,15 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "e6ea880a-486a-42e1-8be7-ca44af58f58d"
+        "projectId": "7e2c77fd-b4be-4420-a531-f37eec823599"
       }
     },
-    "owner": "mrsekyi",
+    "owner": "sekyiofficials-team",
     "runtimeVersion": {
       "policy": "appVersion"
     },
     "updates": {
-      "url": "https://u.expo.dev/e6ea880a-486a-42e1-8be7-ca44af58f58d"
+      "url": "https://u.expo.dev/7e2c77fd-b4be-4420-a531-f37eec823599"
     }
   }
 }

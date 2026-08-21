@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import { supabase } from './supabase';
+import { router } from 'expo-router';
 
 /**
  * Safely load the expo-notifications module only when NOT running in Expo Go.
@@ -26,7 +27,7 @@ async function getNotificationsModule() {
   }
 }
 
-// Safely configure notification handler
+// Safely configure notification handler & interaction listener
 getNotificationsModule().then((Notifications) => {
   if (Notifications) {
     Notifications.setNotificationHandler({
@@ -37,6 +38,67 @@ getNotificationsModule().then((Notifications) => {
         shouldShowBanner: true,
         shouldShowList: true,
       }),
+    });
+
+    Notifications.addNotificationResponseReceivedListener(async (response) => {
+      try {
+        const data = response?.notification?.request?.content?.data as Record<string, any> | undefined;
+        if (!data) return;
+
+        // 1. Mark notification as read
+        const notificationId = data.notification_id;
+        if (notificationId) {
+          try {
+            const { useNotificationStore } = await import('@/store/notificationStore');
+            useNotificationStore.getState().markRead(notificationId);
+          } catch (_) {}
+        } else if (data.reservation_id) {
+          try {
+            const { supabase } = await import('./supabase');
+            const { data: notifRows } = await supabase
+              .from('notifications')
+              .select('id')
+              .eq('is_read', false)
+              .filter('metadata->>reservation_id', 'eq', data.reservation_id)
+              .limit(1);
+
+            if (notifRows && notifRows[0]?.id) {
+              const { useNotificationStore } = await import('@/store/notificationStore');
+              useNotificationStore.getState().markRead(notifRows[0].id);
+            }
+          } catch (_) {}
+        }
+
+        // 2. Resolve active role to determine patient vs pharmacy layout navigation
+        let isPharmacy = false;
+        try {
+          const { useAuthStore } = await import('@/store/authStore');
+          isPharmacy = useAuthStore.getState().profile?.role === 'pharmacy';
+        } catch (_) {}
+
+        // 3. Route to exact detail screen
+        if (data.type === 'reservation') {
+          if (data.reservation_id) {
+            if (isPharmacy) {
+              router.push({
+                pathname: '/(pharmacy)/pharmacy-reservation/[id]',
+                params: { id: data.reservation_id },
+              } as any);
+            } else {
+              router.push({
+                pathname: '/(patient)/reservation/[id]',
+                params: { id: data.reservation_id },
+              } as any);
+            }
+          } else {
+            router.push(isPharmacy ? '/(pharmacy)/(tabs)/reservations' : '/(patient)/reservations-history' as any);
+          }
+        } else if (data.type === 'prescription') {
+          router.push('/(patient)/prescription-history' as any);
+        }
+      } catch (err) {
+        console.warn('[PushNotifications] Error handling notification response:', err);
+      }
     });
   }
 });
@@ -52,7 +114,7 @@ export async function registerForPushNotificationsAsync(userId?: string): Promis
   const Notifications = await getNotificationsModule();
   if (!Notifications) {
     console.log(
-      '[PushNotifications] Remote push notifications are disabled in Expo Go (SDK 53+). Use a development build for push tokens.'
+      '[PushNotifications] Remote push notifications are disabled in Expo Go (SDK 53+). Please use a Development Build or Standalone APK for push notification support.'
     );
     return null;
   }
@@ -67,7 +129,7 @@ export async function registerForPushNotificationsAsync(userId?: string): Promis
     }
 
     if (!isGranted) {
-      console.log('[PushNotifications] Notification permissions not granted.');
+      console.warn('[PushNotifications] Notification permission request denied by user.');
       return null;
     }
 
@@ -88,12 +150,12 @@ export async function registerForPushNotificationsAsync(userId?: string): Promis
     const projectId =
       Constants.expoConfig?.extra?.eas?.projectId ||
       Constants.easConfig?.projectId ||
-      'e6ea880a-486a-42e1-8be7-ca44af58f58d';
+      '7e2c77fd-b4be-4420-a531-f37eec823599';
 
     const tokenData = await Notifications.getExpoPushTokenAsync(projectId ? { projectId } : undefined);
     const token = tokenData.data;
 
-    console.log('[PushNotifications] Device push token retrieved:', token);
+    console.log('[PushNotifications] Device push token retrieved successfully:', token);
 
     if (userId && token) {
       await savePushTokenToSupabase(userId, token);
@@ -111,6 +173,9 @@ export async function registerForPushNotificationsAsync(userId?: string): Promis
  */
 export async function savePushTokenToSupabase(userId: string, token: string): Promise<void> {
   try {
+    // Delete any old stale push tokens for this user
+    await supabase.from('push_tokens').delete().eq('user_id', userId).neq('token', token);
+
     const { error } = await supabase.from('push_tokens').upsert(
       {
         user_id: userId,
@@ -124,7 +189,7 @@ export async function savePushTokenToSupabase(userId: string, token: string): Pr
     if (error) {
       console.warn('[PushNotifications] Error saving push token to Supabase:', error.message);
     } else {
-      console.log('[PushNotifications] Push token saved to Supabase successfully.');
+      console.log('[PushNotifications] Push token saved to Supabase successfully for user:', userId);
     }
   } catch (err: any) {
     console.warn('[PushNotifications] Exception saving push token:', err?.message || err);

@@ -38,7 +38,8 @@ export async function getPharmacyForUser(user: {
 
   const normalizeRecord = (p: any): PharmacyRecord => ({
     ...p,
-    isVerified: p.is_verified ?? p.isVerified ?? p.verified ?? true,
+    is_verified: p.is_verified ?? true,
+    isVerified: p.is_verified ?? true,
   });
 
   if (pharm) return normalizeRecord(pharm);

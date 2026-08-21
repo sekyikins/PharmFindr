@@ -505,20 +505,40 @@ export const useAuthStore = create<AuthState>((set, get) => {
             set({ profile: initialProfile, session, user, loading: false });
 
             // 5. Background asynchronous DB provisioning
-            Promise.allSettled([
-              supabase.from('user_roles').upsert({ id: user.id, role: 'user' }, { onConflict: 'id' }),
-              supabase.from('app_users').upsert({
-                id: user.id,
-                full_name: metaName,
-                avatar_url: metaAvatar,
-              }, { onConflict: 'id' }),
-              registerDeviceSession(user.id, 'patient'),
-            ]).then(() => {
-              resolveProfile(user.id).then((fresh) => {
-                if (fresh) set({ profile: fresh });
-              });
-              get().fetchAppUser().catch(() => {});
-            });
+            (async () => {
+              try {
+                await supabase.from('user_roles').upsert({ id: user.id, role: 'user' }, { onConflict: 'id' });
+
+                // Safe check-then-provision for app_users to protect existing biometrics & health data
+                const { data: existingAppUser } = await supabase
+                  .from('app_users')
+                  .select('id, full_name, avatar_url')
+                  .eq('id', user.id)
+                  .maybeSingle();
+
+                if (!existingAppUser) {
+                  await supabase.from('app_users').insert({
+                    id: user.id,
+                    full_name: metaName,
+                    avatar_url: metaAvatar,
+                  });
+                } else if (!existingAppUser.full_name || !existingAppUser.avatar_url) {
+                  await supabase.from('app_users').update({
+                    full_name: existingAppUser.full_name || metaName,
+                    avatar_url: existingAppUser.avatar_url || metaAvatar,
+                  }).eq('id', user.id);
+                }
+
+                await registerDeviceSession(user.id, 'patient');
+              } catch (err) {
+                console.warn('Google Auth background provisioning warning:', err);
+              } finally {
+                resolveProfile(user.id).then((fresh) => {
+                  if (fresh) set({ profile: fresh });
+                });
+                get().fetchAppUser().catch(() => {});
+              }
+            })();
 
             return user;
           }

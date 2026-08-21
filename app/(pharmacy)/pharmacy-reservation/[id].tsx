@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   StyleSheet,
   Text,
@@ -18,7 +18,7 @@ import { Header } from '@/components/ui/Header';
 import { toast } from '@/context/ToastContext';
 import { getFriendlyErrorMessage } from '@/lib/errorUtils';
 import { COLORS, FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
-import { supabase } from '@/lib/supabase';
+import { supabase, safeChannel } from '@/lib/supabase';
 import { useHardwareBack } from '@/hooks/useHardwareBack';
 
 export default function PharmacyReservationDetails() {
@@ -43,15 +43,30 @@ export default function PharmacyReservationDetails() {
 
   useEffect(() => {
     fetchReservation();
+
+    if (!id) return;
+
+    const channel = safeChannel(`pharmacy-reservation-${id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'reservations',
+          filter: `id=eq.${id}`,
+        },
+        () => {
+          fetchReservation();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [id]);
 
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    await fetchReservation();
-    setRefreshing(false);
-  };
-
-  const fetchReservation = async () => {
+  const fetchReservation = useCallback(async () => {
     if (!id) return;
     setLoading(true);
     try {
@@ -78,6 +93,12 @@ export default function PharmacyReservationDetails() {
     } finally {
       setLoading(false);
     }
+  }, [id]);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchReservation();
+    setRefreshing(false);
   };
 
   const updateStatus = async (status: 'accepted' | 'declined' | 'collected') => {

@@ -18,6 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuthStore } from '@/store/authStore';
+import { useNotificationStore } from '@/store/notificationStore';
 import { useThemeContext } from '@/hooks/useThemeContext';
 import { COLORS,  FONT_SIZE, RADIUS, SPACING  } from '@/styles/theme';
 import { supabase } from '@/lib/supabase';
@@ -158,6 +159,7 @@ export default function PharmacyProfile() {
       fetchProfile(),
       refreshProfile(),
       hasAppPin().then(setHasPin),
+      user?.id ? useNotificationStore.getState().fetchNotifications(user.id) : Promise.resolve(),
     ]);
     setRefreshing(false);
   };

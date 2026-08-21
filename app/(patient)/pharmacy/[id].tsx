@@ -15,7 +15,7 @@ import FullMapComponent from '@/components/FullMapComponent';
 import { useThemeContext } from '@/hooks/useThemeContext';
 import { useHardwareBack } from '@/hooks/useHardwareBack';
 import { COLORS, FONT_SIZE, RADIUS, SPACING } from '@/styles/theme';
-import { supabase } from '@/lib/supabase';
+import { supabase, safeChannel } from '@/lib/supabase';
 import { formatTimeHHMM } from '@/lib/timeUtils';
 import { haversineKm } from '@/lib/geoUtils';
 import { getCurrentLocation, type Coords } from '@/lib/location';
@@ -77,122 +77,146 @@ export default function PharmacyDetail() {
 
   useEffect(() => {
     const rawId = decodeURIComponent(id);
-    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawId)) {
-      supabase
-        .from('pharmacies')
-        .select(`
-          *,
-          pharmacy_operating_hours (
-            day_of_week,
-            is_open,
-            opening_time,
-            closing_time
-          )
-        `)
-        .eq('id', rawId)
-        .maybeSingle()
-        .then(({ data }) => {
-          if (data) {
-            const DAYS_ORDER = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-            const now = new Date();
-            const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-            const currentDayName = dayNames[now.getDay()];
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawId);
 
-            let scheduleList: Array<{ day: string; isOpen: boolean; opens: string; closes: string }> = [];
-            if (data.pharmacy_operating_hours && data.pharmacy_operating_hours.length > 0) {
-              scheduleList = DAYS_ORDER.map((d) => {
-                const row = data.pharmacy_operating_hours.find((h: any) => h.day_of_week === d);
-                return {
-                  day: d,
-                  isOpen: row ? row.is_open : d !== 'Sunday',
-                  opens: formatTimeHHMM(row ? (row.opening_time || '08:00') : '08:00'),
-                  closes: formatTimeHHMM(row ? (row.closing_time || '20:00') : '20:00'),
-                };
-              });
-            } else if (Array.isArray(data.operating_hours) && data.operating_hours.length > 0) {
-              scheduleList = DAYS_ORDER.map((d) => {
-                const row = data.operating_hours.find(
-                  (h: any) => (h.day || h.day_of_week)?.toLowerCase() === d.toLowerCase()
-                );
-                return {
-                  day: d,
-                  isOpen: row ? (row.isOpen !== undefined ? row.isOpen : row.is_open) : d !== 'Sunday',
-                  opens: formatTimeHHMM(row ? (row.opens || row.opening_time || '08:00') : '08:00'),
-                  closes: formatTimeHHMM(row ? (row.closes || row.closing_time || '20:00') : '20:00'),
-                };
-              });
-            }
+    const loadData = () => {
+      if (isUuid) {
+        supabase
+          .from('pharmacies')
+          .select(`
+            *,
+            pharmacy_operating_hours (
+              day_of_week,
+              is_open,
+              opening_time,
+              closing_time
+            )
+          `)
+          .eq('id', rawId)
+          .maybeSingle()
+          .then(({ data }) => {
+            if (data) {
+              const DAYS_ORDER = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+              const now = new Date();
+              const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+              const currentDayName = dayNames[now.getDay()];
 
-            setWeeklySchedule(scheduleList);
+              let scheduleList: Array<{ day: string; isOpen: boolean; opens: string; closes: string }> = [];
+              if (data.pharmacy_operating_hours && data.pharmacy_operating_hours.length > 0) {
+                scheduleList = DAYS_ORDER.map((d) => {
+                  const row = data.pharmacy_operating_hours.find((h: any) => h.day_of_week === d);
+                  return {
+                    day: d,
+                    isOpen: row ? row.is_open : d !== 'Sunday',
+                    opens: formatTimeHHMM(row ? (row.opening_time || '08:00') : '08:00'),
+                    closes: formatTimeHHMM(row ? (row.closing_time || '20:00') : '20:00'),
+                  };
+                });
+              } else if (Array.isArray(data.operating_hours) && data.operating_hours.length > 0) {
+                scheduleList = DAYS_ORDER.map((d) => {
+                  const row = data.operating_hours.find(
+                    (h: any) => (h.day || h.day_of_week)?.toLowerCase() === d.toLowerCase()
+                  );
+                  return {
+                    day: d,
+                    isOpen: row ? (row.isOpen !== undefined ? row.isOpen : row.is_open) : d !== 'Sunday',
+                    opens: formatTimeHHMM(row ? (row.opens || row.opening_time || '08:00') : '08:00'),
+                    closes: formatTimeHHMM(row ? (row.closes || row.closing_time || '20:00') : '20:00'),
+                  };
+                });
+              }
 
-            // Compute current open status
-            const oTime = formatTimeHHMM(data.opening_time);
-            const cTime = formatTimeHHMM(data.closing_time);
-            let todayHoursStr = oTime && cTime ? `${oTime} - ${cTime}` : undefined;
-            if (scheduleList.length > 0) {
-              const todayRow = scheduleList.find((s) => s.day.toLowerCase() === currentDayName.toLowerCase());
-              if (todayRow) {
-                todayHoursStr = todayRow.isOpen ? `${todayRow.opens} - ${todayRow.closes}` : 'Closed today';
+              setWeeklySchedule(scheduleList);
+
+              // Compute current open status
+              const oTime = formatTimeHHMM(data.opening_time);
+              const cTime = formatTimeHHMM(data.closing_time);
+              let todayHoursStr = oTime && cTime ? `${oTime} - ${cTime}` : undefined;
+              if (scheduleList.length > 0) {
+                const todayRow = scheduleList.find((s) => s.day.toLowerCase() === currentDayName.toLowerCase());
+                if (todayRow) {
+                  todayHoursStr = todayRow.isOpen ? `${todayRow.opens} - ${todayRow.closes}` : 'Closed today';
+                  const curMin = now.getHours() * 60 + now.getMinutes();
+                  const [oh, om] = (todayRow.opens || '08:00').split(':').map(Number);
+                  const [ch, cm] = (todayRow.closes || '20:00').split(':').map(Number);
+                  const oMin = (!isNaN(oh) ? oh * 60 + (om || 0) : 480);
+                  const cMin = (!isNaN(ch) ? ch * 60 + (cm || 0) : 1200);
+                  setIsOpenNow(todayRow.isOpen && (cMin > oMin ? (curMin >= oMin && curMin <= cMin) : (curMin >= oMin || curMin <= cMin)));
+                }
+              } else if (data.opening_time && data.closing_time) {
                 const curMin = now.getHours() * 60 + now.getMinutes();
-                const [oh, om] = (todayRow.opens || '08:00').split(':').map(Number);
-                const [ch, cm] = (todayRow.closes || '20:00').split(':').map(Number);
+                const [oh, om] = data.opening_time.split(':').map(Number);
+                const [ch, cm] = data.closing_time.split(':').map(Number);
                 const oMin = (!isNaN(oh) ? oh * 60 + (om || 0) : 480);
                 const cMin = (!isNaN(ch) ? ch * 60 + (cm || 0) : 1200);
-                setIsOpenNow(todayRow.isOpen && (cMin > oMin ? (curMin >= oMin && curMin <= cMin) : (curMin >= oMin || curMin <= cMin)));
+                setIsOpenNow(cMin > oMin ? (curMin >= oMin && curMin <= cMin) : (curMin >= oMin || curMin <= cMin));
               }
-            } else if (data.opening_time && data.closing_time) {
-              const curMin = now.getHours() * 60 + now.getMinutes();
-              const [oh, om] = data.opening_time.split(':').map(Number);
-              const [ch, cm] = data.closing_time.split(':').map(Number);
-              const oMin = (!isNaN(oh) ? oh * 60 + (om || 0) : 480);
-              const cMin = (!isNaN(ch) ? ch * 60 + (cm || 0) : 1200);
-              setIsOpenNow(cMin > oMin ? (curMin >= oMin && curMin <= cMin) : (curMin >= oMin || curMin <= cMin));
-            }
 
-            setDetails((prev) => ({
-              ...prev,
-              name: data.name || prev.name,
-              address: data.address || prev.address,
-              phone: data.phone || prev.phone,
-              hours: todayHoursStr || (oTime && cTime ? `${oTime} - ${cTime}` : prev.hours),
-              lat: data.latitude || prev.lat,
-              lon: data.longitude || prev.lon,
-            }));
-          }
+              setDetails((prev) => ({
+                ...prev,
+                name: data.name || prev.name,
+                address: data.address || prev.address,
+                phone: data.phone || prev.phone,
+                hours: todayHoursStr || (oTime && cTime ? `${oTime} - ${cTime}` : prev.hours),
+                lat: data.latitude || prev.lat,
+                lon: data.longitude || prev.lon,
+              }));
+            }
+          });
+      } else {
+        const cleanName = (params.name || details.name || 'Pharmacy').replace(/^Public Pharmacy$/i, 'Pharmacy');
+        const targetCoords = {
+          latitude: parseFloat(params.lat ?? String(details.lat || 0)),
+          longitude: parseFloat(params.lon ?? String(details.lon || 0)),
+        };
+
+        import('@/lib/googlePlaces').then(({ fetchPlaceDetailsByNameAndCoords }) => {
+          fetchPlaceDetailsByNameAndCoords(cleanName, targetCoords).then((gDetails) => {
+            if (gDetails) {
+              if (gDetails.weeklySchedule && gDetails.weeklySchedule.length > 0) {
+                setWeeklySchedule(gDetails.weeklySchedule);
+              }
+              if (gDetails.isOpen !== undefined) {
+                setIsOpenNow(gDetails.isOpen);
+              }
+              if (gDetails.statusText) {
+                setStatusText(gDetails.statusText);
+              }
+              if (gDetails.isClosingSoon !== undefined) {
+                setIsClosingSoon(gDetails.isClosingSoon);
+              }
+              setDetails((prev) => ({
+                ...prev,
+                name: (prev.name && prev.name !== 'Public Pharmacy') ? prev.name : (gDetails.name || prev.name),
+                address: gDetails.address || prev.address,
+                phone: (prev.phone && prev.phone !== 'N/A') ? prev.phone : (gDetails.phone || prev.phone),
+                hours: gDetails.hours || prev.hours,
+              }));
+            }
+          });
         });
-    } else {
-      // It's a public map pharmacy: query Google Places API (New) for live operating hours & schedule
-      const cleanName = (params.name || details.name || 'Pharmacy').replace(/^Public Pharmacy$/i, 'Pharmacy');
-      const targetCoords = {
-        latitude: parseFloat(params.lat ?? String(details.lat || 0)),
-        longitude: parseFloat(params.lon ?? String(details.lon || 0)),
+      }
+    };
+
+    loadData();
+
+    if (isUuid) {
+      const channel = safeChannel(`pharmacy-detail-${rawId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'pharmacies',
+            filter: `id=eq.${rawId}`,
+          },
+          () => loadData()
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
       };
-
-      import('@/lib/googlePlaces').then(({ fetchPlaceDetailsByNameAndCoords }) => {
-        fetchPlaceDetailsByNameAndCoords(cleanName, targetCoords).then((gDetails) => {
-          if (gDetails) {
-            if (gDetails.weeklySchedule && gDetails.weeklySchedule.length > 0) {
-              setWeeklySchedule(gDetails.weeklySchedule);
-            }
-            if (gDetails.isOpen !== undefined) {
-              setIsOpenNow(gDetails.isOpen);
-            }
-            if (gDetails.statusText) {
-              setStatusText(gDetails.statusText);
-            }
-            if (gDetails.isClosingSoon !== undefined) {
-              setIsClosingSoon(gDetails.isClosingSoon);
-            }
-            setDetails((prev) => ({
-              ...prev,
-              name: (prev.name && prev.name !== 'Public Pharmacy') ? prev.name : (gDetails.name || prev.name),
-              address: gDetails.address || prev.address,
-              phone: (prev.phone && prev.phone !== 'N/A') ? prev.phone : (gDetails.phone || prev.phone),
-              hours: gDetails.hours || prev.hours,
-            }));
-          }
-        });
-      });
     }
   }, [id, params]);
 

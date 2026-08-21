@@ -11,6 +11,10 @@ module.exports = ({ config }) => {
     icon: './assets/images/icon.png',
     scheme: 'pharmfindr',
     userInterfaceStyle: 'automatic',
+    notification: {
+      icon: './assets/images/android-icon-monochrome.png',
+      color: '#54edfbff',
+    },
     ios: {
       ...config.ios,
       supportsTablet: true,
@@ -39,11 +43,15 @@ module.exports = ({ config }) => {
       },
       predictiveBackGestureEnabled: false,
       softwareKeyboardLayoutMode: 'resize',
+      googleServicesFile: process.env.GOOGLE_SERVICES_JSON || './google-services.json',
       permissions: [
         'android.permission.ACCESS_COARSE_LOCATION',
         'android.permission.ACCESS_FINE_LOCATION',
         'android.permission.USE_BIOMETRIC',
         'android.permission.USE_FINGERPRINT',
+        'android.permission.CAMERA',
+        'android.permission.RECORD_AUDIO',
+        'android.permission.POST_NOTIFICATIONS',
       ],
       package: 'com.mrsekyi.PharmFindr',
     },
@@ -87,6 +95,7 @@ module.exports = ({ config }) => {
       ],
       'expo-notifications',
       'expo-image-picker',
+      'expo-updates',
     ],
     experiments: {
       typedRoutes: true,
@@ -94,15 +103,15 @@ module.exports = ({ config }) => {
     extra: {
       router: {},
       eas: {
-        projectId: 'e6ea880a-486a-42e1-8be7-ca44af58f58d',
+        projectId: '7e2c77fd-b4be-4420-a531-f37eec823599',
       },
     },
-    owner: 'mrsekyi',
+    owner: 'sekyiofficials-team',
     runtimeVersion: {
       policy: 'appVersion',
     },
     updates: {
-      url: 'https://u.expo.dev/e6ea880a-486a-42e1-8be7-ca44af58f58d',
+      url: 'https://u.expo.dev/7e2c77fd-b4be-4420-a531-f37eec823599',
     },
   };
 };

@@ -17,6 +17,7 @@ import { useThemeContext } from '@/hooks/useThemeContext';
 import { COLORS,  FONT_SIZE, RADIUS, SPACING  } from '@/styles/theme';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
+import { useNotificationStore } from '@/store/notificationStore';
 import { getPharmacyForUser } from '@/lib/pharmacyService';
 import { toast } from '@/context/ToastContext';
 import { getFriendlyErrorMessage } from '@/lib/errorUtils';
@@ -93,8 +94,14 @@ export default function Inventory() {
       const pharm = await getPharmacyForUser(user);
       if (!pharm?.id) return;
 
+      const channelName = `inventory-realtime:${pharm.id}`;
+      const existing = supabase.getChannels().find((c) => c.topic === `realtime:${channelName}`);
+      if (existing) {
+        await supabase.removeChannel(existing);
+      }
+
       channel = supabase
-        .channel(`inventory-realtime:${pharm.id}`)
+        .channel(channelName)
         .on(
           'postgres_changes',
           {
@@ -116,9 +123,13 @@ export default function Inventory() {
     };
   }, [user, fetchInventory]);
 
-  const handleRefresh = () => {
+  const handleRefresh = async () => {
     setRefreshing(true);
-    fetchInventory();
+    await Promise.all([
+      fetchInventory(),
+      user?.id ? useNotificationStore.getState().fetchNotifications(user.id) : Promise.resolve(),
+    ]);
+    setRefreshing(false);
   };
 
   const handleDelete = (id: string, name: string) => {
@@ -521,7 +532,6 @@ const styles = StyleSheet.create({
 
   chipRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     paddingHorizontal: SPACING.lg,
     paddingBottom: SPACING.sm,
     gap: SPACING.xs
@@ -530,17 +540,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
     borderRadius: RADIUS.pill,
-    borderWidth: 1
+    borderWidth: 1,
+    flex: 1,
+    textAlign: 'center'
   },
   chipText: {
     fontSize: SPACING.md,
-    fontFamily: 'Inter-Bold'
+    fontFamily: 'Inter-Bold',
+    textAlign: 'center'
   },
 
   itemCard: {
     borderRadius: RADIUS.xl,
     padding: SPACING.lg,
-    borderWidth: 1.5,
+    borderWidth: 1,
     gap: SPACING.md
   },
   itemHeader: {

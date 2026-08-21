@@ -32,3 +32,17 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     flowType: 'implicit',
   },
 });
+
+/**
+ * Safely creates a Supabase Realtime channel by ensuring any existing channel with the same topic
+ * is removed first. This prevents the "cannot add postgres_changes callbacks after subscribe()" error
+ * during React component re-renders or fast navigation.
+ */
+export function safeChannel(channelName: string) {
+  const topic = `realtime:${channelName}`;
+  const existing = supabase.getChannels().find((c) => c.topic === topic);
+  if (existing) {
+    supabase.removeChannel(existing);
+  }
+  return supabase.channel(channelName);
+}

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { supabase } from '@/lib/supabase';
+import { supabase, safeChannel } from '@/lib/supabase';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -49,6 +49,21 @@ interface NotificationState {
   unsubscribe: () => void;
 }
 
+async function syncAppBadge(count: number) {
+  try {
+    const Constants = (await import('expo-constants')).default;
+    const isExpoGo =
+      Constants.appOwnership === 'expo' ||
+      (Constants.executionEnvironment as string) === 'storeClient';
+    if (!isExpoGo) {
+      const Notifications = await import('expo-notifications');
+      if (Notifications && typeof Notifications.setBadgeCountAsync === 'function') {
+        await Notifications.setBadgeCountAsync(count);
+      }
+    }
+  } catch (_) {}
+}
+
 // ─── Store ────────────────────────────────────────────────────────────────────
 
 export const useNotificationStore = create<NotificationState>((set, get) => ({
@@ -73,9 +88,11 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       if (error) throw error;
 
       const items = (data ?? []) as Notification[];
+      const unreadCount = items.filter((n) => !n.is_read).length;
+      syncAppBadge(unreadCount);
       set({
         notifications: items,
-        unreadCount: items.filter((n) => !n.is_read).length,
+        unreadCount,
       });
     } catch (e: any) {
       console.warn('[NotificationStore] fetchNotifications:', e.message);
@@ -99,9 +116,11 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       if (error) throw error;
 
       const items = (data ?? []) as Notification[];
+      const unreadCount = items.filter((n) => !n.is_read).length;
+      syncAppBadge(unreadCount);
       set({
         notifications: items,
-        unreadCount: items.filter((n) => !n.is_read).length,
+        unreadCount,
       });
     } catch (e: any) {
       console.warn('[NotificationStore] refreshNotifications:', e.message);
@@ -118,9 +137,11 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       const updated = state.notifications.map((n) =>
         n.id === id ? { ...n, is_read: true } : n
       );
+      const unreadCount = updated.filter((n) => !n.is_read).length;
+      syncAppBadge(unreadCount);
       return {
         notifications: updated,
-        unreadCount: updated.filter((n) => !n.is_read).length,
+        unreadCount,
       };
     });
 
@@ -138,6 +159,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
 
   markAllRead: async (userId: string) => {
     // Optimistic update
+    syncAppBadge(0);
     set((state) => ({
       notifications: state.notifications.map((n) => ({ ...n, is_read: true })),
       unreadCount: 0,
@@ -164,8 +186,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       set({ _channel: null });
     }
 
-    const channel = supabase
-      .channel(`notifications-realtime:${userId}`)
+    const channel = safeChannel(`notifications-realtime:${userId}`)
       .on(
         'postgres_changes',
         {
@@ -180,9 +201,11 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
             const exists = state.notifications.some((n) => n.id === newNotif.id);
             if (exists) return state;
             const updated = [newNotif, ...state.notifications];
+            const unreadCount = updated.filter((n) => !n.is_read).length;
+            syncAppBadge(unreadCount);
             return {
               notifications: updated,
-              unreadCount: updated.filter((n) => !n.is_read).length,
+              unreadCount,
             };
           });
         }
@@ -201,9 +224,11 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
             const updated = state.notifications.map((n) =>
               n.id === updatedNotif.id ? updatedNotif : n
             );
+            const unreadCount = updated.filter((n) => !n.is_read).length;
+            syncAppBadge(unreadCount);
             return {
               notifications: updated,
-              unreadCount: updated.filter((n) => !n.is_read).length,
+              unreadCount,
             };
           });
         }
@@ -220,9 +245,11 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
           const oldNotif = payload.old as { id: string };
           set((state) => {
             const updated = state.notifications.filter((n) => n.id !== oldNotif.id);
+            const unreadCount = updated.filter((n) => !n.is_read).length;
+            syncAppBadge(unreadCount);
             return {
               notifications: updated,
-              unreadCount: updated.filter((n) => !n.is_read).length,
+              unreadCount,
             };
           });
         }

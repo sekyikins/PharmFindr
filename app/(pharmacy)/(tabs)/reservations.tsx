@@ -147,8 +147,14 @@ export default function Reservations() {
       if (!pharm?.id) return;
       pharmIdRef.current = pharm.id;
 
+      const channelName = `pharmacy-reservations:${pharm.id}`;
+      const existing = supabase.getChannels().find((c) => c.topic === `realtime:${channelName}`);
+      if (existing) {
+        await supabase.removeChannel(existing);
+      }
+
       channel = supabase
-        .channel(`pharmacy-reservations:${pharm.id}`)
+        .channel(channelName)
         .on(
           'postgres_changes',
           {
@@ -171,9 +177,13 @@ export default function Reservations() {
     };
   }, [user]);
 
-  const handleRefresh = () => {
+  const handleRefresh = async () => {
     setRefreshing(true);
-    fetchReservations();
+    await Promise.all([
+      fetchReservations(),
+      user?.id ? useNotificationStore.getState().fetchNotifications(user.id) : Promise.resolve(),
+    ]);
+    setRefreshing(false);
   };
 
   const handleAccept = async (id: string) => {
